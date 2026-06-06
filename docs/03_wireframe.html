@@ -1,0 +1,1097 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>무비무비 · 와이어프레임 (Step 8)</title>
+<style>
+  :root{
+    --ink:#2b2d33; --muted:#8b8f99; --line:#c7cad2; --line-strong:#9aa0ac;
+    --fill:#e9ebef; --fill-2:#f3f4f7; --bg:#fafafb; --white:#fff;
+    --note:#2f6fed; --note-bg:#eef3ff; --note-line:#bcd0ff;
+    --safe:#2f6fed;            /* 안전 추천(코사인) */
+    --challenge:#f08a00;       /* 도전 추천(미탐색) */
+    --user:#d11fd1;            /* 사용자 좌표 X */
+    --watch:#e23b3b;           /* 시청 영화 별 */
+    --radius:8px;
+    --mono:ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace;
+    --sans:"Pretendard","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);line-height:1.55;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1180px;margin:0 auto;padding:48px 28px 120px}
+
+  /* ---------- doc header ---------- */
+  .doc-head{border-bottom:2px solid var(--ink);padding-bottom:20px;margin-bottom:8px}
+  .doc-head .kicker{font-family:var(--mono);font-size:12px;letter-spacing:.18em;color:var(--muted);text-transform:uppercase}
+  .doc-head h1{font-size:30px;margin:6px 0 4px;letter-spacing:-.02em}
+  .doc-head p{margin:6px 0 0;color:var(--muted);font-size:14px;max-width:760px}
+
+  /* legend / shared shell box */
+  .meta-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:26px 0 10px}
+  .meta-card{border:1.5px solid var(--line);border-radius:var(--radius);background:var(--white);padding:16px 18px}
+  .meta-card h3{margin:0 0 10px;font-size:13px;letter-spacing:.04em;font-family:var(--mono);color:var(--muted);text-transform:uppercase}
+  .legend-row{display:flex;align-items:center;gap:10px;font-size:13px;margin:7px 0}
+  .swatch{width:18px;height:18px;border-radius:50%;flex:none;border:1px solid rgba(0,0,0,.15)}
+  .swatch.x{border-radius:0;background:none;position:relative}
+  .swatch.x::before,.swatch.x::after{content:"";position:absolute;inset:0;margin:auto;width:20px;height:3px;background:var(--user)}
+  .swatch.x::before{transform:rotate(45deg)} .swatch.x::after{transform:rotate(-45deg)}
+  .swatch.star{background:none;color:var(--watch);border:none;font-size:18px;line-height:18px;text-align:center}
+  .pillrow{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
+  .pill{font-size:12px;border:1px solid var(--line);border-radius:20px;padding:3px 10px;color:var(--muted);background:var(--fill-2)}
+
+  /* ---------- screen block ---------- */
+  .screen{margin-top:56px}
+  .screen > .label{display:flex;align-items:baseline;gap:12px;margin-bottom:14px}
+  .screen > .label .no{font-family:var(--mono);font-size:13px;color:var(--white);background:var(--ink);border-radius:6px;padding:3px 9px;flex:none}
+  .screen > .label h2{font-size:20px;margin:0;letter-spacing:-.01em}
+  .screen > .label .route{font-family:var(--mono);font-size:12px;color:var(--muted);margin-left:auto}
+
+  /* browser chrome */
+  .browser{border:1.5px solid var(--line-strong);border-radius:12px;overflow:hidden;background:var(--white);box-shadow:0 1px 0 rgba(0,0,0,.02)}
+  .chrome{display:flex;align-items:center;gap:8px;padding:9px 14px;background:var(--fill);border-bottom:1.5px solid var(--line)}
+  .dot{width:10px;height:10px;border-radius:50%;background:var(--line-strong)}
+  .urlbar{flex:1;margin-left:8px;background:var(--white);border:1px solid var(--line);border-radius:14px;padding:4px 12px;font-family:var(--mono);font-size:11px;color:var(--muted)}
+
+  /* app nav (shared shell) */
+  .appnav{display:flex;align-items:center;gap:26px;padding:12px 20px;border-bottom:1.5px solid var(--line);background:var(--white)}
+  .brand{font-weight:800;letter-spacing:-.03em;font-size:17px}
+  .brand span{color:var(--muted);font-weight:400}
+  .navlinks{display:flex;gap:22px;font-size:13.5px;color:var(--muted)}
+  .navlinks a{position:relative;padding:4px 0}
+  .navlinks a.active{color:var(--ink);font-weight:600}
+  .navlinks a.active::after{content:"";position:absolute;left:0;right:0;bottom:-13px;height:2px;background:var(--ink)}
+  .ico{display:inline-block;width:13px;height:13px;border:1.4px solid currentColor;border-radius:3px;vertical-align:-2px;margin-right:4px}
+  .ico.search{border-radius:50%;position:relative} .ico.search::after{content:"";position:absolute;width:5px;height:1.4px;background:currentColor;right:-3px;bottom:-1px;transform:rotate(45deg)}
+  .avatar{margin-left:auto;width:30px;height:30px;border-radius:50%;background:var(--fill);border:1.4px solid var(--line-strong)}
+
+  /* canvas */
+  .canvas{padding:22px;background:var(--white)}
+  .canvas.pad-lg{padding:26px 30px}
+
+  /* primitives */
+  .ph{background:repeating-linear-gradient(45deg,var(--fill) 0 8px,var(--fill-2) 8px 16px);border:1px dashed var(--line-strong);border-radius:6px;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:12px;text-align:center;padding:8px}
+  .box{border:1.4px solid var(--line);border-radius:6px;background:var(--white)}
+  .barline{height:10px;border-radius:5px;background:var(--fill)}
+  .barline.s{width:60%} .barline.m{width:80%} .barline.xs{width:38%}
+  .input{border:1.4px solid var(--line);border-radius:7px;padding:9px 12px;font-size:13px;color:var(--muted);background:var(--white)}
+  .btn{border:1.5px solid var(--ink);border-radius:7px;padding:8px 16px;font-size:13px;font-weight:600;background:var(--white);display:inline-flex;align-items:center;gap:6px;color:var(--ink)}
+  .btn.primary{background:var(--ink);color:var(--white)}
+  .btn.sm{padding:5px 11px;font-size:12px}
+  .btn.danger{border-color:#cf3a3a;color:#cf3a3a}
+  .chip{border:1.4px solid var(--line);border-radius:20px;padding:5px 13px;font-size:12.5px;color:var(--muted);background:var(--white);display:inline-flex;align-items:center;gap:6px}
+  .chip.on{border-color:var(--ink);color:var(--ink);font-weight:600;background:var(--fill-2)}
+  .tabbar{display:flex;gap:4px;border-bottom:1.5px solid var(--line);margin-bottom:18px}
+  .tab{padding:10px 16px;font-size:13.5px;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-1.5px}
+  .tab.on{color:var(--ink);font-weight:700;border-bottom-color:var(--ink)}
+  .stars{color:var(--line-strong);font-size:16px;letter-spacing:2px}
+  .stars b{color:#e8a200;font-weight:400}
+  .label-tag{font-family:var(--mono);font-size:10.5px;letter-spacing:.04em;color:var(--muted);text-transform:uppercase;margin-bottom:7px}
+
+  /* movie card + grid */
+  .grid{display:grid;gap:16px}
+  .g5{grid-template-columns:repeat(5,1fr)} .g4{grid-template-columns:repeat(4,1fr)}
+  .g3{grid-template-columns:repeat(3,1fr)} .g2{grid-template-columns:repeat(2,1fr)}
+  .mcard .poster{aspect-ratio:2/3;border-radius:6px}
+  .mcard .t{font-size:12.5px;margin-top:8px;font-weight:600}
+  .mcard .y{font-size:11px;color:var(--muted)}
+
+  /* poster placeholder helper */
+  .poster{background:repeating-linear-gradient(45deg,var(--fill) 0 8px,var(--fill-2) 8px 16px);border:1px dashed var(--line-strong);border-radius:6px;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:11px}
+
+  /* note panel */
+  .notes{margin-top:16px;border:1.4px solid var(--note-line);background:var(--note-bg);border-radius:var(--radius);padding:16px 18px}
+  .notes h4{margin:0 0 10px;font-size:12px;font-family:var(--mono);letter-spacing:.08em;color:var(--note);text-transform:uppercase}
+  .notes ol{margin:0;padding-left:20px}
+  .notes li{font-size:13px;margin:6px 0;color:#33414f}
+  .notes li b{color:var(--ink)}
+  .num{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:var(--note);color:#fff;font-size:11px;font-family:var(--mono);margin-right:2px;vertical-align:1px}
+
+  /* inline annotation tag on wireframe */
+  .ann{display:inline-flex;align-items:center;gap:5px;font-family:var(--mono);font-size:10.5px;color:var(--note);background:#fff;border:1px dashed var(--note-line);border-radius:5px;padding:2px 7px}
+  .ann .num{width:15px;height:15px;font-size:10px;margin:0}
+
+  /* map svg frame */
+  .mapframe{border:1.4px solid var(--line);border-radius:8px;background:var(--white);overflow:hidden}
+  .maplegend{display:flex;flex-wrap:wrap;gap:14px;font-size:11.5px;color:var(--muted);padding:10px 12px;border-top:1.4px solid var(--line);background:var(--fill-2)}
+  .maplegend span{display:inline-flex;align-items:center;gap:6px}
+  .ld{width:11px;height:11px;border-radius:50%;border:1px solid rgba(0,0,0,.12)}
+
+  .flow{font-size:12px;color:var(--muted);font-family:var(--mono);margin:10px 0 0;display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+  .flow b{color:var(--ink);background:var(--fill-2);border:1px solid var(--line);border-radius:5px;padding:2px 8px;font-weight:600}
+  .arrow{color:var(--line-strong)}
+
+  .sec-divider{margin:14px 0;font-size:13px;font-weight:700;color:var(--ink);display:flex;align-items:center;gap:10px}
+  .sec-divider::after{content:"";flex:1;height:1.4px;background:var(--line)}
+  .hint{font-size:12px;color:var(--muted);font-weight:400}
+
+  @media(max-width:780px){
+    .meta-grid{grid-template-columns:1fr}
+    .g5{grid-template-columns:repeat(3,1fr)} .g4{grid-template-columns:repeat(2,1fr)}
+    .navlinks{display:none}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- ===================== DOC HEADER ===================== -->
+  <header class="doc-head">
+    <div class="kicker">무비무비 · MovieMoobee / 기획 8단계 — 와이어프레임</div>
+    <h1>남은 페이지 와이어프레임 (Lo-Fi)</h1>
+    <p>웹 UI 우선. 와이어프레임 단계이므로 색·폰트 등 시각 디자인은 의도적으로 비워두고 <b>레이아웃·요소·화면 흐름</b>에만 집중했습니다.
+    회색 빗금 박스 = 이미지/포스터 자리, 회색 막대 = 텍스트 자리, 파란 박스 = 설계 메모입니다. 로그인부터 친구 상세까지 전체 <b>01–13 화면</b> — 01–04(로그인·회원가입·영화등록·메인)는 PDF에서 글로만 설명된 것을 와이어프레임으로 옮긴 것입니다.</p>
+  </header>
+
+  <!-- shared shell + legend -->
+  <div class="meta-grid">
+    <div class="meta-card">
+      <h3>공통 셸 (로그인 이후 전 페이지)</h3>
+      <div style="border:1.4px solid var(--line);border-radius:7px;overflow:hidden">
+        <div class="appnav" style="padding:9px 12px">
+          <div class="brand" style="font-size:14px">무비무비<span>·</span></div>
+          <div class="navlinks" style="gap:13px;font-size:11.5px">
+            <a class="active">홈</a><a><span class="ico search"></span>검색</a><a><span class="ico"></span>지도</a><a><span class="ico"></span>추천</a><a><span class="ico"></span>친구</a>
+          </div>
+          <div class="avatar" style="width:22px;height:22px"></div>
+        </div>
+      </div>
+      <p style="font-size:12px;color:var(--muted);margin:10px 0 0">좌측 로고 → 홈 / 중앙 NavBar 5개 / 우측 프로필 아이콘 → 내 프로필.
+      Vue <b>nested routing</b>으로 이 셸을 부모 라우트로 두고 각 페이지를 children으로 렌더.</p>
+    </div>
+    <div class="meta-card">
+      <h3>지도·추천 공통 범례 (POC 반영)</h3>
+      <div class="legend-row"><span class="swatch x"></span> 사용자 좌표 — <b style="margin-left:2px">시청 영화 별점 가중 평균</b></div>
+      <div class="legend-row"><span class="swatch star">★</span> 시청 영화 (별점↑ 진하게)</div>
+      <div class="legend-row"><span class="swatch" style="background:var(--safe)"></span> 안전 추천 — 코사인 유사도 Top N</div>
+      <div class="legend-row"><span class="swatch" style="background:var(--challenge)"></span> 도전 추천 — 미탐색 영역 (KDE 밀도 기반)</div>
+      <div class="pillrow" style="margin-top:10px">
+        <span class="pill">TF-IDF + UMAP 2D</span><span class="pill">코사인 유사도</span><span class="pill">KDE 미탐색</span><span class="pill">TMDB</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== 1. 로그인 ===================== -->
+  <section class="screen">
+    <div class="label"><span class="no">01</span><h2>로그인 페이지 <span class="hint" style="font-weight:400">— 첫 화면 · 인스타그램식 split</span></h2><span class="route">/login</span></div>
+    <div class="browser">
+      <div class="chrome"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="urlbar">moviemoobee.app/login</span></div>
+      <div class="canvas" style="padding:0">
+        <div style="display:grid;grid-template-columns:1.15fr .85fr;min-height:430px">
+          <!-- LEFT hero -->
+          <div style="background:#23252b;color:#e9ebef;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:22px;padding:36px;position:relative">
+            <div style="font-size:22px;font-weight:800;letter-spacing:-.02em;text-align:center;line-height:1.4">당신이 <span style="color:#f08a00">좋아하게 될</span> 영화,<br>무비무비에서.</div>
+            <!-- poster collage placeholder -->
+            <div style="display:flex;gap:10px;transform:rotate(-4deg)">
+              <div class="poster" style="width:74px;height:110px;background:#34373f;border-color:#4a4d56;color:#9aa0ac">포스터</div>
+              <div class="poster" style="width:74px;height:110px;background:#3a3d46;border-color:#4a4d56;color:#9aa0ac;margin-top:14px">포스터</div>
+              <div class="poster" style="width:74px;height:110px;background:#34373f;border-color:#4a4d56;color:#9aa0ac">포스터</div>
+            </div>
+            <span class="ann" style="position:absolute;left:18px;bottom:16px;background:#34373f;border-color:#4a4d56;color:#cfd3da"><span class="num">1</span>취향 지도 미리보기 이미지</span>
+          </div>
+          <!-- RIGHT login form -->
+          <div style="display:flex;flex-direction:column;justify-content:center;padding:40px 44px">
+            <div class="brand" style="font-size:24px;margin-bottom:26px">무비무비<span>·</span></div>
+            <div class="label-tag">이메일</div>
+            <div class="input" style="margin-bottom:12px">이메일 주소</div>
+            <div class="label-tag">비밀번호</div>
+            <div class="input" style="margin-bottom:18px">비밀번호</div>
+            <span class="btn primary" style="justify-content:center;padding:11px">로그인</span>
+            <div class="hint" style="text-align:center;margin:14px 0">비밀번호를 잊으셨나요?</div>
+            <div style="display:flex;align-items:center;gap:10px;color:var(--muted);font-size:12px;margin:6px 0 16px"><div style="flex:1;height:1px;background:var(--line)"></div>또는<div style="flex:1;height:1px;background:var(--line)"></div></div>
+            <div style="text-align:center;font-size:13px">계정이 없으신가요? <b style="color:var(--note)">회원가입</b></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="flow"><b>로그인</b><span class="arrow">→</span><b>메인</b><span class="arrow">/</span><b>회원가입</b></div>
+    <div class="notes"><h4>설계 노트</h4><ol>
+      <li>좌·우 2분할(인스타그램식). 좌측 = 브랜드 메시지 "<b>당신이 좋아하게 될 영화</b>" + 분위기 이미지, 우측 = 로그인 폼.</li>
+      <li><span class="num">1</span>좌측 이미지는 실제 취향 지도/포스터 콜라주를 써서 서비스 정체성을 첫 화면부터 노출.</li>
+      <li>모바일은 후순위 — 폭이 좁아지면 좌측 hero를 접고 폼만 단일 컬럼으로.</li>
+    </ol></div>
+  </section>
+
+  <!-- ===================== 2. 회원가입 ===================== -->
+  <section class="screen">
+    <div class="label"><span class="no">02</span><h2>회원가입 페이지</h2><span class="route">/signup</span></div>
+    <div class="browser">
+      <div class="chrome"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="urlbar">moviemoobee.app/signup</span></div>
+      <div class="canvas" style="padding:0">
+        <div style="display:grid;grid-template-columns:1.15fr .85fr;min-height:440px">
+          <div style="background:#23252b;color:#e9ebef;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:22px;padding:36px">
+            <div style="font-size:22px;font-weight:800;letter-spacing:-.02em;text-align:center;line-height:1.4">아직 안 본,<br><span style="color:#f08a00">좋아하게 될</span> 영화를 찾아서.</div>
+            <div style="display:flex;gap:10px;transform:rotate(-4deg)">
+              <div class="poster" style="width:74px;height:110px;background:#34373f;border-color:#4a4d56;color:#9aa0ac">포스터</div>
+              <div class="poster" style="width:74px;height:110px;background:#3a3d46;border-color:#4a4d56;color:#9aa0ac;margin-top:14px">포스터</div>
+            </div>
+          </div>
+          <div style="display:flex;flex-direction:column;justify-content:center;padding:34px 44px">
+            <div class="brand" style="font-size:22px;margin-bottom:22px">회원가입</div>
+            <!-- profile photo (optional) -->
+            <div style="display:flex;align-items:center;gap:14px;margin-bottom:16px">
+              <div class="avatar" style="width:56px;height:56px"></div>
+              <div><span class="btn sm">프로필 사진 업로드</span><div class="hint" style="margin-top:5px">선택</div></div>
+            </div>
+            <div class="label-tag">이메일 주소</div><div class="input" style="margin-bottom:11px">이메일</div>
+            <div class="label-tag">비밀번호</div><div class="input" style="margin-bottom:11px">비밀번호</div>
+            <div class="label-tag">비밀번호 확인</div><div class="input" style="margin-bottom:11px">비밀번호 확인</div>
+            <div class="label-tag">이름 (닉네임)</div><div class="input" style="margin-bottom:18px">닉네임</div>
+            <span class="btn primary" style="justify-content:center;padding:11px">가입하고 영화 등록하기 →</span>
+            <div style="text-align:center;font-size:13px;margin-top:14px">이미 계정이 있으신가요? <b style="color:var(--note)">로그인</b></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="flow"><b>회원가입</b><span class="arrow">→</span><b>영화 등록 (5편+)</b></div>
+    <div class="notes"><h4>설계 노트</h4><ol>
+      <li>입력 항목: <b>이메일 / 비밀번호 / 비밀번호 확인 / 이름(닉네임) / 프로필 사진(선택)</b>.</li>
+      <li>가입 완료 시 <b>건너뛸 수 없이</b> 바로 영화 등록(03)으로 — 콜드 스타트 방지(좌표 안정화에 5편 이상 필요).</li>
+    </ol></div>
+  </section>
+
+  <!-- ===================== 3. 영화 등록 (5편+) ===================== -->
+  <section class="screen">
+    <div class="label"><span class="no">03</span><h2>영화 등록 (5편 이상) <span class="hint" style="font-weight:400">— 온보딩 · 검색 등록 / 삭제</span></h2><span class="route">/onboarding</span></div>
+    <div class="browser">
+      <div class="chrome"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="urlbar">moviemoobee.app/onboarding</span></div>
+      <div class="canvas pad-lg">
+        <!-- header row: title + 등록 현황 card -->
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:24px;margin-bottom:24px">
+          <div>
+            <div style="font-family:var(--mono);font-size:12px;letter-spacing:.14em;color:var(--note)">ONBOARDING</div>
+            <div style="font-size:26px;font-weight:800;letter-spacing:-.02em;margin:6px 0 8px">영화 등록하기</div>
+            <div style="font-size:13px;color:var(--muted);line-height:1.6">회원가입을 위해 5편 이상의 영화를 등록해주세요.<br>등록한 영화는 취향 분석과 추천에 활용됩니다.</div>
+          </div>
+          <div class="box" style="padding:16px 18px;min-width:230px">
+            <div class="label-tag">등록 현황</div>
+            <div style="font-size:26px;font-weight:800;margin:2px 0 10px">3 <span class="hint" style="font-size:14px">/ 5편</span></div>
+            <div style="height:8px;border-radius:5px;background:var(--fill);overflow:hidden;margin-bottom:8px"><div style="width:60%;height:100%;background:var(--ink)"></div></div>
+            <div class="hint">2편 더 등록하면 가입이 완료됩니다.</div>
+          </div>
+        </div>
+        <!-- 영화 검색하기 -->
+        <div class="box" style="padding:20px 22px;margin-bottom:18px">
+          <div style="font-size:14px;font-weight:700;margin-bottom:12px">영화 검색하기</div>
+          <div class="input" style="margin-bottom:14px">🔍  영화 제목, 감독, 배우를 입력하세요</div>
+          <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:18px">
+            <span class="hint" style="margin-right:2px">추천 검색어</span>
+            <span class="chip">인셉션</span><span class="chip">라라랜드</span><span class="chip">인터스텔라</span><span class="chip">어바웃 타임</span><span class="chip">매트릭스</span><span class="chip">기생충</span><span class="chip">위플래쉬</span>
+          </div>
+          <div class="label-tag">검색 결과</div>
+          <div style="display:flex;gap:16px;flex-wrap:wrap;margin-top:8px">
+            <div style="width:118px"><div style="position:relative"><div class="poster" style="aspect-ratio:2/3">포스터</div><span style="position:absolute;top:8px;right:8px;width:26px;height:26px;border-radius:50%;background:#fff;border:1.4px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:15px">＋</span></div><div class="t">인셉션</div><div class="y">2010 · ★ 4.4</div></div>
+            <div style="width:118px"><div style="position:relative"><div class="poster" style="aspect-ratio:2/3">포스터</div><span style="position:absolute;top:8px;right:8px;width:26px;height:26px;border-radius:50%;background:#fff;border:1.4px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:15px">＋</span></div><div class="t">라라랜드</div><div class="y">2016 · ★ 4.3</div></div>
+            <div style="width:118px"><div style="position:relative"><div class="poster" style="aspect-ratio:2/3">포스터</div><span style="position:absolute;top:8px;right:8px;width:26px;height:26px;border-radius:50%;background:#fff;border:1.4px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:15px">＋</span></div><div class="t">인터스텔라</div><div class="y">2014 · ★ 4.6</div></div>
+            <div style="width:118px"><div style="position:relative"><div class="poster" style="aspect-ratio:2/3">포스터</div><span style="position:absolute;top:8px;right:8px;width:26px;height:26px;border-radius:50%;background:#fff;border:1.4px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:15px">＋</span></div><div class="t">어바웃 타임</div><div class="y">2013 · ★ 4.2</div></div>
+            <div style="width:118px"><div style="position:relative"><div class="poster" style="aspect-ratio:2/3">포스터</div><span style="position:absolute;top:8px;right:8px;width:26px;height:26px;border-radius:50%;background:#fff;border:1.4px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:15px">＋</span></div><div class="t">매트릭스</div><div class="y">1999 · ★ 4.5</div></div>
+            <div style="width:118px"><div style="position:relative"><div class="poster" style="aspect-ratio:2/3">포스터</div><span style="position:absolute;top:8px;right:8px;width:26px;height:26px;border-radius:50%;background:#fff;border:1.4px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:15px">＋</span></div><div class="t">기생충</div><div class="y">2019 · ★ 4.6</div></div>
+            <div style="width:118px"><div style="position:relative"><div class="poster" style="aspect-ratio:2/3">포스터</div><span style="position:absolute;top:8px;right:8px;width:26px;height:26px;border-radius:50%;background:#fff;border:1.4px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:15px">＋</span></div><div class="t">위플래쉬</div><div class="y">2014 · ★ 4.4</div></div>
+            <div style="display:flex;align-items:center;color:var(--line-strong);font-size:24px">›</div>
+          </div>
+        </div>
+        <!-- 내가 등록한 영화 -->
+        <div class="box" style="padding:20px 22px;margin-bottom:18px">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px"><div style="font-size:14px;font-weight:700">내가 등록한 영화</div><span class="ann"><span class="num">1</span>✕ 로 잘못 등록한 영화 제거</span></div>
+          <div style="display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap">
+            <div style="width:118px"><div style="position:relative"><div class="poster" style="aspect-ratio:2/3">포스터</div><span style="position:absolute;top:8px;right:8px;width:26px;height:26px;border-radius:50%;background:#fff;border:1.4px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:13px">✕</span></div><div class="t">인셉션</div><div class="y">2010</div></div>
+            <div style="width:118px"><div style="position:relative"><div class="poster" style="aspect-ratio:2/3">포스터</div><span style="position:absolute;top:8px;right:8px;width:26px;height:26px;border-radius:50%;background:#fff;border:1.4px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:13px">✕</span></div><div class="t">라라랜드</div><div class="y">2016</div></div>
+            <div style="width:118px"><div style="position:relative"><div class="poster" style="aspect-ratio:2/3">포스터</div><span style="position:absolute;top:8px;right:8px;width:26px;height:26px;border-radius:50%;background:#fff;border:1.4px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:13px">✕</span></div><div class="t">어바웃 타임</div><div class="y">2013</div></div>
+            <div style="width:118px;aspect-ratio:2/3;border:1.5px dashed var(--line-strong);border-radius:6px;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--muted);font-size:11px;gap:6px"><span style="font-size:22px">＋</span>영화를 추가해주세요</div>
+            <div style="width:118px;aspect-ratio:2/3;border:1.5px dashed var(--line-strong);border-radius:6px;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--muted);font-size:11px;gap:6px"><span style="font-size:22px">＋</span>영화를 추가해주세요</div>
+          </div>
+          <div style="display:flex;justify-content:flex-end;margin-top:18px"><span class="btn primary">다음 단계로 ›</span></div>
+        </div>
+        <!-- 안내 -->
+        <div class="box" style="padding:16px 18px;background:var(--fill-2)">
+          <div style="font-size:13px;font-weight:700;margin-bottom:8px">ⓘ 안내</div>
+          <ul style="margin:0;padding-left:18px;font-size:12.5px;color:var(--muted);line-height:1.9">
+            <li>5편 이상 등록해야 회원가입이 완료됩니다.</li>
+            <li>직접 검색을 통해 등록하거나, 목록에서 추가할 수 있습니다.</li>
+            <li>등록한 영화는 언제든지 변경할 수 있습니다.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+    <div class="notes"><h4>설계 노트</h4><ol>
+      <li><b>검색 → ＋ 로 추가, "내가 등록한 영화"에서 ✕ 로 삭제.</b> 잘못 등록한 영화를 바로 빼낼 수 있게 함.</li>
+      <li><span class="num">1</span>대중적 영화는 <b>추천 검색어</b> 칩으로 빠르게 진입. 빈 칸은 점선 "＋ 영화를 추가해주세요" 슬롯으로 남은 개수를 시각화.</li>
+      <li><b>5편 미만이면 [다음 단계로] 비활성</b>(건너뛰기 없음). 5편 충족 → 좌표 첫 계산(<code>umap.transform</code>) 후 메인(04)으로.</li>
+    </ol></div>
+  </section>
+
+  <!-- ===================== 4. 메인 페이지 ===================== -->
+  <section class="screen">
+    <div class="label"><span class="no">04</span><h2>메인 (홈) 페이지</h2><span class="route">/</span></div>
+    <div class="browser">
+      <div class="chrome"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="urlbar">moviemoobee.app/</span></div>
+      <div class="appnav"><div class="brand">무비무비<span>·</span></div>
+        <div class="navlinks"><a class="active">홈</a><a><span class="ico search"></span>검색</a><a><span class="ico"></span>지도</a><a><span class="ico"></span>추천</a><a><span class="ico"></span>친구</a></div>
+        <div class="avatar"></div></div>
+      <div class="canvas pad-lg">
+        <!-- my taste-map preview (large) -->
+        <div class="sec-divider" style="margin-top:2px">내 취향 지도 <span class="hint">— 탭하면 지도 페이지(10)로</span></div>
+        <div class="ph" style="height:300px;font-size:13px;position:relative">
+          내 취향 지도 프리뷰 (대형 · 내 좌표 X + 시청 영화 ★ + 미탐색/안전 영역)
+          <span class="ann" style="position:absolute;left:14px;bottom:12px"><span class="num">1</span>홈의 주인공 = 내 지도</span>
+        </div>
+        <!-- recently added to DB (single row, horizontal scroll) -->
+        <div class="sec-divider" style="margin-top:30px">최근 추가된 영화 <span class="hint">— 우리 DB에 새로 들어온 작품 · 가로 스크롤</span></div>
+        <div style="display:flex;gap:16px;align-items:flex-start">
+          <div style="width:118px;flex:none"><div class="poster" style="aspect-ratio:2/3">포스터</div><div class="t">제목</div><div class="y">2024 · 신규</div></div>
+          <div style="width:118px;flex:none"><div class="poster" style="aspect-ratio:2/3">포스터</div><div class="t">제목</div><div class="y">2024 · 신규</div></div>
+          <div style="width:118px;flex:none"><div class="poster" style="aspect-ratio:2/3">포스터</div><div class="t">제목</div><div class="y">2023 · 신규</div></div>
+          <div style="width:118px;flex:none"><div class="poster" style="aspect-ratio:2/3">포스터</div><div class="t">제목</div><div class="y">2023 · 신규</div></div>
+          <div style="width:118px;flex:none"><div class="poster" style="aspect-ratio:2/3">포스터</div><div class="t">제목</div><div class="y">2023 · 신규</div></div>
+          <div style="width:118px;flex:none"><div class="poster" style="aspect-ratio:2/3">포스터</div><div class="t">제목</div><div class="y">2022 · 신규</div></div>
+          <div style="display:flex;align-items:center;color:var(--line-strong);font-size:24px">›</div>
+        </div>
+      </div>
+    </div>
+    <div class="notes"><h4>설계 노트</h4><ol>
+      <li>공통 셸 첫 등장: 좌측 로고 / 중앙 NavBar(홈·검색·지도·추천·친구) / 우측 프로필.</li>
+      <li><span class="num">1</span>중앙 주인공은 <b>내 취향 지도 프리뷰(대형)</b> — 홈을 열자마자 "내 취향 정체성"을 마주하게 함. 탭 → 지도 페이지(10).</li>
+      <li>하단 "<b>최근 추가된 영화</b>" = 우리 DB에 새로 들어온 작품. <b>한 줄(가로 스크롤)</b>로만 노출. 카드 클릭 → 영화 상세(06).</li>
+    </ol></div>
+  </section>
+
+  <!-- ===================== 5. 영화 검색 결과 ===================== -->
+  <section class="screen">
+    <div class="label"><span class="no">05</span><h2>영화 검색 결과 페이지</h2><span class="route">/search?q=…</span></div>
+    <div class="browser">
+      <div class="chrome"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="urlbar">moviemoobee.app/search?q=인터스텔라</span></div>
+      <div class="appnav"><div class="brand">무비무비<span>·</span></div>
+        <div class="navlinks"><a>홈</a><a class="active"><span class="ico search"></span>검색</a><a><span class="ico"></span>지도</a><a><span class="ico"></span>추천</a><a><span class="ico"></span>친구</a></div>
+        <div class="avatar"></div></div>
+      <div class="canvas pad-lg">
+        <!-- search bar -->
+        <div style="display:flex;gap:10px;margin-bottom:14px">
+          <div class="input" style="flex:1">🔍  검색어 입력… (TMDB 영화 검색)</div>
+          <span class="btn primary">검색</span>
+        </div>
+        <div style="font-size:12px;color:var(--muted);margin:6px 2px 16px">검색 결과 <b style="color:var(--ink)">2</b>편 <span class="hint">— 제목 검색이라 결과가 적어 필터 불필요</span></div>
+        <!-- result grid -->
+        <div class="grid g5">
+          <div class="mcard"><div class="poster" style="aspect-ratio:2/3">포스터</div><div class="t">인터스텔라</div><div class="y">2014 · ⭐ 8.4</div></div>
+          <div class="mcard"><div class="poster" style="aspect-ratio:2/3">포스터</div><div class="t">인터스텔라: IMAX</div><div class="y">2014 · ⭐ 8.3</div></div>
+        </div>
+        <div style="text-align:center;margin-top:20px"><span class="btn">더 보기 / 페이지네이션</span></div>
+      </div>
+    </div>
+    <div class="flow"><b>영화 검색</b><span class="arrow">→</span><b>영화 목록</b><span class="arrow">→</span><b>영화 상세</b><span class="arrow">↺</span>재검색</div>
+    <div class="notes"><h4>설계 노트</h4><ol>
+      <li><span class="num">1</span>검색은 TMDB API 실시간 조회. 카드 클릭 → <b>영화 상세(06)</b>로 이동.</li>
+      <li><b>필터 없음.</b> "인터스텔라"처럼 제목으로 검색하면 결과가 1~2편이라 장르·평점 필터가 의미 없음 → 화면 단순화.</li>
+      <li>유저플로우의 <b>재검색 루프</b>: 상세에서 뒤로 와도 검색어 상태 유지.</li>
+    </ol></div>
+  </section>
+
+  <!-- ===================== 6. 영화 상세 ===================== -->
+  <section class="screen">
+    <div class="label"><span class="no">06</span><h2>영화 상세 페이지</h2><span class="route">/movie/:id</span></div>
+    <div class="browser">
+      <div class="chrome"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="urlbar">moviemoobee.app/movie/157336</span></div>
+      <div class="appnav"><div class="brand">무비무비<span>·</span></div>
+        <div class="navlinks"><a>홈</a><a class="active"><span class="ico search"></span>검색</a><a><span class="ico"></span>지도</a><a><span class="ico"></span>추천</a><a><span class="ico"></span>친구</a></div>
+        <div class="avatar"></div></div>
+      <div class="canvas pad-lg">
+        <div style="display:grid;grid-template-columns:230px 1fr;gap:28px">
+          <div class="poster" style="aspect-ratio:2/3">포스터</div>
+          <div>
+            <div class="barline" style="width:55%;height:22px;border-radius:6px"></div>
+            <div class="y" style="font-size:13px;color:var(--muted);margin:10px 0">2014 · SF/모험/드라마 · 169분 · 한국어 · 감독명</div>
+            <div style="display:flex;gap:8px;margin:6px 0 16px"><span class="pill">SF</span><span class="pill">모험</span><span class="pill">드라마</span><span class="pill">우주</span><span class="pill">시간여행</span><span class="ann"><span class="num">2</span>genres + keywords</span></div>
+            <div class="label-tag">줄거리 (overview)</div>
+            <div class="barline m" style="margin:0 0 7px"></div><div class="barline" style="width:92%;margin:0 0 7px"></div><div class="barline s"></div>
+            <div style="display:flex;gap:10px;margin-top:22px;align-items:center;flex-wrap:wrap">
+              <span class="btn" style="border-color:#2bb24b;color:#1c7a33;background:#eefaf0"><span style="font-weight:800">✓</span> 시청영화로 등록됨</span>
+              <span class="btn">★ 별점·리뷰 수정</span>
+              <span class="ann"><span class="num">1</span>미등록 시: [＋ 시청영화 등록 · 별점 매기기]</span>
+            </div>
+            <div style="margin-top:18px;display:flex;gap:24px;align-items:center">
+              <div><div class="label-tag">TMDB 평점</div><div style="font-size:20px;font-weight:700">8.4 <span class="hint">/ 10</span></div></div>
+              <div><div class="label-tag">내 별점</div><div class="stars"><b>★★★★</b>☆</div></div>
+            </div>
+          </div>
+        </div>
+        <div class="sec-divider" style="margin-top:28px">어디서 볼 수 있나요? <span class="hint">— OTT 제공 (TMDB watch providers)</span></div>
+        <div style="display:flex;flex-wrap:wrap;gap:12px">
+          <div class="box" style="display:flex;align-items:center;gap:10px;padding:9px 13px">
+            <div class="ph" style="width:32px;height:32px;border-radius:8px;padding:0">로고</div>
+            <div><div style="font-size:13px;font-weight:600">Netflix</div><div class="hint">구독</div></div></div>
+          <div class="box" style="display:flex;align-items:center;gap:10px;padding:9px 13px">
+            <div class="ph" style="width:32px;height:32px;border-radius:8px;padding:0">로고</div>
+            <div><div style="font-size:13px;font-weight:600">디즈니+</div><div class="hint">구독</div></div></div>
+          <div class="box" style="display:flex;align-items:center;gap:10px;padding:9px 13px">
+            <div class="ph" style="width:32px;height:32px;border-radius:8px;padding:0">로고</div>
+            <div><div style="font-size:13px;font-weight:600">왓챠</div><div class="hint">구독</div></div></div>
+          <div class="box" style="display:flex;align-items:center;gap:10px;padding:9px 13px">
+            <div class="ph" style="width:32px;height:32px;border-radius:8px;padding:0">로고</div>
+            <div><div style="font-size:13px;font-weight:600">웨이브</div><div class="hint">대여 · 구매</div></div></div>
+          <span class="ann" style="align-self:center"><span class="num">3</span>없으면 "제공 정보 없음" 표시</span>
+        </div>
+
+        <div class="sec-divider" style="margin-top:30px">이용자 리뷰 <span class="hint">— 무비무비 이용자들이 이 영화에 남긴 리뷰</span></div>
+        <div style="display:flex;flex-direction:column;gap:12px">
+          <div class="box" style="padding:14px 16px">
+            <div style="display:flex;align-items:center;gap:10px">
+              <div class="avatar" style="width:34px;height:34px;flex:none;margin-left:0"></div>
+              <div><div class="barline" style="width:90px;height:11px"></div><div class="stars" style="font-size:13px;margin-top:5px"><b>★★★★★</b></div></div>
+              <span class="hint" style="margin-left:auto">2024.03.11</span>
+            </div>
+            <div class="barline m" style="margin:11px 0 6px"></div><div class="barline" style="width:70%"></div>
+          </div>
+          <div class="box" style="padding:14px 16px">
+            <div style="display:flex;align-items:center;gap:10px">
+              <div class="avatar" style="width:34px;height:34px;flex:none;margin-left:0"></div>
+              <div><div class="barline" style="width:74px;height:11px"></div><div class="stars" style="font-size:13px;margin-top:5px"><b>★★★★</b>☆</div></div>
+              <span class="hint" style="margin-left:auto">2024.02.27</span>
+            </div>
+            <div class="barline" style="width:88%;margin:11px 0 6px"></div><div class="barline s"></div>
+          </div>
+          <div class="box" style="padding:14px 16px">
+            <div style="display:flex;align-items:center;gap:10px">
+              <div class="avatar" style="width:34px;height:34px;flex:none;margin-left:0"></div>
+              <div><div class="barline" style="width:82px;height:11px"></div><div class="stars" style="font-size:13px;margin-top:5px"><b>★★★</b>★★</div></div>
+              <span class="hint" style="margin-left:auto">2024.01.09</span>
+            </div>
+            <div class="barline m" style="margin:11px 0 0"></div>
+          </div>
+          <span class="ann" style="align-self:flex-start"><span class="num">4</span>별점만 남기고 리뷰 없는 이용자는 제외</span>
+        </div>
+      </div>
+    </div>
+    <div class="notes"><h4>설계 노트</h4><ol>
+      <li><span class="num">1</span><b>등록 상태 표시.</b> 이미 시청목록에 있으면 "<b>✓ 시청영화로 등록됨</b>" 배지 + [별점·리뷰 수정]. 미등록이면 [＋ 시청영화 등록 · 별점 매기기](별점 필수, 07 모달).</li>
+      <li><span class="num">2</span>장르·키워드는 임베딩(TF-IDF) 입력값이므로 칩으로 노출해 "왜 이 위치인지" 직관 제공.</li>
+      <li><span class="num">3</span><b>OTT 제공 목록</b>(TMDB watch providers): 로고+제공방식(구독/대여/구매). 클릭 시 외부 이동, 없으면 "제공 정보 없음".</li>
+      <li><span class="num">4</span>하단은 "유사 영화" 대신 <b>이용자 리뷰</b>(아바타·닉네임·별점·날짜·내용). 영화마다 우리 이용자들의 평이 쌓이게 함.</li>
+    </ol></div>
+  </section>
+
+  <!-- ===================== 7. 별점·리뷰 작성 ===================== -->
+  <section class="screen">
+    <div class="label"><span class="no">07</span><h2>별점 · 리뷰 작성 (모달)</h2><span class="route">/movie/:id → review modal</span></div>
+    <div class="browser">
+      <div class="chrome"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="urlbar">moviemoobee.app/movie/157336</span></div>
+      <div class="canvas" style="background:var(--fill-2);padding:34px;position:relative">
+        <!-- dimmed bg hint -->
+        <div style="position:absolute;inset:0;background:repeating-linear-gradient(45deg,#dfe1e6 0 9px,#e8eaee 9px 18px);opacity:.5"></div>
+        <!-- modal -->
+        <div class="box" style="position:relative;max-width:440px;margin:0 auto;padding:26px 26px 22px;box-shadow:0 16px 40px rgba(0,0,0,.12)">
+          <div style="display:flex;align-items:center;gap:14px;margin-bottom:18px">
+            <div class="poster" style="width:64px;height:96px;flex:none">포스터</div>
+            <div><div class="barline" style="width:120px;height:15px"></div><div class="y" style="margin-top:8px">2014 · SF/모험</div></div>
+            <span style="margin-left:auto;color:var(--muted);font-size:18px">✕</span>
+          </div>
+          <div class="label-tag">별점 <span style="text-transform:none;color:#cf3a3a">(필수)</span> <span style="text-transform:none">· 0.5점 단위</span></div>
+          <div style="font-size:30px;letter-spacing:5px;margin:2px 0 4px"><b style="color:#e8a200;font-weight:400">★★★★</b><span style="color:var(--line-strong)">☆</span></div>
+          <div class="ann" style="margin-bottom:16px"><span class="num">1</span>별점 없으면 저장 불가 (POC rating 가중치)</div>
+          <div class="label-tag">한줄 리뷰 <span style="text-transform:none">(선택)</span></div>
+          <div class="input" style="height:84px;align-items:flex-start">리뷰를 입력하세요 (선택)</div>
+          <div class="label-tag" style="margin-top:14px">시청일 <span class="hint">(선택)</span></div>
+          <div class="input" style="width:160px">YYYY · MM · DD</div>
+          <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:20px">
+            <span class="btn primary">저장</span><span class="btn">취소</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="notes"><h4>설계 노트</h4><ol>
+      <li><span class="num">1</span>별점은 <b>필수</b>·0.5점 단위(POC <code>round(x*2)/2</code>). 별점이 비면 <b>[저장] 비활성</b>. 리뷰는 <b>선택</b>("리뷰를 입력하세요 (선택)").</li>
+      <li>06의 "시청영화 등록"과 동일 모달 — 등록 = 곧 별점 매기기. 별점이 곧 지도 좌표 가중치라 콜드 스타트를 막음.</li>
+      <li>저장 시: 시청목록 추가 → <b>사용자 좌표 재계산</b>(별점 변경 시점에만, 캐싱) → 지도/추천 갱신. 지도 ▸ 시청 목록(10·b)에서도 동일 모달 재사용.</li>
+    </ol></div>
+  </section>
+
+  <!-- ===================== 8. 내 프로필 ===================== -->
+  <section class="screen">
+    <div class="label"><span class="no">08</span><h2>내 프로필 페이지</h2><span class="route">/me</span></div>
+    <div class="browser">
+      <div class="chrome"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="urlbar">moviemoobee.app/me</span></div>
+      <div class="appnav"><div class="brand">무비무비<span>·</span></div>
+        <div class="navlinks"><a>홈</a><a><span class="ico search"></span>검색</a><a><span class="ico"></span>지도</a><a><span class="ico"></span>추천</a><a><span class="ico"></span>친구</a></div>
+        <div class="avatar" style="border-color:var(--ink)"></div></div>
+      <div class="canvas pad-lg">
+        <div style="max-width:860px;margin:0 auto">
+          <!-- profile header (centered column) -->
+          <div style="display:flex;flex-direction:column;align-items:center;text-align:center;padding:10px 0 26px">
+            <div class="avatar" style="width:104px;height:104px;margin:0 auto"></div>
+            <div class="barline" style="width:140px;height:18px;margin:18px auto 0"></div>
+            <div style="display:flex;align-items:center;justify-content:center;gap:10px;margin-top:14px">
+              <span class="btn sm">프로필 수정</span>
+              <span class="btn sm">로그아웃</span>
+            </div>
+            <div style="display:flex;justify-content:center;gap:48px;margin-top:20px">
+              <div><div style="font-size:18px;font-weight:700">37</div><div class="hint">본 영화</div></div>
+              <div><div style="font-size:18px;font-weight:700">12</div><div class="hint">친구</div></div>
+            </div>
+          </div>
+          <!-- watched -->
+          <div class="sec-divider" style="margin-top:30px">내가 본 영화 <span class="hint">37편 · 최신순</span></div>
+          <div class="grid g5">
+            <div class="mcard"><div class="poster" style="aspect-ratio:2/3">포스터</div><div class="stars" style="font-size:12px"><b>★★★★</b>★</div></div>
+            <div class="mcard"><div class="poster" style="aspect-ratio:2/3">포스터</div><div class="stars" style="font-size:12px"><b>★★★</b>★★</div></div>
+            <div class="mcard"><div class="poster" style="aspect-ratio:2/3">포스터</div><div class="stars" style="font-size:12px"><b>★★★★★</b></div></div>
+            <div class="mcard"><div class="poster" style="aspect-ratio:2/3">포스터</div><div class="stars" style="font-size:12px"><b>★★★</b>★★</div></div>
+            <div class="mcard"><div class="poster" style="aspect-ratio:2/3">포스터</div><div class="stars" style="font-size:12px"><b>★★★★</b>★</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="notes"><h4>설계 노트</h4><ol>
+      <li>인스타그램식 헤더 — 아바타 + 닉네임 + 통계(<b>본 영화 / 친구</b>) + [<b>프로필 수정</b>][<b>로그아웃</b>] 버튼을 가운데로 모아 균형 배치.</li>
+      <li>팔로우/팔로잉 개념 폐기 → <b>친구 요청·수락(맞팔)</b>만 존재. 통계도 "친구" 하나로 통일.</li>
+      <li>중앙 취향 지도 미니뷰는 <b>제거</b>(홈 4번에서 크게 보여주므로 중복 제거). 친구가 보는 프로필은 [프로필 수정] 대신 [친구 요청]/[친구 끊기].</li>
+    </ol></div>
+  </section>
+
+  <!-- ===================== 9. 프로필 수정 ===================== -->
+  <section class="screen">
+    <div class="label"><span class="no">09</span><h2>프로필 수정 페이지</h2><span class="route">/me/edit</span></div>
+    <div class="browser">
+      <div class="chrome"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="urlbar">moviemoobee.app/me/edit</span></div>
+      <div class="appnav"><div class="brand">무비무비<span>·</span></div>
+        <div class="navlinks"><a>홈</a><a><span class="ico search"></span>검색</a><a><span class="ico"></span>지도</a><a><span class="ico"></span>추천</a><a><span class="ico"></span>친구</a></div>
+        <div class="avatar" style="border-color:var(--ink)"></div></div>
+      <div class="canvas pad-lg">
+        <div style="max-width:480px;margin:0 auto">
+          <!-- centered photo -->
+          <div style="display:flex;flex-direction:column;align-items:center;gap:12px;margin-bottom:28px">
+            <div class="avatar" style="width:84px;height:84px;margin:0 auto"></div>
+            <span class="btn sm">사진 등록 / 수정</span>
+            <span class="hint">선택</span>
+          </div>
+          <div class="sec-divider">닉네임 변경</div>
+          <div class="input" style="margin-bottom:24px">현재 닉네임</div>
+          <div class="sec-divider">비밀번호 변경</div>
+          <div class="input" style="margin-bottom:8px">현재 비밀번호</div>
+          <div class="input" style="margin-bottom:8px">새 비밀번호</div>
+          <div class="input" style="margin-bottom:22px">새 비밀번호 확인</div>
+          <div style="display:flex;gap:8px;justify-content:center"><span class="btn primary">저장</span><span class="btn">취소</span></div>
+          <div class="sec-divider" style="margin-top:34px">계정</div>
+          <div style="display:flex;gap:8px;justify-content:center"><span class="btn danger">계정 삭제</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="notes"><h4>설계 노트</h4><ol>
+      <li>항목: <b>닉네임 변경 / 비밀번호 변경 / 사진 등록·수정 / 계정 삭제</b>. (로그아웃은 내 프로필(08) 헤더로 이동)</li>
+      <li><b>계정 삭제</b>는 위험 액션 → 빨간 테두리 + 2차 확인 모달.</li>
+    </ol></div>
+  </section>
+
+  <!-- ===================== 10. 취향 지도 페이지 (핵심) ===================== -->
+  <section class="screen">
+    <div class="label"><span class="no">10</span><h2>취향 지도 페이지 <span class="hint" style="font-weight:400">— 핵심 화면</span></h2><span class="route">/map</span></div>
+    <div class="browser">
+      <div class="chrome"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="urlbar">moviemoobee.app/map</span></div>
+      <div class="appnav"><div class="brand">무비무비<span>·</span></div>
+        <div class="navlinks"><a>홈</a><a><span class="ico search"></span>검색</a><a class="active"><span class="ico"></span>지도</a><a><span class="ico"></span>추천</a><a><span class="ico"></span>친구</a></div>
+        <div class="avatar"></div></div>
+      <div class="canvas pad-lg">
+        <!-- internal tabs -->
+        <div class="tabbar">
+          <div class="tab on">취향 지도</div><div class="tab">시청 영화 목록</div><div class="tab">영화 검색·등록</div><div class="tab">지도 탐색</div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 268px;gap:20px">
+          <!-- MAP -->
+          <div class="mapframe">
+            <svg viewBox="0 0 640 430" width="100%" style="display:block">
+              <defs>
+                <filter id="g10" x="-120%" y="-120%" width="340%" height="340%">
+                  <feGaussianBlur stdDeviation="3" result="b"/>
+                  <feMerge><feMergeNode in="b"/><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+                </filter>
+                <radialGradient id="safe10" cx="50%" cy="50%" r="50%">
+                  <stop offset="0%" stop-color="#ffe9b0" stop-opacity="0.55"/>
+                  <stop offset="45%" stop-color="#ffcf6e" stop-opacity="0.16"/>
+                  <stop offset="100%" stop-color="#ffcf6e" stop-opacity="0"/>
+                </radialGradient>
+              </defs>
+              <rect width="640" height="430" fill="#0e1018"/>
+              <!-- faint grid -->
+              <g stroke="#1c1f2c" stroke-width="1">
+                <line x1="0" y1="86" x2="640" y2="86"/><line x1="0" y1="172" x2="640" y2="172"/><line x1="0" y1="258" x2="640" y2="258"/><line x1="0" y1="344" x2="640" y2="344"/>
+                <line x1="128" y1="0" x2="128" y2="430"/><line x1="256" y1="0" x2="256" y2="430"/><line x1="384" y1="0" x2="384" y2="430"/><line x1="512" y1="0" x2="512" y2="430"/>
+              </g>
+              <!-- SAFE region = illuminated (bright) around my cluster -->
+              <ellipse cx="515" cy="135" rx="155" ry="125" fill="url(#safe10)"/>
+              <text x="515" y="34" fill="#ffe6a8" font-size="13" text-anchor="middle" font-weight="700">안전 영역 (밝음) ▸</text>
+              <!-- UNEXPLORED region = stays dark, dashed clickable outline -->
+              <ellipse cx="110" cy="300" rx="96" ry="78" fill="#000000" fill-opacity="0.25" stroke="#333a52" stroke-width="1.4" stroke-dasharray="5 5"/>
+              <text x="110" y="300" fill="#6b7280" font-size="13" text-anchor="middle" font-weight="700">미탐색 영역 (어두움) ▸</text>
+              <!-- watched movies = glowing stars; high rating brighter/larger -->
+              <g filter="url(#g10)">
+                <circle cx="500" cy="120" r="4.5" fill="#fff6df"/><circle cx="520" cy="110" r="5.2" fill="#fff6df"/><circle cx="540" cy="125" r="4" fill="#ffeecb"/>
+                <circle cx="515" cy="140" r="5" fill="#fff6df"/><circle cx="535" cy="100" r="4.2" fill="#ffeecb"/><circle cx="556" cy="132" r="3.6" fill="#ffeecb"/>
+              </g>
+              <!-- low-rating watched = dim, cool -->
+              <g filter="url(#g10)" opacity="0.5"><circle cx="300" cy="160" r="3" fill="#9fb0d0"/><circle cx="380" cy="300" r="3" fill="#9fb0d0"/></g>
+              <!-- searched movie = blinking ring -->
+              <circle cx="300" cy="160" r="13" fill="none" stroke="#aee1ff" stroke-width="1.6" opacity="0.85"/>
+              <!-- user coordinate marker (glowing, ringed) -->
+              <g filter="url(#g10)"><circle cx="508" cy="150" r="5.5" fill="#ff7ad9"/></g>
+              <circle cx="508" cy="150" r="11" fill="none" stroke="#ff7ad9" stroke-width="2"/>
+            </svg>
+            <div class="maplegend" style="background:#161922;border-top-color:#262a36;color:#aeb4c4">
+              <span><span style="width:12px;height:12px;border-radius:50%;border:2px solid #ff7ad9;display:inline-block"></span> 내 좌표</span>
+              <span><span style="width:10px;height:10px;border-radius:50%;background:#fff6df;box-shadow:0 0 6px #ffe6a8;display:inline-block"></span> 내가 본 영화</span>
+              <span><span style="width:13px;height:13px;border-radius:50%;background:radial-gradient(#ffe9b0,rgba(255,207,110,0));display:inline-block"></span> 밝은 곳 = 안전</span>
+              <span><span style="width:12px;height:12px;border-radius:3px;background:#0e1018;border:1px dashed #3a4159;display:inline-block"></span> 어두운 곳 = 미탐색</span>
+              <span style="color:#7a8197">영역 클릭 → 지도 탐색</span>
+            </div>
+          </div>
+          <!-- side panel -->
+          <div>
+            <div class="box" style="padding:14px;margin-bottom:14px">
+              <div class="label-tag">내가 본 영화 찾기</div>
+              <div class="input" style="margin-top:6px">제목 입력 → 지도에서 반짝 ✨</div>
+              <span class="ann" style="margin-top:9px"><span class="num">2</span>입력만 받음 · 결과 목록 출력 없음</span>
+            </div>
+            <div class="box" style="padding:14px;margin-bottom:14px">
+              <div class="label-tag">선택한 점 <span class="hint" style="text-transform:none">(내가 본 영화 hover/click)</span></div>
+              <div style="display:flex;gap:10px"><div class="poster" style="width:46px;height:68px;flex:none">포</div>
+                <div><div class="barline" style="width:90px;height:12px"></div><div class="y" style="margin-top:6px">2014 · SF</div><div class="stars" style="font-size:12px;margin-top:4px"><b>★★★★</b>☆</div></div></div>
+              <span class="btn sm" style="margin-top:10px;width:100%;justify-content:center">상세 보기</span>
+            </div>
+            <div class="box" style="padding:14px">
+              <div class="label-tag">내 취향 요약</div>
+              <div style="font-size:13px;margin-top:4px">주 클러스터: <b>SF · 액션</b></div>
+              <div style="font-size:13px;margin-top:2px">미탐색: <b style="color:#c06d00">로맨스 · 다큐</b></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="notes"><h4>설계 노트</h4><ol>
+      <li>한 페이지를 <b>4개 내부 탭</b>으로 구성: 취향 지도 / 시청 영화 목록(삭제·별점) / 영화 검색·등록 / 미탐색·추천.</li>
+      <li><span class="num">1</span><b>지도에 뜨는 점은 오직 "내가 본 영화"(★)뿐.</b> 그 외 영화는 안 띄우고, 대신 어두운 배경 위에 <b>안전 영역은 밝게(빛남), 미탐색 영역은 어둡게</b> 표시(밝기=탐색도). 미탐색 영역 클릭 → <b>지도 탐색 ▸ 미탐색(10·d)</b>, 안전 영역 클릭 → <b>지도 탐색 ▸ 안전(10·e)</b>으로 넘어가 추천·상세 확인.</li>
+      <li><span class="num">2</span>우측 <b>검색 박스</b>: 내가 본 영화 제목을 입력하면 지도에서 해당 점이 <b>반짝</b>. 입력만 받고 별도 결과 목록은 출력하지 않음.</li>
+      <li>좌표 = 별점 가중 평균 → 별점 추가/삭제 시 X가 이동. 신규 점은 <code>umap.transform()</code>으로 투영(전체 재계산 X).</li>
+    </ol></div>
+  </section>
+
+  <!-- ===================== 10b. 지도 탭 - 시청 영화 목록 ===================== -->
+  <section class="screen">
+    <div class="label"><span class="no">10·b</span><h2>지도 ▸ 시청 영화 목록 탭</h2><span class="route">/map (tab: 시청 영화)</span></div>
+    <div class="browser">
+      <div class="chrome"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="urlbar">moviemoobee.app/map</span></div>
+      <div class="canvas pad-lg">
+        <div class="tabbar"><div class="tab">취향 지도</div><div class="tab on">시청 영화 목록</div><div class="tab">영화 검색·등록</div><div class="tab">지도 탐색</div></div>
+        <div style="display:flex;gap:10px;margin-bottom:16px">
+          <div class="input" style="flex:1">🔍  내 시청 목록 내에서 검색</div>
+          <span class="chip on">최신순</span><span class="chip">별점순</span>
+        </div>
+        <div class="box" style="overflow:hidden">
+          <div style="display:grid;grid-template-columns:48px 1fr 130px 90px 80px;gap:12px;padding:12px 16px;border-bottom:1.4px solid var(--line);font-size:12px;color:var(--muted);font-family:var(--mono)">
+            <span></span><span>제목</span><span>별점</span><span>리뷰</span><span></span>
+          </div>
+          <div style="display:grid;grid-template-columns:48px 1fr 130px 90px 80px;gap:12px;padding:12px 16px;border-bottom:1px solid var(--fill);align-items:center">
+            <div class="poster" style="width:40px;height:58px">포</div><div class="barline" style="width:50%"></div><div class="stars" style="font-size:14px"><b>★★★★</b>☆</div><span class="btn sm">수정</span><span class="btn sm danger">삭제</span>
+          </div>
+          <div style="display:grid;grid-template-columns:48px 1fr 130px 90px 80px;gap:12px;padding:12px 16px;border-bottom:1px solid var(--fill);align-items:center">
+            <div class="poster" style="width:40px;height:58px">포</div><div class="barline" style="width:62%"></div><div class="stars" style="font-size:14px"><b>★★★★★</b></div><span class="btn sm">수정</span><span class="btn sm danger">삭제</span>
+          </div>
+          <div style="display:grid;grid-template-columns:48px 1fr 130px 90px 80px;gap:12px;padding:12px 16px;align-items:center">
+            <div class="poster" style="width:40px;height:58px">포</div><div class="barline" style="width:44%"></div><div class="stars" style="font-size:14px"><b>★★★</b>★★</div><span class="btn sm">수정</span><span class="btn sm danger">삭제</span>
+          </div>
+        </div>
+        <!-- delete confirm dialog -->
+        <div style="margin-top:18px;display:flex;justify-content:center">
+          <div class="box" style="max-width:360px;padding:20px 22px;box-shadow:0 12px 32px rgba(0,0,0,.12);text-align:center">
+            <div style="font-size:14px;font-weight:700;margin-bottom:6px">시청 기록에서 제거할까요?</div>
+            <div class="hint" style="margin-bottom:16px">해당 영화가 시청 기록에서 제거됩니다.</div>
+            <div style="display:flex;gap:8px;justify-content:center"><span class="btn danger">예</span><span class="btn">아니오</span></div>
+            <span class="ann" style="margin-top:12px"><span class="num">1</span>[삭제] 클릭 시 뜨는 경고창</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="notes"><h4>설계 노트</h4><ol>
+      <li><b>목록 내 검색</b> + 정렬(최신/별점). 행마다 <b>삭제</b>·<b>별점·리뷰 수정</b>(07 모달 재사용).</li>
+      <li><span class="num">1</span><b>삭제</b> 클릭 시 경고창("해당 영화가 시청 기록에서 제거됩니다.") → [예] 누르면 시청 목록에서 제거 + 좌표/지도/추천 즉시 갱신.</li>
+    </ol></div>
+  </section>
+
+  <!-- ===================== 10c. 지도 탭 - 영화 검색·등록 ===================== -->
+  <section class="screen">
+    <div class="label"><span class="no">10·c</span><h2>지도 ▸ 영화 검색·등록 탭</h2><span class="route">/map (tab: 영화 검색·등록)</span></div>
+    <div class="browser">
+      <div class="chrome"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="urlbar">moviemoobee.app/map</span></div>
+      <div class="canvas pad-lg">
+        <div class="tabbar"><div class="tab">취향 지도</div><div class="tab">시청 영화 목록</div><div class="tab on">영화 검색·등록</div><div class="tab">지도 탐색</div></div>
+        <div style="display:flex;gap:10px;margin-bottom:8px"><div class="input" style="flex:1">🔍  본 영화 검색해서 바로 등록</div><span class="btn primary">검색</span></div>
+        <div class="hint" style="margin:0 2px 16px">상세 페이지로 안 넘어가요. 별점만 매기고 <b>여기서 바로 등록</b>하는 간편 추가 창입니다.</div>
+        <div class="box" style="overflow:hidden">
+          <div style="display:grid;grid-template-columns:48px 1fr 150px 90px;gap:12px;padding:12px 16px;border-bottom:1.4px solid var(--line);font-size:12px;color:var(--muted);font-family:var(--mono)">
+            <span></span><span>제목</span><span>별점 (필수)</span><span></span>
+          </div>
+          <div style="display:grid;grid-template-columns:48px 1fr 150px 90px;gap:12px;padding:12px 16px;border-bottom:1px solid var(--fill);align-items:center">
+            <div class="poster" style="width:40px;height:58px">포</div><div class="barline" style="width:55%"></div>
+            <div class="stars" style="font-size:16px">★★★★★</div>
+            <span class="btn sm" style="opacity:.45">등록</span>
+          </div>
+          <div style="display:grid;grid-template-columns:48px 1fr 150px 90px;gap:12px;padding:12px 16px;border-bottom:1px solid var(--fill);align-items:center">
+            <div class="poster" style="width:40px;height:58px">포</div><div class="barline" style="width:48%"></div>
+            <div class="stars" style="font-size:16px"><b>★★★★</b>☆</div>
+            <span class="btn sm primary">등록</span>
+          </div>
+          <div style="display:grid;grid-template-columns:48px 1fr 150px 90px;gap:12px;padding:12px 16px;align-items:center">
+            <div class="poster" style="width:40px;height:58px">포</div><div class="barline" style="width:60%"></div>
+            <div class="stars" style="font-size:16px"><b>★★★★★</b></div>
+            <span class="btn sm primary">등록</span>
+          </div>
+        </div>
+        <div class="flow" style="margin-top:14px"><span class="ann"><span class="num">1</span>별점 0점이면 [등록] 비활성</span></div>
+      </div>
+    </div>
+    <div class="notes"><h4>설계 노트</h4><ol>
+      <li>영화 검색(05)과 달리 <b>등록 전용</b> 간편 창 — 지도를 보다가 빠진 영화를 바로 추가하는 용도. 상세로 이동하지 않음.</li>
+      <li><span class="num">1</span>각 행에 <b>인라인 별점</b>(필수). 별점이 0이면 [등록] 비활성 → 별점 없는 등록 원천 차단.</li>
+      <li>등록 즉시 좌표 재계산되어 옆 "취향 지도" 탭의 X가 이동.</li>
+    </ol></div>
+  </section>
+
+  <!-- ===================== 10d. 지도 탐색 - 미탐색 탭 ===================== -->
+  <section class="screen">
+    <div class="label"><span class="no">10·d</span><h2>지도 탐색 ▸ 미탐색 (토글 ON)</h2><span class="route">/map (tab: 지도 탐색 · 미탐색)</span></div>
+    <div class="browser">
+      <div class="chrome"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="urlbar">moviemoobee.app/map</span></div>
+      <div class="canvas pad-lg">
+        <div class="tabbar"><div class="tab">취향 지도</div><div class="tab">시청 영화 목록</div><div class="tab">영화 검색·등록</div><div class="tab on">지도 탐색</div></div>
+        <div style="margin-bottom:14px">
+          <div style="font-size:15px;font-weight:700">미탐색 추천 <span class="hint" style="font-weight:400">— 내 지도의 빈 곳(KDE) 도전 추천</span></div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 340px;gap:20px">
+          <!-- map: unexplored pins ON -->
+          <div class="mapframe">
+            <svg viewBox="0 0 560 360" width="100%" style="display:block">
+              <defs>
+                <filter id="gd" x="-120%" y="-120%" width="340%" height="340%"><feGaussianBlur stdDeviation="2.6" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+                <radialGradient id="safeD" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#ffe9b0" stop-opacity="0.38"/><stop offset="55%" stop-color="#ffcf6e" stop-opacity="0.10"/><stop offset="100%" stop-color="#ffcf6e" stop-opacity="0"/></radialGradient>
+              </defs>
+              <rect width="560" height="360" fill="#0e1018"/>
+              <g stroke="#1c1f2c" stroke-width="1"><line x1="0" y1="120" x2="560" y2="120"/><line x1="0" y1="240" x2="560" y2="240"/><line x1="186" y1="0" x2="186" y2="360"/><line x1="373" y1="0" x2="373" y2="360"/></g>
+              <!-- safe region faint glow -->
+              <ellipse cx="445" cy="100" rx="120" ry="95" fill="url(#safeD)"/>
+              <!-- unexplored region (active) = dark, dashed outline -->
+              <ellipse cx="110" cy="262" rx="96" ry="74" fill="#000" fill-opacity="0.28" stroke="#a86a14" stroke-width="1.6" stroke-dasharray="5 5"/>
+              <text x="110" y="172" fill="#c98a2e" font-size="12" text-anchor="middle" font-weight="700">미탐색 영역 (어두움)</text>
+              <!-- watched (dim glow) + user marker (dim) -->
+              <g filter="url(#gd)" opacity="0.55"><circle cx="430" cy="100" r="3.4" fill="#fff6df"/><circle cx="448" cy="92" r="3.4" fill="#fff6df"/><circle cx="462" cy="108" r="3" fill="#ffeecb"/></g>
+              <circle cx="440" cy="108" r="8" fill="none" stroke="#ff7ad9" stroke-width="1.8" opacity="0.5"/>
+              <!-- ON pins (amber glow) for items 1 & 3 in the dark region -->
+              <g filter="url(#gd)"><circle cx="85" cy="252" r="12" fill="#ff9d2e"/><circle cx="140" cy="288" r="12" fill="#ff9d2e"/></g>
+              <g fill="#241a07" font-size="12" font-weight="700" text-anchor="middle"><text x="85" y="256">1</text><text x="140" y="292">3</text></g>
+            </svg>
+            <div class="maplegend" style="background:#161922;border-top-color:#262a36;color:#aeb4c4">
+              <span><span style="width:12px;height:12px;border-radius:50%;background:#0e1018;border:1px dashed #a86a14;display:inline-block"></span> 미탐색 영역(어두움)</span>
+              <span><span style="width:11px;height:11px;border-radius:50%;background:#ff9d2e;box-shadow:0 0 6px #ff9d2e;display:inline-block"></span> 미탐색 추천 핀</span>
+              <span style="color:#7a8197">토글 켠 미탐색작만 핀 (1·3)</span>
+            </div>
+          </div>
+          <!-- right: subtabs + 미탐색 list -->
+          <div>
+            <div class="tabbar" style="margin-bottom:14px"><div class="tab on">미탐색</div><div class="tab">안전</div></div>
+            <div class="box" style="display:flex;gap:11px;padding:12px;margin-bottom:10px;align-items:center">
+              <span style="width:20px;height:20px;border-radius:50%;background:var(--challenge);color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex:none">1</span>
+              <div class="poster" style="width:42px;height:62px;flex:none">포</div>
+              <div style="flex:1"><div class="barline" style="width:80px;height:11px"></div><div class="y" style="margin-top:5px;color:#c06d00">미탐색 · 로맨스</div>
+                <div style="display:flex;align-items:center;gap:5px;font-size:11px;margin-top:6px">지도
+                  <span style="width:30px;height:17px;border-radius:10px;background:var(--challenge);position:relative;display:inline-block"><span style="position:absolute;top:2px;right:2px;width:13px;height:13px;border-radius:50%;background:#fff"></span></span></div></div>
+            </div>
+            <div class="box" style="display:flex;gap:11px;padding:12px;margin-bottom:10px;align-items:center">
+              <span style="width:20px;height:20px;border-radius:50%;background:var(--fill);color:var(--muted);font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex:none">2</span>
+              <div class="poster" style="width:42px;height:62px;flex:none">포</div>
+              <div style="flex:1"><div class="barline" style="width:90px;height:11px"></div><div class="y" style="margin-top:5px;color:#c06d00">미탐색 · 다큐멘터리</div>
+                <div style="display:flex;align-items:center;gap:5px;font-size:11px;margin-top:6px;color:var(--muted)">지도
+                  <span style="width:30px;height:17px;border-radius:10px;background:var(--line);position:relative;display:inline-block"><span style="position:absolute;top:2px;left:2px;width:13px;height:13px;border-radius:50%;background:#fff"></span></span></div></div>
+            </div>
+            <div class="box" style="display:flex;gap:11px;padding:12px;margin-bottom:10px;align-items:center">
+              <span style="width:20px;height:20px;border-radius:50%;background:var(--challenge);color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex:none">3</span>
+              <div class="poster" style="width:42px;height:62px;flex:none">포</div>
+              <div style="flex:1"><div class="barline" style="width:74px;height:11px"></div><div class="y" style="margin-top:5px;color:#c06d00">미탐색 · 뮤지컬</div>
+                <div style="display:flex;align-items:center;gap:5px;font-size:11px;margin-top:6px">지도
+                  <span style="width:30px;height:17px;border-radius:10px;background:var(--challenge);position:relative;display:inline-block"><span style="position:absolute;top:2px;right:2px;width:13px;height:13px;border-radius:50%;background:#fff"></span></span></div></div>
+            </div>
+            <span class="ann"><span class="num">1</span>카드 클릭 → 영화 상세 · 토글은 영화마다 개별</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="notes"><h4>설계 노트</h4><ol>
+      <li><b>[미탐색] 서브탭</b> 활성. 미탐색 = KDE 밀도 기반 도전 추천(어두운 영역).</li>
+      <li><span class="num">1</span><b>토글은 영화마다 개별</b> — 켠 영화(1·3)만 어두운 <b>미탐색 영역</b>에 빛나는 핀으로 표시. 전체 일괄 토글 아님.</li>
+      <li>추천 <b>영화 클릭 → 영화 상세</b>. 11번 추천 포스터를 누르면 이 탭으로 진입.</li>
+    </ol></div>
+  </section>
+
+  <!-- ===================== 10e. 지도 탐색 - 안전 탭 ===================== -->
+  <section class="screen">
+    <div class="label"><span class="no">10·e</span><h2>지도 탐색 ▸ 안전 (토글 ON)</h2><span class="route">/map (tab: 지도 탐색 · 안전)</span></div>
+    <div class="browser">
+      <div class="chrome"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="urlbar">moviemoobee.app/map</span></div>
+      <div class="canvas pad-lg">
+        <div class="tabbar"><div class="tab">취향 지도</div><div class="tab">시청 영화 목록</div><div class="tab">영화 검색·등록</div><div class="tab on">지도 탐색</div></div>
+        <div style="margin-bottom:14px">
+          <div style="font-size:15px;font-weight:700">안전 추천 <span class="hint" style="font-weight:400">— 내 좌표 근처(코사인 유사도 Top N)</span></div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 340px;gap:20px">
+          <!-- map: safe pins ON -->
+          <div class="mapframe">
+            <svg viewBox="0 0 560 360" width="100%" style="display:block">
+              <defs>
+                <filter id="ge" x="-120%" y="-120%" width="340%" height="340%"><feGaussianBlur stdDeviation="2.6" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+                <radialGradient id="safeE" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#ffe9b0" stop-opacity="0.55"/><stop offset="48%" stop-color="#ffcf6e" stop-opacity="0.16"/><stop offset="100%" stop-color="#ffcf6e" stop-opacity="0"/></radialGradient>
+              </defs>
+              <rect width="560" height="360" fill="#0e1018"/>
+              <g stroke="#1c1f2c" stroke-width="1"><line x1="0" y1="120" x2="560" y2="120"/><line x1="0" y1="240" x2="560" y2="240"/><line x1="186" y1="0" x2="186" y2="360"/><line x1="373" y1="0" x2="373" y2="360"/></g>
+              <!-- unexplored region faint, dashed (inactive here) -->
+              <ellipse cx="110" cy="262" rx="80" ry="62" fill="#000" fill-opacity="0.22" stroke="#333a52" stroke-width="1.3" stroke-dasharray="5 5"/>
+              <!-- safe region = illuminated (active) -->
+              <ellipse cx="445" cy="110" rx="135" ry="108" fill="url(#safeE)"/>
+              <text x="445" y="20" fill="#ffe6a8" font-size="12" text-anchor="middle" font-weight="700">안전 영역 (밝음)</text>
+              <!-- watched glowing stars in lit area + user marker -->
+              <g filter="url(#ge)"><circle cx="430" cy="100" r="4" fill="#fff6df"/><circle cx="452" cy="92" r="4.4" fill="#fff6df"/><circle cx="466" cy="108" r="3.6" fill="#ffeecb"/></g>
+              <g filter="url(#ge)"><circle cx="443" cy="125" r="5" fill="#ff7ad9"/></g>
+              <circle cx="443" cy="125" r="10" fill="none" stroke="#ff7ad9" stroke-width="1.8"/>
+              <!-- ON pins (cyan/blue glow) for items 1 & 2 in lit safe area -->
+              <g filter="url(#ge)"><circle cx="408" cy="132" r="12" fill="#5bc5ff"/><circle cx="478" cy="118" r="12" fill="#5bc5ff"/></g>
+              <g fill="#07283a" font-size="12" font-weight="700" text-anchor="middle"><text x="408" y="136">1</text><text x="478" y="122">2</text></g>
+            </svg>
+            <div class="maplegend" style="background:#161922;border-top-color:#262a36;color:#aeb4c4">
+              <span><span style="width:13px;height:13px;border-radius:50%;background:radial-gradient(#ffe9b0,rgba(255,207,110,0));display:inline-block"></span> 안전 영역(밝음)</span>
+              <span><span style="width:11px;height:11px;border-radius:50%;background:#5bc5ff;box-shadow:0 0 6px #5bc5ff;display:inline-block"></span> 안전 추천 핀</span>
+              <span style="color:#7a8197">토글 켠 안전작만 핀 (1·2)</span>
+            </div>
+          </div>
+          <!-- right: subtabs + 안전 list -->
+          <div>
+            <div class="tabbar" style="margin-bottom:14px"><div class="tab">미탐색</div><div class="tab on">안전</div></div>
+            <div class="box" style="display:flex;gap:11px;padding:12px;margin-bottom:10px;align-items:center">
+              <span style="width:20px;height:20px;border-radius:50%;background:var(--safe);color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex:none">1</span>
+              <div class="poster" style="width:42px;height:62px;flex:none">포</div>
+              <div style="flex:1"><div class="barline" style="width:80px;height:11px"></div><div class="y" style="margin-top:5px;color:#1c4fbf">안전 · 유사도 0.92</div>
+                <div style="display:flex;align-items:center;gap:5px;font-size:11px;margin-top:6px">지도
+                  <span style="width:30px;height:17px;border-radius:10px;background:var(--safe);position:relative;display:inline-block"><span style="position:absolute;top:2px;right:2px;width:13px;height:13px;border-radius:50%;background:#fff"></span></span></div></div>
+            </div>
+            <div class="box" style="display:flex;gap:11px;padding:12px;margin-bottom:10px;align-items:center">
+              <span style="width:20px;height:20px;border-radius:50%;background:var(--safe);color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex:none">2</span>
+              <div class="poster" style="width:42px;height:62px;flex:none">포</div>
+              <div style="flex:1"><div class="barline" style="width:90px;height:11px"></div><div class="y" style="margin-top:5px;color:#1c4fbf">안전 · 유사도 0.90</div>
+                <div style="display:flex;align-items:center;gap:5px;font-size:11px;margin-top:6px">지도
+                  <span style="width:30px;height:17px;border-radius:10px;background:var(--safe);position:relative;display:inline-block"><span style="position:absolute;top:2px;right:2px;width:13px;height:13px;border-radius:50%;background:#fff"></span></span></div></div>
+            </div>
+            <div class="box" style="display:flex;gap:11px;padding:12px;margin-bottom:10px;align-items:center">
+              <span style="width:20px;height:20px;border-radius:50%;background:var(--fill);color:var(--muted);font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex:none">3</span>
+              <div class="poster" style="width:42px;height:62px;flex:none">포</div>
+              <div style="flex:1"><div class="barline" style="width:74px;height:11px"></div><div class="y" style="margin-top:5px;color:#1c4fbf">안전 · 유사도 0.88</div>
+                <div style="display:flex;align-items:center;gap:5px;font-size:11px;margin-top:6px;color:var(--muted)">지도
+                  <span style="width:30px;height:17px;border-radius:10px;background:var(--line);position:relative;display:inline-block"><span style="position:absolute;top:2px;left:2px;width:13px;height:13px;border-radius:50%;background:#fff"></span></span></div></div>
+            </div>
+            <span class="ann"><span class="num">1</span>카드 클릭 → 영화 상세 · 토글은 영화마다 개별</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="notes"><h4>설계 노트</h4><ol>
+      <li><b>[안전] 서브탭</b> 활성. 안전 = 코사인 유사도 Top N(밝은 영역) — 내 취향을 강화하는 추천.</li>
+      <li><span class="num">1</span>10·d와 동일한 개별 토글. 켠 영화(1·2)만 밝은 <b>안전 영역</b>(내 좌표 근처)에 빛나는 핀으로 표시.</li>
+      <li>10번 지도에서 <b>안전 영역</b>을 클릭하면 이 [안전] 서브탭이 자동 선택되어 진입.</li>
+    </ol></div>
+  </section>
+
+  <!-- ===================== 11. 추천 페이지 ===================== -->
+  <section class="screen">
+    <div class="label"><span class="no">11</span><h2>추천 페이지</h2><span class="route">/recommend</span></div>
+    <div class="browser">
+      <div class="chrome"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="urlbar">moviemoobee.app/recommend</span></div>
+      <div class="appnav"><div class="brand">무비무비<span>·</span></div>
+        <div class="navlinks"><a>홈</a><a><span class="ico search"></span>검색</a><a><span class="ico"></span>지도</a><a class="active"><span class="ico"></span>추천</a><a><span class="ico"></span>친구</a></div>
+        <div class="avatar"></div></div>
+      <div class="canvas pad-lg">
+        <div style="display:flex;align-items:center;margin-bottom:6px">
+          <div class="sec-divider" style="margin:0;flex:1">오늘의 추천 영화 <span class="hint">DB 랜덤 · 장르별</span></div>
+        </div>
+        <div class="grid g5" style="margin-bottom:28px">
+          <div class="mcard"><div class="poster" style="aspect-ratio:2/3">포스터</div><div class="t">제목</div></div>
+          <div class="mcard"><div class="poster" style="aspect-ratio:2/3">포스터</div><div class="t">제목</div></div>
+          <div class="mcard"><div class="poster" style="aspect-ratio:2/3">포스터</div><div class="t">제목</div></div>
+          <div class="mcard"><div class="poster" style="aspect-ratio:2/3">포스터</div><div class="t">제목</div></div>
+          <div class="mcard"><div class="poster" style="aspect-ratio:2/3">포스터</div><div class="t">제목</div></div>
+        </div>
+
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
+          <div class="sec-divider" style="margin:0;flex:1"><span class="ld" style="background:var(--safe);width:13px;height:13px"></span> 취향 강화 추천 <span class="hint">안전 · 코사인 유사도 Top N</span></div>
+          <span class="chip">지도에서 위치 보기 ⤢</span>
+        </div>
+        <div class="grid g5" style="margin-bottom:28px">
+          <div class="mcard"><div class="poster" style="aspect-ratio:2/3;border-color:var(--safe)">포스터</div><div class="t">제목</div><div class="y">유사도 0.92</div></div>
+          <div class="mcard"><div class="poster" style="aspect-ratio:2/3;border-color:var(--safe)">포스터</div><div class="t">제목</div><div class="y">유사도 0.90</div></div>
+          <div class="mcard"><div class="poster" style="aspect-ratio:2/3;border-color:var(--safe)">포스터</div><div class="t">제목</div><div class="y">유사도 0.88</div></div>
+          <div class="mcard"><div class="poster" style="aspect-ratio:2/3;border-color:var(--safe)">포스터</div><div class="t">제목</div><div class="y">유사도 0.87</div></div>
+          <div class="mcard"><div class="poster" style="aspect-ratio:2/3;border-color:var(--safe)">포스터</div><div class="t">제목</div><div class="y">유사도 0.85</div></div>
+        </div>
+
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
+          <div class="sec-divider" style="margin:0;flex:1"><span class="ld" style="background:var(--challenge);width:13px;height:13px"></span> 미탐색 영역 추천 <span class="hint">도전 · KDE 밀도 기반</span></div>
+          <span class="ann"><span class="num">2</span>아직 안 가본 장르</span>
+        </div>
+        <div class="grid g5">
+          <div class="mcard"><div class="poster" style="aspect-ratio:2/3;border-color:var(--challenge)">포스터</div><div class="t">제목</div><div class="y" style="color:#c06d00">미탐색 · 로맨스</div></div>
+          <div class="mcard"><div class="poster" style="aspect-ratio:2/3;border-color:var(--challenge)">포스터</div><div class="t">제목</div><div class="y" style="color:#c06d00">미탐색 · 다큐</div></div>
+          <div class="mcard"><div class="poster" style="aspect-ratio:2/3;border-color:var(--challenge)">포스터</div><div class="t">제목</div><div class="y" style="color:#c06d00">미탐색 · 뮤지컬</div></div>
+          <div class="mcard"><div class="poster" style="aspect-ratio:2/3;border-color:var(--challenge)">포스터</div><div class="t">제목</div><div class="y" style="color:#c06d00">미탐색 · 서부</div></div>
+          <div class="mcard"><div class="poster" style="aspect-ratio:2/3;border-color:var(--challenge)">포스터</div><div class="t">제목</div><div class="y" style="color:#c06d00">미탐색 · 애니</div></div>
+        </div>
+      </div>
+    </div>
+    <div class="notes"><h4>설계 노트</h4><ol>
+      <li><span class="num">1</span>POC의 <b>두 트랙</b>을 그대로 화면 구조로: <b>안전(코사인·내 취향 강화)</b> vs <b>도전(미탐색·새 영역)</b>. 이게 프로젝트 핵심 가치("좋아하게 될 영화")를 가장 직접 보여주는 화면.</li>
+      <li><span class="num">2</span>각 카드에 <b>왜 추천됐는지</b>(유사도 / 미탐색 장르)를 명시 → 필터 버블 탈출이라는 메시지 강화.</li>
+      <li><span class="num">3</span><b>포스터를 클릭하면 취향 지도의 지도 탐색 탭(10·d/10·e)으로 이동</b> → 그 영화가 지도 어디에 있는지 위치를 확인하고, 거기서 다시 상세로 들어갈 수 있음.</li>
+    </ol></div>
+  </section>
+
+  <!-- ===================== 12. 친구 페이지 ===================== -->
+  <section class="screen">
+    <div class="label"><span class="no">12</span><h2>친구 페이지</h2><span class="route">/friends</span></div>
+    <div class="browser">
+      <div class="chrome"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="urlbar">moviemoobee.app/friends</span></div>
+      <div class="appnav"><div class="brand">무비무비<span>·</span></div>
+        <div class="navlinks"><a>홈</a><a><span class="ico search"></span>검색</a><a><span class="ico"></span>지도</a><a><span class="ico"></span>추천</a><a class="active"><span class="ico"></span>친구</a></div>
+        <div class="avatar"></div></div>
+      <div class="canvas pad-lg">
+        <div class="tabbar"><div class="tab on">친구 목록</div><div class="tab">친구 검색</div><div class="tab">받은 요청 <span style="color:#fff;background:#e23b3b;border-radius:10px;font-size:10px;padding:1px 6px;margin-left:4px">2</span></div></div>
+        <!-- search row (always-on quick search) -->
+        <div style="display:flex;gap:10px;margin-bottom:18px">
+          <div class="input" style="flex:1">🔍  닉네임으로 친구 검색</div><span class="btn primary">검색</span>
+        </div>
+        <div class="grid g2">
+          <div class="box" style="display:flex;align-items:center;gap:14px;padding:14px">
+            <div class="avatar" style="width:52px;height:52px"></div>
+            <div style="flex:1"><div class="barline xs" style="height:13px"></div><div class="y" style="margin-top:6px">본 영화 28편 · 주취향 액션</div></div>
+            <span class="btn sm">취향 비교</span>
+          </div>
+          <div class="box" style="display:flex;align-items:center;gap:14px;padding:14px">
+            <div class="avatar" style="width:52px;height:52px"></div>
+            <div style="flex:1"><div class="barline xs" style="height:13px"></div><div class="y" style="margin-top:6px">본 영화 51편 · 주취향 로맨스</div></div>
+            <span class="btn sm">취향 비교</span>
+          </div>
+          <div class="box" style="display:flex;align-items:center;gap:14px;padding:14px">
+            <div class="avatar" style="width:52px;height:52px"></div>
+            <div style="flex:1"><div class="barline xs" style="height:13px"></div><div class="y" style="margin-top:6px">본 영화 19편 · 주취향 공포</div></div>
+            <span class="btn sm">취향 비교</span>
+          </div>
+          <div class="box" style="display:flex;align-items:center;gap:14px;padding:14px;border-style:dashed">
+            <div class="avatar" style="width:52px;height:52px;background:var(--white)"></div>
+            <div style="flex:1"><div class="barline xs" style="height:13px"></div><div class="y" style="margin-top:6px;color:#c06d00">요청 대기 중…</div></div>
+            <span class="ann"><span class="num">3</span>요청 대기 상태</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="notes"><h4>설계 노트</h4><ol>
+      <li>3개 탭: <b>친구 목록 / 친구 검색 / 받은 요청</b>(뱃지로 개수 표시, 항목별 수락·거절).</li>
+      <li><span class="num">1</span>친구 검색 → <b>친구 등록 요청</b> → <span class="num">3</span><b>요청 대기 상태</b>(점선 카드로 구분).</li>
+      <li>카드 클릭/“취향 비교” → <b>친구 상세(13)</b>로 이동.</li>
+    </ol></div>
+  </section>
+
+  <!-- ===================== 13. 친구 상세 / 취향 비교 ===================== -->
+  <section class="screen">
+    <div class="label"><span class="no">13</span><h2>친구 상세 ▸ 취향 비교 & 같이 볼 영화</h2><span class="route">/friends/:id</span></div>
+    <div class="browser">
+      <div class="chrome"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="urlbar">moviemoobee.app/friends/khj</span></div>
+      <div class="appnav"><div class="brand">무비무비<span>·</span></div>
+        <div class="navlinks"><a>홈</a><a><span class="ico search"></span>검색</a><a><span class="ico"></span>지도</a><a><span class="ico"></span>추천</a><a class="active"><span class="ico"></span>친구</a></div>
+        <div class="avatar"></div></div>
+      <div class="canvas pad-lg">
+        <!-- friend header -->
+        <div style="display:flex;align-items:center;gap:16px;margin-bottom:20px">
+          <div class="avatar" style="width:64px;height:64px"></div>
+          <div style="flex:1"><div class="barline xs" style="height:15px"></div><div class="y" style="margin-top:6px">본 영화 28편 · 주취향 액션</div></div>
+          <span class="btn">친구 ✓</span><span class="btn danger sm">친구 삭제</span>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 300px;gap:20px">
+          <!-- comparison map (two users overlaid) -->
+          <div class="mapframe">
+            <div class="label-tag" style="padding:10px 12px 0">취향 비교 지도 <span class="hint" style="text-transform:none">— 나 vs 친구</span></div>
+            <svg viewBox="0 0 600 360" width="100%" style="display:block">
+              <rect width="600" height="360" fill="#fff"/>
+              <g stroke="#eef0f3" stroke-width="1"><line x1="0" y1="120" x2="600" y2="120"/><line x1="0" y1="240" x2="600" y2="240"/><line x1="200" y1="0" x2="200" y2="360"/><line x1="400" y1="0" x2="400" y2="360"/></g>
+              <g fill="#d3d6dc"><circle cx="160" cy="90" r="4"/><circle cx="300" cy="160" r="4"/><circle cx="440" cy="120" r="4"/><circle cx="250" cy="260" r="4"/><circle cx="380" cy="280" r="4"/></g>
+              <!-- my stars (red) -->
+              <g fill="#e23b3b" font-size="14" text-anchor="middle"><text x="430" y="115">★</text><text x="450" y="105">★</text><text x="465" y="125">★</text></g>
+              <!-- friend stars (teal) -->
+              <g fill="#1aa3a3" font-size="14" text-anchor="middle"><text x="170" y="95">★</text><text x="150" y="85">★</text><text x="190" y="105">★</text></g>
+              <!-- co-watched by BOTH (special violet) -->
+              <g fill="#8a3ffc" font-size="16" text-anchor="middle"><text x="300" y="150">★</text><text x="332" y="205">★</text><text x="278" y="215">★</text></g>
+              <!-- my X -->
+              <g stroke="#d11fd1" stroke-width="5" stroke-linecap="round"><line x1="440" y1="105" x2="456" y2="121"/><line x1="456" y1="105" x2="440" y2="121"/></g>
+              <!-- friend X -->
+              <g stroke="#1aa3a3" stroke-width="5" stroke-linecap="round"><line x1="160" y1="80" x2="176" y2="96"/><line x1="176" y1="80" x2="160" y2="96"/></g>
+              <!-- overlap recommendation zone (green, midpoint) -->
+              <ellipse cx="300" cy="180" rx="60" ry="48" fill="#1aa33a" opacity="0.08"/>
+              <g fill="#2bb24b" stroke="#179a36" stroke-width="2"><circle cx="295" cy="175" r="10"/><circle cx="315" cy="190" r="10"/></g>
+            </svg>
+            <div class="maplegend">
+              <span><span class="swatch x" style="width:13px;height:13px"></span> 나</span>
+              <span><span class="ld" style="background:#1aa3a3"></span> 친구</span>
+              <span style="color:#e23b3b">★ 내 시청</span>
+              <span style="color:#1aa3a3">★ 친구 시청</span>
+              <span style="color:#8a3ffc">★ 공통 시청작</span>
+              <span><span class="ld" style="background:#2bb24b"></span> 같이 볼 추천</span>
+            </div>
+          </div>
+          <!-- side: LLM co-watch chatbot -->
+          <div>
+            <div class="box" style="display:flex;flex-direction:column;height:430px;padding:0;overflow:hidden">
+              <!-- chat header -->
+              <div style="display:flex;align-items:center;gap:9px;padding:11px 14px;border-bottom:1.4px solid var(--line);background:var(--fill-2)">
+                <div style="width:28px;height:28px;border-radius:50%;background:var(--ink);color:#fff;display:flex;align-items:center;justify-content:center;font-size:14px;flex:none">🤖</div>
+                <div><div style="font-size:13px;font-weight:700">같이 볼 영화 AI</div><div class="hint" style="font-size:10.5px">두 분 취향을 분석해 추천해요</div></div>
+              </div>
+              <!-- messages -->
+              <div style="flex:1;overflow:auto;padding:14px;display:flex;flex-direction:column;gap:10px">
+                <div style="align-self:flex-start;max-width:90%;background:var(--fill-2);border:1px solid var(--line);border-radius:12px 12px 12px 4px;padding:9px 11px;font-size:11.5px;line-height:1.55">두 분 다 <b>액션·SF</b>를 좋아하고, 공통으로 본 작품도 5편 있네요. 함께 보기 좋은 한 편 골라봤어요 👇</div>
+                <!-- bot bubble with movie card -->
+                <div style="align-self:flex-start;max-width:94%;background:var(--fill-2);border:1px solid var(--line);border-radius:12px;padding:10px">
+                  <div style="display:flex;gap:9px"><div class="poster" style="width:42px;height:62px;flex:none">포</div>
+                    <div style="flex:1"><div class="barline" style="width:80px;height:10px"></div><div class="y" style="margin-top:5px">2014 · 액션/누아르</div><div class="stars" style="font-size:11px;margin-top:3px"><b>★★★★</b>☆</div></div></div>
+                  <div style="font-size:11px;color:var(--muted);margin-top:8px;line-height:1.5">둘 다 좋아하는 액션이면서, 친구만 본 누아르 색을 더한 작품이라 함께 보기 좋아요.</div>
+                  <div style="display:flex;gap:6px;margin-top:8px"><span class="btn sm" style="font-size:11px;padding:4px 9px">상세</span><span class="btn sm" style="font-size:11px;padding:4px 9px">다른 추천</span></div>
+                </div>
+                <!-- user bubble -->
+                <div style="align-self:flex-end;max-width:82%;background:var(--ink);color:#fff;border-radius:12px 12px 4px 12px;padding:9px 11px;font-size:11.5px;line-height:1.5">좀 더 가벼운 걸로 추천해줘</div>
+                <!-- bot reply -->
+                <div style="align-self:flex-start;max-width:90%;background:var(--fill-2);border:1px solid var(--line);border-radius:12px 12px 12px 4px;padding:9px 11px;font-size:11.5px;line-height:1.55">좋아요! 그럼 둘의 취향 사이에 있는 가벼운 작품으로 다시 골라볼게요 🍿</div>
+              </div>
+              <!-- input bar -->
+              <div style="display:flex;gap:8px;padding:10px 12px;border-top:1.4px solid var(--line);background:var(--fill-2)">
+                <div class="input" style="flex:1;margin:0;font-size:12px">메시지 입력…</div>
+                <span class="btn primary sm">전송</span>
+              </div>
+            </div>
+            <span class="ann" style="margin-top:10px"><span class="num">2</span>두 좌표 사이(겹침 영역) 후보를 채팅으로 추천·재요청</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="flow"><b>친구 상세</b><span class="arrow">→</span><b>친구 지도</b><span class="arrow">→</span><b>취향 비교</b><span class="arrow">→</span><b>같이 볼 영화 추천</b></div>
+    <div class="notes"><h4>설계 노트</h4><ol>
+      <li><span class="num">1</span>한 지도에 <b>나(자홍)</b>와 <b>친구(청록)</b> 좌표·시청 영화를 겹쳐 표시 → "우리 취향이 이렇게 다르다/같다"를 한눈에.</li>
+      <li><b>공통 시청작</b>(둘 다 본 같은 영화)은 별도 색 <span style="color:#8a3ffc;font-weight:700">보라 ★</span>로 강조 → 대화 소재·공감대를 즉시 보여줌.</li>
+      <li><span class="num">2</span><b>같이 볼 영화 AI(챗봇)</b> — 두 좌표 사이(겹침 영역) 후보를 채팅으로 추천하고, "더 가볍게" 같은 후속 요청에 LLM이 대화로 다시 골라줌 → 친구와의 선순환(공유) 유도. (기존 취향 겹침 통계 영역까지 채팅창이 차지)</li>
+      <li>헤더에 <b>친구 삭제</b> 포함(유저플로우 "친구 상세(친구 삭제 포함)").</li>
+    </ol></div>
+  </section>
+
+  <!-- footer -->
+  <div style="margin-top:64px;border-top:1.4px solid var(--line);padding-top:18px;color:var(--muted);font-size:12px;font-family:var(--mono)">
+    무비무비 / 와이어프레임 v6 · 화면 01–13 (10 탭 a~e 포함) · 기획 8단계 산출물 · Lo-Fi (시각 디자인 미정)
+  </div>
+
+</div>
+</body>
+</html>

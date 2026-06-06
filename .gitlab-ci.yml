@@ -1,0 +1,102 @@
+# =====================================================================
+# 무비무비 (MovieMoobee) · GitLab CI/CD 기본 골격
+# 스택: 프론트=Vue(npm, frontend/), 백엔드=Django REST Framework(backend/)
+# DB: 미확정 → 테스트는 PostgreSQL 서비스 기본(권장). MySQL이면 주석 참고.
+# 범위: 로컬 시연 — lint / test / build 까지만 (배포 단계 없음).
+# 폴더 구조·스크립트는 실제 프로젝트에 맞게 조정하세요.
+# =====================================================================
+
+stages:
+  - lint
+  - test
+  - build
+
+# MR 이벤트와 main 푸시에서만 파이프라인 실행 (중복 실행 방지)
+workflow:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == "main"
+
+default:
+  interruptible: true   # 새 커밋 푸시 시 이전 파이프라인 자동 취소
+
+# ---------------------------------------------------------------------
+# 프론트엔드 (Vue)
+# ---------------------------------------------------------------------
+.frontend:
+  image: node:20
+  cache:
+    key:
+      files:
+        - frontend/package-lock.json
+    paths:
+      - frontend/node_modules/
+  before_script:
+    - cd frontend
+    - npm ci
+
+frontend:lint:
+  stage: lint
+  extends: .frontend
+  script:
+    - npm run lint                 # package.json 에 lint 스크립트(eslint 등) 필요
+
+frontend:test:
+  stage: test
+  extends: .frontend
+  script:
+    - npm run test -- --run        # vitest 등. 테스트 없으면 아래 allow_failure 유지
+  allow_failure: true              # 테스트 갖춰지면 이 줄 제거해 필수화
+
+frontend:build:
+  stage: build
+  extends: .frontend
+  script:
+    - npm run build
+  artifacts:
+    paths:
+      - frontend/dist/
+    expire_in: 1 week
+
+# ---------------------------------------------------------------------
+# 백엔드 (Django REST Framework)
+# ---------------------------------------------------------------------
+.backend:
+  image: python:3.11
+  variables:
+    PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+  cache:
+    paths:
+      - .cache/pip
+  before_script:
+    - cd backend
+    - pip install -r requirements.txt
+
+backend:lint:
+  stage: lint
+  extends: .backend
+  script:
+    - ruff check .                 # 또는 flake8 .
+  allow_failure: true              # 정착되면 제거해 필수화
+
+backend:test:
+  stage: test
+  extends: .backend
+  services:
+    - name: postgres:16
+      alias: postgres
+  variables:
+    PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+    POSTGRES_DB: moviemoobee
+    POSTGRES_USER: moviemoobee
+    POSTGRES_PASSWORD: moviemoobee
+    # Django settings 가 이 값을 읽도록 구성 (예: dj-database-url)
+    DATABASE_URL: "postgres://moviemoobee:moviemoobee@postgres:5432/moviemoobee"
+  script:
+    - python manage.py makemigrations --check --dry-run   # 마이그레이션 누락 체크
+    - python manage.py migrate
+    - python manage.py test                                # 또는 pytest (pytest-django)
+  # --- MySQL 로 갈 경우 위 services/variables 대신 ---
+  #   services: [{ name: mysql:8, alias: mysql }]
+  #   variables: { MYSQL_DATABASE: moviemoobee, MYSQL_ROOT_PASSWORD: moviemoobee,
+  #                DATABASE_URL: "mysql://root:moviemoobee@mysql:3306/moviemoobee" }

@@ -1,0 +1,39 @@
+# =====================================================================
+# 무비무비 로컬 개발용 PostgreSQL (Docker Compose)
+#   켜기 :  docker compose up -d
+#   상태 :  docker compose ps
+#   끄기 :  docker compose down        (데이터 유지)
+#   초기화:  docker compose down -v      (데이터까지 삭제 — 주의)
+# 같은 폴더의 .env 를 자동으로 읽습니다(없으면 아래 기본값 사용).
+# =====================================================================
+services:
+  db:
+    image: postgres:16
+    container_name: moviemoobee-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-moviemoobee}
+      POSTGRES_USER: ${POSTGRES_USER:-moviemoobee}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-moviemoobee}
+    ports:
+      - "5432:5432"                      # 호스트:컨테이너. 5432 충돌 시 "5433:5432" 로
+    volumes:
+      - mm_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-moviemoobee} -d ${POSTGRES_DB:-moviemoobee}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # (선택) 브라우저용 DB 뷰어 — http://localhost:8080  (안 쓰면 이 블록 삭제)
+  adminer:
+    image: adminer:4
+    container_name: moviemoobee-adminer
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    depends_on:
+      - db
+
+volumes:
+  mm_pgdata:

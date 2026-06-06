@@ -1,93 +1,72 @@
-# Movie-Moobee
+# 무비무비 (MovieMoobee)
 
+"좋아하는 영화"가 아니라 **"좋아하게 될 영화"** 를 추천하는 웹앱. 취향 지도에서 안 가본 영역(미탐색)을 찾아 필터 버블을 벗어나게 한다.
 
+- **스택:** Vue 3 (Composition API) · Django REST Framework · PostgreSQL
+- **범위:** 로컬 시연
+- 작업 규칙은 `CLAUDE.md`, 협업 규칙은 별도 문서, 화면/기능은 기능명세서(F-ID) 기준.
 
-## Getting started
-
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
-
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
-
-## Add your files
-
-- [ ] [Create](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#create-a-file) or [upload](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#upload-a-file) files
-- [ ] [Add files using the command line](https://docs.gitlab.com/topics/git/add_files/#add-files-to-a-git-repository) or push an existing Git repository with the following command:
-
+## 폴더 구조
 ```
-cd existing_repo
-git remote add origin https://lab.ssafy.com/000304jun/movie-moobee.git
-git branch -M master
-git push -uf origin master
+movie-moobee/
+├─ CLAUDE.md                      # 바이브 코딩 가이드(도메인 불변식 포함)
+├─ docker-compose.yml             # 로컬 PostgreSQL
+├─ .env.example                   # 환경변수 예시 (.env 는 커밋 금지)
+├─ .gitignore
+├─ .gitlab-ci.yml                 # lint/test/build 파이프라인
+├─ .gitlab/merge_request_templates/Default.md
+├─ backend/                       # Django REST Framework
+│  ├─ manage.py
+│  ├─ requirements.txt            # 웹앱 의존성
+│  ├─ requirements-ml.txt         # 데이터·추천(개발자 A): numpy/sklearn/umap...
+│  ├─ config/                     # settings·urls·wsgi·asgi
+│  ├─ accounts/                   # User·인증·프로필         (개발자 B)
+│  ├─ movies/                     # Movie·Genre·Keyword·WatchRecord (개발자 B)
+│  ├─ social/                     # Friendship              (개발자 B)
+│  └─ taste/                      # 좌표·영역·추천·지도 데이터 (개발자 A)
+│     ├─ services/  coords.py · areas.py · recommend.py
+│     └─ management/commands/  import_movies.py · build_coords.py · seed_demo.py
+└─ frontend/                      # Vue 3 + Vite (Composition API)
+   ├─ package.json · vite.config.js · .eslintrc.cjs · index.html
+   └─ src/
+      ├─ main.js · App.vue
+      ├─ router/index.js          # 화면 01~13 라우팅
+      ├─ api/client.js            # axios (/api 프록시)
+      ├─ views/                   # 페이지(화면별)
+      ├─ components/
+      └─ composables/  useTasteMap.js   (개발자 A)
 ```
 
-## Integrate with your tools
+## 담당 (수직 분담)
+- **개발자 A — 지도·추천·데이터:** `backend/taste/`, 데이터 파이프라인(`management/commands`), `frontend/src/views/MapView·RecommendView`, `composables/useTasteMap`
+- **개발자 B — 인증·콘텐츠·소셜:** `backend/accounts·movies·social/`, 그 외 프론트 화면
+- **공통:** `config/`, 공통 셸·라우팅, 모델 변경 → MR + 상대 승인
 
-- [ ] [Set up project integrations](https://lab.ssafy.com/000304jun/movie-moobee/-/settings/integrations)
+## 처음 시작 (pull 받은 페어 포함)
+```bash
+# 0) 루트에서 환경변수
+cp .env.example .env            # TMDB_API_KEY 채우기
 
-## Collaborate with your team
+# 1) DB 띄우기
+docker compose up -d            # docker compose ps 로 healthy 확인
 
-- [ ] [Invite team members and collaborators](https://docs.gitlab.com/ee/user/project/members/)
-- [ ] [Create a new merge request](https://docs.gitlab.com/ee/user/project/merge_requests/creating_merge_requests.html)
-- [ ] [Automatically close issues from merge requests](https://docs.gitlab.com/ee/user/project/issues/managing_issues.html#closing-issues-automatically)
-- [ ] [Enable merge request approvals](https://docs.gitlab.com/ee/user/project/merge_requests/approvals/)
-- [ ] [Set auto-merge](https://docs.gitlab.com/user/project/merge_requests/auto_merge/)
+# 2) 백엔드
+cd backend
+python -m venv .venv && source .venv/bin/activate   # (윈도우: .venv\Scripts\activate)
+pip install -r requirements.txt
+python manage.py migrate
+python manage.py runserver       # http://localhost:8000
 
-## Test and Deploy
+# 3) 프론트 (새 터미널)
+cd frontend
+npm install
+npm run dev                      # http://localhost:5173
 
-Use the built-in continuous integration in GitLab.
+# 4) 데이터(개발자 A) — 준비되면
+cd backend && pip install -r requirements-ml.txt
+python manage.py import_movies --count 2000
+python manage.py build_coords
+python manage.py seed_demo
+```
 
-- [ ] [Get started with GitLab CI/CD](https://docs.gitlab.com/ee/ci/quick_start/)
-- [ ] [Analyze your code for known vulnerabilities with Static Application Security Testing (SAST)](https://docs.gitlab.com/ee/user/application_security/sast/)
-- [ ] [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/ee/topics/autodevops/requirements.html)
-- [ ] [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/ee/user/clusters/agent/)
-- [ ] [Set up protected environments](https://docs.gitlab.com/ee/ci/environments/protected_environments.html)
-
-***
-
-# Editing this README
-
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thanks to [makeareadme.com](https://www.makeareadme.com/) for this template.
-
-## Suggestions for a good README
-
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
-
-## Name
-Choose a self-explaining name for your project.
-
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
-
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
-
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
-
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
-
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
-
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
-
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
-
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
-
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
-
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
-
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
-
-## License
-For open source projects, say how it is licensed.
-
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+자세한 DB 세팅·트러블슈팅은 Docker 가이드 문서 참고.

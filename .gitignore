@@ -1,0 +1,47 @@
+# ===== 무비무비 .gitignore =====
+
+# 환경변수 · 시크릿 (TMDB 키 등) — 절대 커밋 금지
+.env
+.env.*
+!.env.example
+
+# 의존성
+node_modules/
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# 빌드 산출물
+dist/
+build/
+frontend/dist/
+
+# 데이터·모델 캐시 (대용량) — 필요 시 경로 조정
+*.pkl
+*.joblib
+data/raw/
+data/cache/
+
+# 로그·임시
+*.log
+*.local
+.cache/
+
+# 에디터 · OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+
+# Django 런타임
+staticfiles/
+media/
+*.sqlite3
+
+# Vite
+.vite/
+frontend/.env
+frontend/.env.*
+!frontend/.env.example
