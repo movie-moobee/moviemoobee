@@ -64,6 +64,12 @@
   .ico{display:inline-block;width:13px;height:13px;border:1.4px solid currentColor;border-radius:3px;vertical-align:-2px;margin-right:4px}
   .ico.search{border-radius:50%;position:relative} .ico.search::after{content:"";position:absolute;width:5px;height:1.4px;background:currentColor;right:-3px;bottom:-1px;transform:rotate(45deg)}
   .avatar{margin-left:auto;width:30px;height:30px;border-radius:50%;background:var(--fill);border:1.4px solid var(--line-strong)}
+  /* header right-side actions: 🔔 bell + profile avatar (avatar stays at right edge) */
+  .navactions{margin-left:auto;display:flex;align-items:center;gap:13px}
+  .navactions .avatar{margin-left:0}
+  .bell{position:relative;width:30px;height:30px;display:inline-flex;align-items:center;justify-content:center;font-size:18px;line-height:1;cursor:pointer;flex:none}
+  .bell.on{background:var(--fill-2);border:1px solid var(--line);border-radius:8px}
+  .bell .badge{position:absolute;top:-5px;right:-5px;min-width:16px;height:16px;padding:0 4px;border-radius:9px;background:#e23b3b;color:#fff;font-size:10px;font-weight:700;font-family:var(--sans);display:flex;align-items:center;justify-content:center;border:1.5px solid var(--white)}
 
   /* canvas */
   .canvas{padding:22px;background:var(--white)}
@@ -137,7 +143,7 @@
 
   <!-- ===================== DOC HEADER ===================== -->
   <header class="doc-head">
-    <div class="kicker">무비무비 · MovieMoobee / 기획 8단계 — 와이어프레임</div>
+    <div class="kicker">무비무비 · MovieMovie / 기획 8단계 — 와이어프레임</div>
     <h1>남은 페이지 와이어프레임 (Lo-Fi)</h1>
     <p>웹 UI 우선. 와이어프레임 단계이므로 색·폰트 등 시각 디자인은 의도적으로 비워두고 <b>레이아웃·요소·화면 흐름</b>에만 집중했습니다.
     회색 빗금 박스 = 이미지/포스터 자리, 회색 막대 = 텍스트 자리, 파란 박스 = 설계 메모입니다. 로그인부터 친구 상세까지 전체 <b>01–13 화면</b> — 01–04(로그인·회원가입·영화등록·메인)는 PDF에서 글로만 설명된 것을 와이어프레임으로 옮긴 것입니다.</p>
@@ -153,7 +159,7 @@
           <div class="navlinks" style="gap:13px;font-size:11.5px">
             <a class="active">홈</a><a><span class="ico search"></span>검색</a><a><span class="ico"></span>지도</a><a><span class="ico"></span>추천</a><a><span class="ico"></span>친구</a>
           </div>
-          <div class="avatar" style="width:22px;height:22px"></div>
+          <div class="navactions" style="gap:8px"><span class="bell" style="width:22px;height:22px;font-size:13px">🔔<span class="badge" style="min-width:12px;height:12px;font-size:8px;top:-3px;right:-3px;border-width:1px">3</span></span><div class="avatar" style="width:22px;height:22px"></div></div>
         </div>
       </div>
       <p style="font-size:12px;color:var(--muted);margin:10px 0 0">좌측 로고 → 홈 / 중앙 NavBar 5개 / 우측 프로필 아이콘 → 내 프로필.
@@ -175,7 +181,7 @@
   <section class="screen">
     <div class="label"><span class="no">01</span><h2>로그인 페이지 <span class="hint" style="font-weight:400">— 첫 화면 · 인스타그램식 split</span></h2><span class="route">/login</span></div>
     <div class="browser">
-      <div class="chrome"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="urlbar">moviemoobee.app/login</span></div>
+      <div class="chrome"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="urlbar">moviemovie.app/login</span></div>
       <div class="canvas" style="padding:0">
         <div style="display:grid;grid-template-columns:1.15fr .85fr;min-height:430px">
           <!-- LEFT hero -->
@@ -216,7 +222,7 @@
   <section class="screen">
     <div class="label"><span class="no">02</span><h2>회원가입 페이지</h2><span class="route">/signup</span></div>
     <div class="browser">
-      <div class="chrome"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="urlbar">moviemoobee.app/signup</span></div>
+      <div class="chrome"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="urlbar">moviemovie.app/signup</span></div>
       <div class="canvas" style="padding:0">
         <div style="display:grid;grid-template-columns:1.15fr .85fr;min-height:440px">
           <div style="background:#23252b;color:#e9ebef;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:22px;padding:36px">
@@ -254,7 +260,7 @@
   <section class="screen">
     <div class="label"><span class="no">03</span><h2>영화 등록 (5편 이상) <span class="hint" style="font-weight:400">— 온보딩 · 검색 등록 / 삭제</span></h2><span class="route">/onboarding</span></div>
     <div class="browser">
-      <div class="chrome"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="urlbar">moviemoobee.app/onboarding</span></div>
+      <div class="chrome"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="urlbar">moviemovie.app/onboarding</span></div>
       <div class="canvas pad-lg">
         <!-- header row: title + 등록 현황 card -->
         <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:24px;margin-bottom:24px">
@@ -324,10 +330,10 @@
   <section class="screen">
     <div class="label"><span class="no">04</span><h2>메인 (홈) 페이지</h2><span class="route">/</span></div>
     <div class="browser">
-      <div class="chrome"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="urlbar">moviemoobee.app/</span></div>
+      <div class="chrome"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="urlbar">moviemovie.app/</span></div>
       <div class="appnav"><div class="brand">무비무비<span>·</span></div>
         <div class="navlinks"><a class="active">홈</a><a><span class="ico search"></span>검색</a><a><span class="ico"></span>지도</a><a><span class="ico"></span>추천</a><a><span class="ico"></span>친구</a></div>
-        <div class="avatar"></div></div>
+        <div class="navactions"><span class="bell">🔔<span class="badge">3</span></span><div class="avatar"></div></div></div>
       <div class="canvas pad-lg">
         <!-- my taste-map preview (large) -->
         <div class="sec-divider" style="margin-top:2px">내 취향 지도 <span class="hint">— 탭하면 지도 페이지(10)로</span></div>
@@ -359,10 +365,10 @@
   <section class="screen">
     <div class="label"><span class="no">05</span><h2>영화 검색 결과 페이지</h2><span class="route">/search?q=…</span></div>
     <div class="browser">
-      <div class="chrome"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="urlbar">moviemoobee.app/search?q=인터스텔라</span></div>
+      <div class="chrome"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="urlbar">moviemovie.app/search?q=인터스텔라</span></div>
       <div class="appnav"><div class="brand">무비무비<span>·</span></div>
         <div class="navlinks"><a>홈</a><a class="active"><span class="ico search"></span>검색</a><a><span class="ico"></span>지도</a><a><span class="ico"></span>추천</a><a><span class="ico"></span>친구</a></div>
-        <div class="avatar"></div></div>
+        <div class="navactions"><span class="bell">🔔<span class="badge">3</span></span><div class="avatar"></div></div></div>
       <div class="canvas pad-lg">
         <!-- search bar -->
         <div style="display:flex;gap:10px;margin-bottom:14px">
@@ -390,10 +396,10 @@
   <section class="screen">
     <div class="label"><span class="no">06</span><h2>영화 상세 페이지</h2><span class="route">/movie/:id</span></div>
     <div class="browser">
-      <div class="chrome"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="urlbar">moviemoobee.app/movie/157336</span></div>
+      <div class="chrome"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="urlbar">moviemovie.app/movie/157336</span></div>
       <div class="appnav"><div class="brand">무비무비<span>·</span></div>
         <div class="navlinks"><a>홈</a><a class="active"><span class="ico search"></span>검색</a><a><span class="ico"></span>지도</a><a><span class="ico"></span>추천</a><a><span class="ico"></span>친구</a></div>
-        <div class="avatar"></div></div>
+        <div class="navactions"><span class="bell">🔔<span class="badge">3</span></span><div class="avatar"></div></div></div>
       <div class="canvas pad-lg">
         <div style="display:grid;grid-template-columns:230px 1fr;gap:28px">
           <div class="poster" style="aspect-ratio:2/3">포스터</div>
@@ -473,7 +479,7 @@
   <section class="screen">
     <div class="label"><span class="no">07</span><h2>별점 · 리뷰 작성 (모달)</h2><span class="route">/movie/:id → review modal</span></div>
     <div class="browser">
-      <div class="chrome"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="urlbar">moviemoobee.app/movie/157336</span></div>
+      <div class="chrome"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="urlbar">moviemovie.app/movie/157336</span></div>
       <div class="canvas" style="background:var(--fill-2);padding:34px;position:relative">
         <!-- dimmed bg hint -->
         <div style="position:absolute;inset:0;background:repeating-linear-gradient(45deg,#dfe1e6 0 9px,#e8eaee 9px 18px);opacity:.5"></div>
@@ -508,10 +514,10 @@
   <section class="screen">
     <div class="label"><span class="no">08</span><h2>내 프로필 페이지</h2><span class="route">/me</span></div>
     <div class="browser">
-      <div class="chrome"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="urlbar">moviemoobee.app/me</span></div>
+      <div class="chrome"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="urlbar">moviemovie.app/me</span></div>
       <div class="appnav"><div class="brand">무비무비<span>·</span></div>
         <div class="navlinks"><a>홈</a><a><span class="ico search"></span>검색</a><a><span class="ico"></span>지도</a><a><span class="ico"></span>추천</a><a><span class="ico"></span>친구</a></div>
-        <div class="avatar" style="border-color:var(--ink)"></div></div>
+        <div class="navactions"><span class="bell">🔔<span class="badge">3</span></span><div class="avatar" style="border-color:var(--ink)"></div></div></div>
       <div class="canvas pad-lg">
         <div style="max-width:860px;margin:0 auto">
           <!-- profile header (centered column) -->
@@ -550,10 +556,10 @@
   <section class="screen">
     <div class="label"><span class="no">09</span><h2>프로필 수정 페이지</h2><span class="route">/me/edit</span></div>
     <div class="browser">
-      <div class="chrome"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="urlbar">moviemoobee.app/me/edit</span></div>
+      <div class="chrome"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="urlbar">moviemovie.app/me/edit</span></div>
       <div class="appnav"><div class="brand">무비무비<span>·</span></div>
         <div class="navlinks"><a>홈</a><a><span class="ico search"></span>검색</a><a><span class="ico"></span>지도</a><a><span class="ico"></span>추천</a><a><span class="ico"></span>친구</a></div>
-        <div class="avatar" style="border-color:var(--ink)"></div></div>
+        <div class="navactions"><span class="bell">🔔<span class="badge">3</span></span><div class="avatar" style="border-color:var(--ink)"></div></div></div>
       <div class="canvas pad-lg">
         <div style="max-width:480px;margin:0 auto">
           <!-- centered photo -->
@@ -584,10 +590,10 @@
   <section class="screen">
     <div class="label"><span class="no">10</span><h2>취향 지도 페이지 <span class="hint" style="font-weight:400">— 핵심 화면</span></h2><span class="route">/map</span></div>
     <div class="browser">
-      <div class="chrome"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="urlbar">moviemoobee.app/map</span></div>
+      <div class="chrome"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="urlbar">moviemovie.app/map</span></div>
       <div class="appnav"><div class="brand">무비무비<span>·</span></div>
         <div class="navlinks"><a>홈</a><a><span class="ico search"></span>검색</a><a class="active"><span class="ico"></span>지도</a><a><span class="ico"></span>추천</a><a><span class="ico"></span>친구</a></div>
-        <div class="avatar"></div></div>
+        <div class="navactions"><span class="bell">🔔<span class="badge">3</span></span><div class="avatar"></div></div></div>
       <div class="canvas pad-lg">
         <!-- internal tabs -->
         <div class="tabbar">
@@ -675,7 +681,7 @@
   <section class="screen">
     <div class="label"><span class="no">10·b</span><h2>지도 ▸ 시청 영화 목록 탭</h2><span class="route">/map (tab: 시청 영화)</span></div>
     <div class="browser">
-      <div class="chrome"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="urlbar">moviemoobee.app/map</span></div>
+      <div class="chrome"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="urlbar">moviemovie.app/map</span></div>
       <div class="canvas pad-lg">
         <div class="tabbar"><div class="tab">취향 지도</div><div class="tab on">시청 영화 목록</div><div class="tab">영화 검색·등록</div><div class="tab">지도 탐색</div></div>
         <div style="display:flex;gap:10px;margin-bottom:16px">
@@ -717,7 +723,7 @@
   <section class="screen">
     <div class="label"><span class="no">10·c</span><h2>지도 ▸ 영화 검색·등록 탭</h2><span class="route">/map (tab: 영화 검색·등록)</span></div>
     <div class="browser">
-      <div class="chrome"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="urlbar">moviemoobee.app/map</span></div>
+      <div class="chrome"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="urlbar">moviemovie.app/map</span></div>
       <div class="canvas pad-lg">
         <div class="tabbar"><div class="tab">취향 지도</div><div class="tab">시청 영화 목록</div><div class="tab on">영화 검색·등록</div><div class="tab">지도 탐색</div></div>
         <div style="display:flex;gap:10px;margin-bottom:8px"><div class="input" style="flex:1">🔍  본 영화 검색해서 바로 등록</div><span class="btn primary">검색</span></div>
@@ -756,7 +762,7 @@
   <section class="screen">
     <div class="label"><span class="no">10·d</span><h2>지도 탐색 ▸ 미탐색 (토글 ON)</h2><span class="route">/map (tab: 지도 탐색 · 미탐색)</span></div>
     <div class="browser">
-      <div class="chrome"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="urlbar">moviemoobee.app/map</span></div>
+      <div class="chrome"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="urlbar">moviemovie.app/map</span></div>
       <div class="canvas pad-lg">
         <div class="tabbar"><div class="tab">취향 지도</div><div class="tab">시청 영화 목록</div><div class="tab">영화 검색·등록</div><div class="tab on">지도 탐색</div></div>
         <div style="margin-bottom:14px">
@@ -830,7 +836,7 @@
   <section class="screen">
     <div class="label"><span class="no">10·e</span><h2>지도 탐색 ▸ 안전 (토글 ON)</h2><span class="route">/map (tab: 지도 탐색 · 안전)</span></div>
     <div class="browser">
-      <div class="chrome"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="urlbar">moviemoobee.app/map</span></div>
+      <div class="chrome"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="urlbar">moviemovie.app/map</span></div>
       <div class="canvas pad-lg">
         <div class="tabbar"><div class="tab">취향 지도</div><div class="tab">시청 영화 목록</div><div class="tab">영화 검색·등록</div><div class="tab on">지도 탐색</div></div>
         <div style="margin-bottom:14px">
@@ -905,10 +911,10 @@
   <section class="screen">
     <div class="label"><span class="no">11</span><h2>추천 페이지</h2><span class="route">/recommend</span></div>
     <div class="browser">
-      <div class="chrome"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="urlbar">moviemoobee.app/recommend</span></div>
+      <div class="chrome"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="urlbar">moviemovie.app/recommend</span></div>
       <div class="appnav"><div class="brand">무비무비<span>·</span></div>
         <div class="navlinks"><a>홈</a><a><span class="ico search"></span>검색</a><a><span class="ico"></span>지도</a><a class="active"><span class="ico"></span>추천</a><a><span class="ico"></span>친구</a></div>
-        <div class="avatar"></div></div>
+        <div class="navactions"><span class="bell">🔔<span class="badge">3</span></span><div class="avatar"></div></div></div>
       <div class="canvas pad-lg">
         <div style="display:flex;align-items:center;margin-bottom:6px">
           <div class="sec-divider" style="margin:0;flex:1">오늘의 추천 영화 <span class="hint">DB 랜덤 · 장르별</span></div>
@@ -957,10 +963,10 @@
   <section class="screen">
     <div class="label"><span class="no">12</span><h2>친구 페이지</h2><span class="route">/friends</span></div>
     <div class="browser">
-      <div class="chrome"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="urlbar">moviemoobee.app/friends</span></div>
+      <div class="chrome"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="urlbar">moviemovie.app/friends</span></div>
       <div class="appnav"><div class="brand">무비무비<span>·</span></div>
         <div class="navlinks"><a>홈</a><a><span class="ico search"></span>검색</a><a><span class="ico"></span>지도</a><a><span class="ico"></span>추천</a><a class="active"><span class="ico"></span>친구</a></div>
-        <div class="avatar"></div></div>
+        <div class="navactions"><span class="bell">🔔<span class="badge">3</span></span><div class="avatar"></div></div></div>
       <div class="canvas pad-lg">
         <div class="tabbar"><div class="tab on">친구 목록</div><div class="tab">친구 검색</div><div class="tab">받은 요청 <span style="color:#fff;background:#e23b3b;border-radius:10px;font-size:10px;padding:1px 6px;margin-left:4px">2</span></div></div>
         <!-- search row (always-on quick search) -->
@@ -1002,10 +1008,10 @@
   <section class="screen">
     <div class="label"><span class="no">13</span><h2>친구 상세 ▸ 취향 비교 & 같이 볼 영화</h2><span class="route">/friends/:id</span></div>
     <div class="browser">
-      <div class="chrome"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="urlbar">moviemoobee.app/friends/khj</span></div>
+      <div class="chrome"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="urlbar">moviemovie.app/friends/khj</span></div>
       <div class="appnav"><div class="brand">무비무비<span>·</span></div>
         <div class="navlinks"><a>홈</a><a><span class="ico search"></span>검색</a><a><span class="ico"></span>지도</a><a><span class="ico"></span>추천</a><a class="active"><span class="ico"></span>친구</a></div>
-        <div class="avatar"></div></div>
+        <div class="navactions"><span class="bell">🔔<span class="badge">3</span></span><div class="avatar"></div></div></div>
       <div class="canvas pad-lg">
         <!-- friend header -->
         <div style="display:flex;align-items:center;gap:16px;margin-bottom:20px">
@@ -1087,9 +1093,62 @@
     </ol></div>
   </section>
 
+  <!-- ===================== 14. 알림 (헤더 드롭다운) ===================== -->
+  <section class="screen">
+    <div class="label"><span class="no">14</span><h2>알림 <span class="hint" style="font-weight:400">— 헤더 🔔 드롭다운 (오버레이)</span></h2><span class="route">/* (헤더 공통)</span></div>
+    <div class="browser">
+      <div class="chrome"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="urlbar">moviemovie.app/friends</span></div>
+      <div class="appnav"><div class="brand">무비무비<span>·</span></div>
+        <div class="navlinks"><a>홈</a><a><span class="ico search"></span>검색</a><a><span class="ico"></span>지도</a><a><span class="ico"></span>추천</a><a class="active"><span class="ico"></span>친구</a></div>
+        <div class="navactions"><span class="bell on">🔔<span class="badge">3</span></span><div class="avatar"></div></div></div>
+      <div class="canvas pad-lg" style="position:relative;min-height:340px">
+        <!-- notification dropdown anchored under the 🔔 bell (right side, left of avatar) -->
+        <div class="box" style="position:absolute;top:12px;right:18px;width:380px;box-shadow:0 16px 40px rgba(0,0,0,.14);overflow:hidden;z-index:5">
+          <!-- dropdown header -->
+          <div style="display:flex;align-items:center;padding:14px 16px;border-bottom:1.4px solid var(--line)">
+            <div style="font-size:14px;font-weight:700">알림 <span style="color:#e23b3b">3</span></div>
+            <span class="hint" style="margin-left:auto">모두 읽음</span>
+          </div>
+          <!-- item 1: friend request (unread) + 수락/거절 -->
+          <div style="display:flex;gap:11px;padding:13px 16px;border-bottom:1px solid var(--fill);background:#eef3ff">
+            <div class="avatar" style="width:38px;height:38px;flex:none;margin:0"></div>
+            <div style="flex:1">
+              <div style="font-size:12.5px;line-height:1.5"><b>cinephile_22</b> 님이 친구 요청을 보냈어요</div>
+              <div style="display:flex;gap:6px;margin-top:8px"><span class="btn primary sm">수락</span><span class="btn sm">거절</span></div>
+            </div>
+            <span class="hint" style="font-size:10.5px;flex:none">방금</span>
+          </div>
+          <!-- item 2: request accepted (unread) -->
+          <div style="display:flex;gap:11px;padding:13px 16px;border-bottom:1px solid var(--fill);background:#eef3ff;align-items:center">
+            <div class="avatar" style="width:38px;height:38px;flex:none;margin:0"></div>
+            <div style="flex:1;font-size:12.5px;line-height:1.5"><b>mubee_jin</b> 님이 친구 요청을 수락했어요</div>
+            <span class="hint" style="font-size:10.5px;flex:none">1시간</span>
+          </div>
+          <!-- item 3: request accepted (read = faded) -->
+          <div style="display:flex;gap:11px;padding:13px 16px;align-items:center;opacity:.5">
+            <div class="avatar" style="width:38px;height:38px;flex:none;margin:0"></div>
+            <div style="flex:1;font-size:12.5px;line-height:1.5"><b>popcorn_k</b> 님이 친구 요청을 수락했어요</div>
+            <span class="hint" style="font-size:10.5px;flex:none">어제</span>
+          </div>
+        </div>
+        <!-- caption -->
+        <div class="hint" style="position:absolute;left:22px;bottom:10px;right:418px;font-size:12px;line-height:1.75">
+          헤더 🔔 <b style="color:var(--ink)">빨간 배지 = 안 읽음 개수</b>. 클릭 시 위 드롭다운 열림. <b style="color:#3a6fe0">파란 배경</b> = 안 읽음, 흐림 = 읽음. 요청 알림은 <b style="color:var(--ink)">수락/거절</b> 버튼 포함.
+        </div>
+      </div>
+    </div>
+    <div class="flow"><b>🔔 클릭</b><span class="arrow">→</span><b>드롭다운 열림</b><span class="arrow">→</span><b>수락/거절</b><span class="arrow">또는</span><b>알림 클릭 → 해당 화면</b></div>
+    <div class="notes"><h4>설계 노트 (F-NTF-01)</h4><ol>
+      <li><b>알림 모델</b>(notifications): recipient · actor · <b>type</b>(enum: 친구요청 / 요청수락) · friendship_id · <b>is_read</b> · created_at.</li>
+      <li>친구 <b>요청·수락 시 Django Signal</b>로 알림 자동 생성 (담당 B).</li>
+      <li>헤더 🔔 배지 = 안 읽음(<b>is_read=false</b>) 개수, 드롭다운 열람 시 읽음 처리.</li>
+      <li>요청 알림의 <b>수락/거절</b>은 친구 페이지(12)·받은 요청 흐름과 연결.</li>
+    </ol></div>
+  </section>
+
   <!-- footer -->
   <div style="margin-top:64px;border-top:1.4px solid var(--line);padding-top:18px;color:var(--muted);font-size:12px;font-family:var(--mono)">
-    무비무비 / 와이어프레임 v6 · 화면 01–13 (10 탭 a~e 포함) · 기획 8단계 산출물 · Lo-Fi (시각 디자인 미정)
+    무비무비 / 와이어프레임 v6 · 화면 01–14 (10 탭 a~e · 14 알림 포함) · 기획 8단계 산출물 · Lo-Fi (시각 디자인 미정)
   </div>
 
 </div>
