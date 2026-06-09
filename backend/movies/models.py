@@ -11,7 +11,7 @@ class Keyword(models.Model):
     def __str__(self): return self.name
 
 class Movie(models.Model):
-    # ERD: movies.  좌표는 전역 고정(개발자 A 파이프라인이 채움; fit 금지, transform 만)
+    # ERD: movies.  좌표는 전역 고정(김호준이 파이프라인이 채움; fit 금지, transform 만)
     tmdb_id = models.BigIntegerField(unique=True)
     title = models.CharField(max_length=500)
     original_title = models.CharField(max_length=500, blank=True)
