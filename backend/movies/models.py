@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.db import models
 
 class Genre(models.Model):
@@ -32,7 +33,7 @@ class Movie(models.Model):
 
 class WatchRecord(models.Model):
     # ERD: watch_records.  등록=별점 필수(F-WAT-01), 리뷰 선택.
-    user = models.ForeignKey("accounts.User", on_delete=models.CASCADE, related_name="watch_records")
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="watch_records")
     movie = models.ForeignKey(Movie, on_delete=models.CASCADE, related_name="watch_records")
     rating = models.DecimalField(max_digits=2, decimal_places=1)   # 0.5 단위, 필수
     review = models.TextField(blank=True, null=True)               # 선택
