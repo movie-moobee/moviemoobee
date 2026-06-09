@@ -12,11 +12,17 @@
 //  - 이용자 리뷰 목록 = watch_records 에서 review IS NOT NULL 조회
 //  - OTT 제공 정보는 TMDB watch providers 를 조회 시점에 가져옴 → 테이블 없음
 //  - 친구 = 요청·수락(맞팔)만. friendships 한 행으로 양방향 관계 표현
+//  - 알림 = 친구 요청/수락 시 Signal로 생성(인앱). notifications 테이블, 실시간 push 없음
 // =====================================================================
 
 Enum friendship_status {
   pending
   accepted
+}
+
+Enum notification_type {
+  friend_request
+  friend_accept
 }
 
 Table users {
@@ -104,5 +110,19 @@ Table friendships {
 
   indexes {
     (requester_id, addressee_id) [unique]
+  }
+}
+
+Table notifications {
+  id            bigint            [pk, increment]
+  recipient_id  bigint            [not null, ref: > users.id, note: '알림 받는 사람']
+  actor_id      bigint            [ref: > users.id, note: '유발한 상대(요청자/수락자)']
+  type          notification_type [not null]
+  friendship_id bigint            [ref: > friendships.id, note: '관련 친구요청']
+  is_read       boolean           [not null, default: false]
+  created_at    timestamp         [not null, default: `now()`]
+
+  indexes {
+    (recipient_id, is_read)
   }
 }
