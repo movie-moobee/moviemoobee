@@ -16,6 +16,7 @@
 | 05 | [05_collaboration_rules.docx](05_collaboration_rules.docx) | 협업 규칙 — 그라운드룰·GitHub Flow(GitLab)·커밋 컨벤션(기능 ID) |
 | 06 | [06_github_flow.png](06_github_flow.png) | GitHub Flow 다이어그램(브랜치→MR→승인→Squash & Merge) |
 | 07 | [07_docker_postgres_guide.md](07_docker_postgres_guide.md) | Docker + PostgreSQL 로컬 세팅·트러블슈팅 |
+| 08 | [journal/](journal/) | 개발 일지 — 매 작업의 파일·이유·기능·검증 기록(작업별 파일, 일기 형식) |
 
 ## 노션용 (notion/)
 - [schedule.csv](notion/schedule.csv) — 노션 DB로 import (상태·완료·진행률·리뷰)
