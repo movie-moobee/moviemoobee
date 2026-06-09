@@ -28,11 +28,16 @@ data/cache/
 *.local
 .cache/
 
+# AI 코딩 가이드 · 설정 (개인용 — 공유 안 함)
+CLAUDE.md
+.claude/
+
 # 에디터 · OS
 .idea/
 .vscode/
 .DS_Store
 Thumbs.db
+~$*
 
 
 # Django 런타임
