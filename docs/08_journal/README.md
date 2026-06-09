@@ -15,6 +15,7 @@
 |---|---|---|---|
 | [A-01-initial-setup.md](A-01-initial-setup.md) | 초기 환경 세팅 & 부팅·연결 검증 | 2026-06-06 | 0.1 기반 |
 | [A-02-import-movies.md](A-02-import-movies.md) | TMDB 인기 영화 수집·적재 | 2026-06-07 | 0.5 |
+| [A-03-build-coords.md](A-03-build-coords.md) | TF-IDF + UMAP 전역 좌표 생성·적재 | 2026-06-07 | 0.5 |
 
 ## 작성 템플릿
 ```markdown
