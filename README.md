@@ -62,11 +62,16 @@ cd frontend
 npm install
 npm run dev                      # http://localhost:5173
 
-# 4) 데이터(개발자 A) — 준비되면
-cd backend && pip install -r requirements-ml.txt
+# 4) 데이터
+#  (A) 빠른 시작 — 영화+좌표 픽스처 로드 (TMDB 키·ML 스택 불필요, 권장)
+cd backend
+python manage.py loaddata movies        # 영화 299편 + 전역 좌표(umap_x/y)
+
+#  (B) 직접 생성/갱신 (개발자 A · 데이터 파이프라인, ML 스택 필요)
+pip install -r requirements-ml.txt
 python manage.py import_movies --count 2000
 python manage.py build_coords
-python manage.py seed_demo
+python manage.py seed_demo               # 데모 유저·시청기록·친구 (시연용)
 ```
 
 자세한 DB 세팅·트러블슈팅은 Docker 가이드 문서 참고.
