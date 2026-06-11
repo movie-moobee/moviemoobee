@@ -1,8 +1,8 @@
 # 데이터 파이프라인·추천(개발자 A)용. 무거우니 별도 설치:
 #   pip install -r requirements-ml.txt
-numpy
-scipy
-scikit-learn
-umap-learn
-pandas
-requests
+numpy==2.4.6
+scipy==1.17.1
+scikit-learn==1.9.0
+umap-learn==0.5.12
+pandas==3.0.3
+requests==2.34.2
