@@ -1,17 +1,35 @@
-import { createRouter, createWebHistory } from "vue-router";
+import { createRouter, createWebHistory } from 'vue-router'
+import AppLayout from '@/layouts/AppLayout.vue'
 
-// 화면 라우팅 (와이어프레임 01~13 기준). 페이지는 lazy import.
 const routes = [
-  { path: "/login", component: () => import("../views/LoginView.vue") },
-  { path: "/onboarding", component: () => import("../views/OnboardingView.vue") },
-  { path: "/", component: () => import("../views/MainView.vue") },
-  { path: "/search", component: () => import("../views/SearchView.vue") },
-  { path: "/movies/:id", component: () => import("../views/MovieDetailView.vue") },
-  { path: "/profile", component: () => import("../views/ProfileView.vue") },
-  { path: "/map", component: () => import("../views/MapView.vue") },          // 개발자 A
-  { path: "/recommend", component: () => import("../views/RecommendView.vue") }, // 개발자 A
-  { path: "/friends", component: () => import("../views/FriendsView.vue") },
-  { path: "/friends/:id", component: () => import("../views/FriendDetailView.vue") },
-];
+  { path: '/login',      name: 'login',      component: () => import('@/views/LoginView.vue'),      meta: { public: true } },
+  { path: '/register',   name: 'register',   component: () => import('@/views/RegisterView.vue'),   meta: { public: true } },
+  { path: '/onboarding', name: 'onboarding', component: () => import('@/views/OnboardingView.vue') },
+  {
+    path: '/',
+    component: AppLayout,
+    children: [
+      { path: '',            name: 'map',            component: () => import('@/views/MapView.vue') },
+      { path: 'movies',      name: 'movies',         component: () => import('@/views/MovieSearchView.vue') },
+      { path: 'movies/:id',  name: 'movie-detail',   component: () => import('@/views/MovieDetailView.vue') },
+      { path: 'records',     name: 'records',        component: () => import('@/views/WatchRecordsView.vue') },
+      { path: 'friends',     name: 'friends',        component: () => import('@/views/FriendsView.vue') },
+      { path: 'friends/:id', name: 'friend-compare', component: () => import('@/views/FriendCompareView.vue') },
+      { path: 'profile',     name: 'profile',        component: () => import('@/views/ProfileView.vue') },
+    ],
+  },
+]
 
-export default createRouter({ history: createWebHistory(), routes });
+const router = createRouter({
+  history: createWebHistory(),
+  routes,
+})
+
+router.beforeEach((to) => {
+  const isAuthed = !!localStorage.getItem('token')
+  if (!to.meta.public && !isAuthed && to.name !== 'login') {
+    return { name: 'login' }
+  }
+})
+
+export default router
