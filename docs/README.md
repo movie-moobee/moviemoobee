@@ -18,6 +18,7 @@
 | 07 | [07_docker_postgres_guide.md](07_docker_postgres_guide.md) | Docker + PostgreSQL 로컬 세팅·트러블슈팅 |
 | 08 | [08_journal/](08_journal/) | 개발 일지 — 매 작업의 파일·이유·기능·검증 기록(작업별 파일, 일기 형식) |
 | 09 | [09_tech_notes.docx](09_tech_notes.docx) | 기술 노트 — 인증(dj-rest-auth)·시그널·환경변수·설치 라이브러리(단일 출처) |
+| 10 | [10_project_structure.md](10_project_structure.md) | 프로젝트 파일 구조 — 폴더·파일별 역할·담당·구현 상태 |
 
 
 ## 노션용 (notion/)

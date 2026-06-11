@@ -17,6 +17,7 @@
 | [A-02-import-movies.md](A-02-import-movies.md) | TMDB 인기 영화 수집·적재 | 2026-06-07 | 0.5 |
 | [A-03-build-coords.md](A-03-build-coords.md) | TF-IDF + UMAP 전역 좌표 생성·적재 | 2026-06-07 | 0.5 |
 | [A-04-movies-fixture.md](A-04-movies-fixture.md) | 영화+좌표 fixture(페어 공유 시드) | 2026-06-07 | 0.5 후속 |
+| [A-05-user-coord.md](A-05-user-coord.md) | 사용자 좌표 계산·캐싱 + 시그널 + seed_demo | 2026-06-07 | 3.1 (F-MAP-00) |
 
 ## 작성 템플릿
 ```markdown
