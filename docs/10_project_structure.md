@@ -59,7 +59,7 @@ backend/
    ├─ serializers.py          🟡 추천/지도 응답
    ├─ services/               (뷰에 안 두는) 무거운 도메인 로직
    │  ├─ coords.py            ✅ recompute_user_coord (별점 가중 무게중심·캐싱)
-   │  ├─ areas.py             🟡 미탐색·안전 영역(KDE/코사인) F-MAP-03
+   │  ├─ areas.py             ✅ 미탐색·안전 영역(KDE/좌표거리) F-MAP-03
    │  └─ recommend.py         🟡 안전/미탐색 추천 F-REC
    ├─ management/commands/    데이터 파이프라인(manage.py 커맨드)
    │  ├─ import_movies.py     ✅ TMDB 인기영화 수집·적재
@@ -67,7 +67,7 @@ backend/
    │  └─ seed_demo.py         ✅ 데모 유저·시청기록·친구 시드
    └─ artifacts/coords_model.pkl   ⚙️ 학습된 좌표 모델(gitignore; 신규영화 transform용)
 ```
-**규칙**: 모델=ERD, 무거운 연산(임베딩/UMAP/KDE/코사인)은 **뷰가 아니라 services·management 커맨드**에.
+**규칙**: 모델=ERD, 무거운 연산(임베딩/UMAP/KDE/좌표거리)은 **뷰가 아니라 services·management 커맨드**에.
 
 ## frontend/ (Vue 3 + Vite · Composition API)
 ```
@@ -108,6 +108,6 @@ docs/
 import_movies(TMDB) → movies 적재
    → build_coords(TF-IDF+UMAP) → movies.umap_x/y (전역 고정 좌표)
    → (시청기록 별점) → signals → coords.recompute_user_coord → users.coord_x/y
-   → recommend/areas(안전=코사인, 미탐색=KDE) → 추천/지도
+   → recommend/areas(안전=좌표거리, 미탐색=KDE) → 추천/지도
 ```
 페어 빠른 시작: `loaddata movies`(영화+좌표) + `seed_demo`(데모) → 파이프라인 재실행 불필요.

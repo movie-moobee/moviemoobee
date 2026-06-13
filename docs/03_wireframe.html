@@ -9,7 +9,7 @@
     --ink:#2b2d33; --muted:#8b8f99; --line:#c7cad2; --line-strong:#9aa0ac;
     --fill:#e9ebef; --fill-2:#f3f4f7; --bg:#fafafb; --white:#fff;
     --note:#2f6fed; --note-bg:#eef3ff; --note-line:#bcd0ff;
-    --safe:#2f6fed;            /* 안전 추천(코사인) */
+    --safe:#2f6fed;            /* 안전 추천(좌표 거리) */
     --challenge:#f08a00;       /* 도전 추천(미탐색) */
     --user:#d11fd1;            /* 사용자 좌표 X */
     --watch:#e23b3b;           /* 시청 영화 별 */
@@ -169,10 +169,10 @@
       <h3>지도·추천 공통 범례 (POC 반영)</h3>
       <div class="legend-row"><span class="swatch x"></span> 사용자 좌표 — <b style="margin-left:2px">시청 영화 별점 가중 평균</b></div>
       <div class="legend-row"><span class="swatch star">★</span> 시청 영화 (별점↑ 진하게)</div>
-      <div class="legend-row"><span class="swatch" style="background:var(--safe)"></span> 안전 추천 — 코사인 유사도 Top N</div>
+      <div class="legend-row"><span class="swatch" style="background:var(--safe)"></span> 안전 추천 — 좌표 거리 Top N</div>
       <div class="legend-row"><span class="swatch" style="background:var(--challenge)"></span> 도전 추천 — 미탐색 영역 (KDE 밀도 기반)</div>
       <div class="pillrow" style="margin-top:10px">
-        <span class="pill">TF-IDF + UMAP 2D</span><span class="pill">코사인 유사도</span><span class="pill">KDE 미탐색</span><span class="pill">TMDB</span>
+        <span class="pill">TF-IDF + UMAP 2D</span><span class="pill">좌표 거리</span><span class="pill">KDE 미탐색</span><span class="pill">TMDB</span>
       </div>
     </div>
   </div>
@@ -840,7 +840,7 @@
       <div class="canvas pad-lg">
         <div class="tabbar"><div class="tab">취향 지도</div><div class="tab">시청 영화 목록</div><div class="tab">영화 검색·등록</div><div class="tab on">지도 탐색</div></div>
         <div style="margin-bottom:14px">
-          <div style="font-size:15px;font-weight:700">안전 추천 <span class="hint" style="font-weight:400">— 내 좌표 근처(코사인 유사도 Top N)</span></div>
+          <div style="font-size:15px;font-weight:700">안전 추천 <span class="hint" style="font-weight:400">— 내 좌표 근처(좌표 거리 Top N)</span></div>
         </div>
         <div style="display:grid;grid-template-columns:1fr 340px;gap:20px">
           <!-- map: safe pins ON -->
@@ -901,7 +901,7 @@
       </div>
     </div>
     <div class="notes"><h4>설계 노트</h4><ol>
-      <li><b>[안전] 서브탭</b> 활성. 안전 = 코사인 유사도 Top N(밝은 영역) — 내 취향을 강화하는 추천.</li>
+      <li><b>[안전] 서브탭</b> 활성. 안전 = 좌표 거리 Top N(밝은 영역) — 내 취향을 강화하는 추천.</li>
       <li><span class="num">1</span>10·d와 동일한 개별 토글. 켠 영화(1·2)만 밝은 <b>안전 영역</b>(내 좌표 근처)에 빛나는 핀으로 표시.</li>
       <li>10번 지도에서 <b>안전 영역</b>을 클릭하면 이 [안전] 서브탭이 자동 선택되어 진입.</li>
     </ol></div>
@@ -928,7 +928,7 @@
         </div>
 
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
-          <div class="sec-divider" style="margin:0;flex:1"><span class="ld" style="background:var(--safe);width:13px;height:13px"></span> 취향 강화 추천 <span class="hint">안전 · 코사인 유사도 Top N</span></div>
+          <div class="sec-divider" style="margin:0;flex:1"><span class="ld" style="background:var(--safe);width:13px;height:13px"></span> 취향 강화 추천 <span class="hint">안전 · 좌표 거리 Top N</span></div>
           <span class="chip">지도에서 위치 보기 ⤢</span>
         </div>
         <div class="grid g5" style="margin-bottom:28px">
@@ -953,7 +953,7 @@
       </div>
     </div>
     <div class="notes"><h4>설계 노트</h4><ol>
-      <li><span class="num">1</span>POC의 <b>두 트랙</b>을 그대로 화면 구조로: <b>안전(코사인·내 취향 강화)</b> vs <b>도전(미탐색·새 영역)</b>. 이게 프로젝트 핵심 가치("좋아하게 될 영화")를 가장 직접 보여주는 화면.</li>
+      <li><span class="num">1</span>POC의 <b>두 트랙</b>을 그대로 화면 구조로: <b>안전(좌표거리·내 취향 강화)</b> vs <b>도전(미탐색·새 영역)</b>. 이게 프로젝트 핵심 가치("좋아하게 될 영화")를 가장 직접 보여주는 화면.</li>
       <li><span class="num">2</span>각 카드에 <b>왜 추천됐는지</b>(유사도 / 미탐색 장르)를 명시 → 필터 버블 탈출이라는 메시지 강화.</li>
       <li><span class="num">3</span><b>포스터를 클릭하면 취향 지도의 지도 탐색 탭(10·d/10·e)으로 이동</b> → 그 영화가 지도 어디에 있는지 위치를 확인하고, 거기서 다시 상세로 들어갈 수 있음.</li>
     </ol></div>
