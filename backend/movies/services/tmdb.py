@@ -64,6 +64,30 @@ class TMDBClient:
             page += 1
         return ids[:target]
 
+    def fetch_watch_providers(self, tmdb_id):
+        """KR flatrate OTT 목록 반환. 없으면 빈 리스트."""
+        try:
+            data = self.get(f"/movie/{tmdb_id}/watch/providers")
+        except Exception:
+            return []
+        flatrate = data.get("results", {}).get("KR", {}).get("flatrate", [])
+        return [{"name": p["provider_name"], "logo": p["logo_path"]} for p in flatrate]
+
+    def fetch_videos(self, tmdb_id):
+        """YouTube Trailer 키 반환. 없으면 None."""
+        try:
+            data = self.get(f"/movie/{tmdb_id}/videos")
+        except Exception:
+            return None
+        trailers = [
+            v for v in data.get("results", [])
+            if v.get("site") == "YouTube" and v.get("type") == "Trailer"
+        ]
+        if not trailers:
+            return None
+        official = [v for v in trailers if v.get("official")]
+        return (official or trailers)[0]["key"]
+
     def fetch_detail(self, movie_id):
         """영화 상세 정보(장르·키워드·감독 포함) 조회."""
         try:
