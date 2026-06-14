@@ -101,6 +101,7 @@ class TMDBClient:
             return None
         crew = data.get("credits", {}).get("crew", [])
         directors = [c["name"] for c in crew if c.get("job") == "Director"]
+        cast_list = data.get("credits", {}).get("cast", [])
         return {
             "tmdb_id": data["id"],
             "title": data.get("title", ""),
@@ -114,6 +115,7 @@ class TMDBClient:
             "original_language": data.get("original_language", ""),
             "poster_path": data.get("poster_path") or "",
             "director": directors[0] if directors else "",
+            "cast": ",".join([c["name"] for c in cast_list[:5]]),
             "genres": [(g["id"], g["name"]) for g in data.get("genres", [])],
             "keywords": [k["name"] for k in data.get("keywords", {}).get("keywords", [])],
         }
