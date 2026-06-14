@@ -24,6 +24,7 @@ class Movie(models.Model):
     original_language = models.CharField(max_length=10, blank=True)
     poster_path = models.CharField(max_length=500, blank=True)
     director = models.CharField(max_length=255, blank=True)
+    cast = models.CharField(max_length=500, blank=True, default="")  # "배우A,배우B,..." 콤마 구분, 상위 5명
     umap_x = models.FloatField(null=True, blank=True)   # 전역 좌표 X
     umap_y = models.FloatField(null=True, blank=True)   # 전역 좌표 Y
     created_at = models.DateTimeField(auto_now_add=True)
