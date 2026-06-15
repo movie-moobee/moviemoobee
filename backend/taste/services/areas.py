@@ -66,16 +66,24 @@ def kde_density(watched_coords, query_coords):
     return kde(query_coords.T)
 
 
-def detect_areas(user, safe_top=10, unexplored_top=10):
+def detect_areas(user, safe_top=10, unexplored_top=10, reachable_band=(30, 70)):
     """미관람 영화의 안전(좌표거리 근접) Top N·미탐색(저밀도) Top N 산출.
 
     - 반환 enough: 시청 수가 MAP_MIN_WATCHED 이상인가(지도·추천 제공 가능 여부).
       False면 safe/unexplored 는 빈 리스트 — 소비처는 경고 오버레이를 띄운다.
+      
     - user.coord_x/y 는 별점 변경 시 signals→recompute_user_coord 로 갱신되는 '캐시'다
       (조회마다 재계산 금지 — F-MAP-00 불변식). 여기선 그 캐시를 읽기만 한다.
+      
     - 진짜 차단(호출 자체 스킵)은 진입부의 공유 게이트 책임 — 여기 가드는 belt-and-suspenders.
+    
+    - reachable_band=(lo,hi): 미탐색은 '도달 가능한' 저밀도만. 사용자 좌표 거리 분위수
+      [lo,hi] 밴드 안에서만 최저 밀도를 고른다. <lo=이미 탐색권(너무 가까움),
+      >hi=도달 불가/취향 무관(변두리 허공) → 중간 밴드 = '갈 만한데 안 가본 곳'(4.2).
+      사용자 좌표가 없으면(선호 영화 0편) 밴드 적용 불가 → 절대 최저 밀도로 폴백.
     """
     watched_ids, watched_coords = _watched(user)
+    
     # 정책 게이트: <MAP_MIN_WATCHED 편이면 지도·추천 미제공(빈 결과). 무거운 _all_movies 전에 차단.
     if len(watched_coords) < MAP_MIN_WATCHED:
         return {"user_coord": None, "safe": [], "unexplored": [], "enough": False}
@@ -90,9 +98,12 @@ def detect_areas(user, safe_top=10, unexplored_top=10):
     unwatched = [i for i, mid in enumerate(ids) if mid not in watched_ids]
     uw_coords = coords[unwatched]                          # (U,2)
 
+    # 사용자 좌표 거리 — 안전 추천 + 미탐색 도달가능 밴드 공용(1회 계산).
+    dist = (np.linalg.norm(uw_coords - user_coord, axis=1)   # (U,) 작을수록 안전
+            if user_coord is not None and len(unwatched) else None)
+
     safe = []
-    if user_coord is not None and len(unwatched):
-        dist = np.linalg.norm(uw_coords - user_coord, axis=1)   # (U,) 좌표 거리(작을수록 안전)
+    if dist is not None:
         order = heapq.nsmallest(safe_top, range(len(unwatched)), key=lambda j: dist[j])
         safe = [{"movie_id": ids[unwatched[j]], "title": titles[unwatched[j]],
                  "distance": float(dist[j])} for j in order]
@@ -100,7 +111,12 @@ def detect_areas(user, safe_top=10, unexplored_top=10):
     unexplored = []
     density = kde_density(watched_coords, uw_coords)         # 미관람만 평가 (None 또는 (U,))
     if density is not None:
-        order = heapq.nsmallest(unexplored_top, range(len(unwatched)), key=lambda j: density[j])
+        # 도달가능 밴드: 거리 분위수 [lo,hi] 안의 후보만(변두리 허공 제외). 좌표 없으면 전체.
+        candidates = range(len(unwatched))
+        if dist is not None and reachable_band is not None:
+            lo, hi = np.percentile(dist, reachable_band)
+            candidates = [j for j in range(len(unwatched)) if lo <= dist[j] <= hi]
+        order = heapq.nsmallest(unexplored_top, candidates, key=lambda j: density[j])
         unexplored = [{"movie_id": ids[unwatched[j]], "title": titles[unwatched[j]],
                        "density": float(density[j])} for j in order]
 

@@ -2,6 +2,20 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
+from .services.recommend import get_recommendations
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def recommendations(request):
+    """안전(좌표거리 근접)·미탐색(KDE 저밀도, 도달가능 밴드) 추천 (F-REC, 4.1/4.2).
+
+    응답: {enough, user_coord, safe:[...], unexplored:[...]}.
+    enough=False(시청<5)면 safe/unexplored 는 빈 리스트 — 200 OK로 내리고
+    프론트가 경고 오버레이를 띄운다(3.3). 차단(403)이 아니다.
+    """
+    return Response(get_recommendations(request.user))
+
 
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
