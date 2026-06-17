@@ -79,6 +79,10 @@ class Command(BaseCommand):
             m.umap_y = float(cy)                # 영화 객체의 필드(umap_x, umap_y)에 대입
         Movie.objects.bulk_update(movies, ["umap_x", "umap_y"], batch_size=500)         # bulk_update를 통해 지정한 필드(umap_x/y)만 500개 단위(batch_size=500)로 묶어서 한 번에 업데이트
 
+        # 좌표가 바뀌었으니 추천 서비스의 메모리 좌표 캐시 무효화(같은 프로세스에서 돌 경우 대비).
+        from taste.services.areas import clear_movies_cache
+        clear_movies_cache()
+
         
         # 모델 직렬화
         MODEL_PATH.parent.mkdir(parents=True, exist_ok=True)        # artifacts 폴더 있나 없나 체크 없으면 생성

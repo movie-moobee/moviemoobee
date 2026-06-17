@@ -1,9 +1,12 @@
 """미탐색·안전 영역 감지 (F-MAP-03).
 
-- 안전 근접도: 사용자 좌표(별점 가중 무게중심)에 가까운 미관람 영화 = '취향 중심 주변'.
+- 안전 근접도: 사용자가 본 영화 '집합'에 가까운 미관람 영화 = '취향 봉우리 주변'.
+  점수 = 미관람 영화에서 가장 가까운 본 영화 K편(SAFE_KNN_K)까지의 평균 거리(작을수록 안전).
+  ※ 예전엔 무게중심(별점 가중) 1점 거리를 썼으나, 다봉 취향에선 봉우리들의 평균이 빈
+    '골짜기'에 떨어져 엉뚱한 장르를 추천하는 결함이 있었다 → 본 영화 집합 kNN으로 교체(검증 A-08).
+    user.coord(무게중심)는 지도 표시·친구 비교용으로 유지하되, 안전 추천 점수엔 더는 안 쓴다.
   근접 척도는 UMAP 2D 좌표 거리(유클리드). 코사인이 아닌 이유: UMAP 원점(0,0)은 임의값이라
-  '원점 기준 각도'가 취향을 못 나타낸다(검증 A-06). 좌표 계산이 밀어내기를 안 쓰는 것과 같은 이유.
-  (UMAP은 국소 거리를 가장 잘 보존하므로 '중심 근처' 추천엔 유클리드가 특히 적합.)
+  '원점 기준 각도'가 취향을 못 나타낸다(검증 A-06). (UMAP은 국소 거리를 잘 보존 → 유클리드 적합.)
 - 미탐색: 시청 분포 KDE 저밀도 영역.
   ※ KDE는 본 영화를 '전부'(싫어요 포함) 학습한다 — 싫어한 구역도 '가봤음(고밀도)'으로 잡혀
     미탐색에서 빠진다(CLAUDE.md: 싫어요는 탐색밀도+제외로 처리). 안전 중심은 좋아요만 가중 → 비대칭은 의도.
@@ -30,17 +33,34 @@ MAP_MIN_WATCHED = 5     # 제품 정책: 지도·추천 공통으로 의미 있�
                         #   (삭제로 5편 밑으로 내려가는 케이스 대비 — A-06 '알려진 한계' 참고)
                         # ⚠ 온보딩(B)과 같은 값이어야 함 — 추후 단일 출처로 공유.
 
+SAFE_KNN_K = 3          # 안전 추천 kNN 이웃 수: 미관람→본 영화 최근접 K편 평균 거리로 점수.
+                        # K=1은 외톨이 본 영화 1편 옆도 추천하지만, K=3은 본 영화가 '몰린' 봉우리를
+                        # 우선해 더 안정적(검증 A-08). MAP_MIN_WATCHED(5)≥K라 항상 충족.
+
+
+_MOVIES_CACHE = None    # (ids, titles, coords) 메모리 캐시. 좌표는 전역 고정(불변식)이라 1회 로드 후 재사용.
+
 
 def _all_movies():
-    """좌표 있는 전체 영화 → (ids, titles, coords(N,2))."""
-    rows = list(
-        Movie.objects.filter(umap_x__isnull=False, umap_y__isnull=False)
-        .values_list("id", "title", "umap_x", "umap_y")
-    )
-    ids = [r[0] for r in rows]
-    titles = [r[1] for r in rows]
-    coords = np.array([[r[2], r[3]] for r in rows], dtype=float)
-    return ids, titles, coords
+    """좌표 있는 전체 영화 → (ids, titles, coords(N,2)).
+    좌표는 전역 고정(F-MAP 불변식)이라 메모리 캐시 — re-bake(build_coords) 시 clear_movies_cache()로 무효화."""
+    global _MOVIES_CACHE
+    if _MOVIES_CACHE is None:
+        rows = list(
+            Movie.objects.filter(umap_x__isnull=False, umap_y__isnull=False)
+            .values_list("id", "title", "umap_x", "umap_y")
+        )
+        ids = [r[0] for r in rows]
+        titles = [r[1] for r in rows]
+        coords = np.array([[r[2], r[3]] for r in rows], dtype=float)
+        _MOVIES_CACHE = (ids, titles, coords)
+    return _MOVIES_CACHE
+
+
+def clear_movies_cache():
+    """_all_movies() 좌표 캐시 무효화. re-bake(build_coords) 후·테스트에서 호출."""
+    global _MOVIES_CACHE
+    _MOVIES_CACHE = None
 
 
 def _watched(user):
@@ -67,7 +87,7 @@ def kde_density(watched_coords, query_coords):
 
 
 def detect_areas(user, safe_top=10, unexplored_top=10, reachable_band=(30, 70)):
-    """미관람 영화의 안전(좌표거리 근접) Top N·미탐색(저밀도) Top N 산출.
+    """미관람 영화의 안전(본 영화 kNN 근접) Top N·미탐색(저밀도) Top N 산출.
 
     - 반환 enough: 시청 수가 MAP_MIN_WATCHED 이상인가(지도·추천 제공 가능 여부).
       False면 safe/unexplored 는 빈 리스트 — 소비처는 경고 오버레이를 띄운다.
@@ -98,15 +118,21 @@ def detect_areas(user, safe_top=10, unexplored_top=10, reachable_band=(30, 70)):
     unwatched = [i for i, mid in enumerate(ids) if mid not in watched_ids]
     uw_coords = coords[unwatched]                          # (U,2)
 
-    # 사용자 좌표 거리 — 안전 추천 + 미탐색 도달가능 밴드 공용(1회 계산).
-    dist = (np.linalg.norm(uw_coords - user_coord, axis=1)   # (U,) 작을수록 안전
-            if user_coord is not None and len(unwatched) else None)
-
+    # 안전 추천: 본 영화 '집합'과의 kNN(K=SAFE_KNN_K) 거리 — 미관람마다 최근접 K편 평균(작을수록 안전).
+    # 무게중심 1점이 아니라 본 영화들 자체를 기준 삼아 다봉 취향의 '골짜기' 오추천을 막는다(A-08).
     safe = []
-    if dist is not None:
-        order = heapq.nsmallest(safe_top, range(len(unwatched)), key=lambda j: dist[j])
+    if len(unwatched):
+        d_watched = np.linalg.norm(                           # (U, M) 미관람×본영화 거리
+            uw_coords[:, None, :] - watched_coords[None, :, :], axis=2)
+        k = min(SAFE_KNN_K, watched_coords.shape[0])
+        knn = np.sort(d_watched, axis=1)[:, :k].mean(axis=1)  # (U,) 최근접 K편 평균 거리
+        order = heapq.nsmallest(safe_top, range(len(unwatched)), key=lambda j: knn[j])
         safe = [{"movie_id": ids[unwatched[j]], "title": titles[unwatched[j]],
-                 "distance": float(dist[j])} for j in order]
+                 "distance": float(knn[j])} for j in order]
+
+    # 미탐색 도달가능 밴드용 거리(무게중심 기준 — 이번 단계 유지). 안전은 위 kNN을 쓴다.
+    dist = (np.linalg.norm(uw_coords - user_coord, axis=1)
+            if user_coord is not None and len(unwatched) else None)
 
     unexplored = []
     density = kde_density(watched_coords, uw_coords)         # 미관람만 평가 (None 또는 (U,))
