@@ -1,4 +1,4 @@
-"""F-MAP-03 결과를 사람이 보기 좋게 출력 (개발자 A, 리뷰·시연용).
+"""F-MAP-03 결과를 사람이 보기 좋게 출력 (김호준, 리뷰·시연용).
 
 사용법:
     python manage.py show_areas            # 데모 3명 전부
@@ -32,7 +32,7 @@ class Command(BaseCommand):
             if not r["enough"]:
                 self.stdout.write("   (시청 5편 미만 — 지도·추천 비활성, 경고 오버레이 대상)\n")
                 continue
-            self.stdout.write("\n  [안전 추천] 내 취향 중심에서 가까운 영화")
+            self.stdout.write("\n  [안전 추천] 내가 본 영화들과 가까운 영화 (kNN)")
             if not r["safe"]:
                 self.stdout.write("   (좌표 없음 — 시청 0편)")
             for i, s in enumerate(r["safe"], 1):

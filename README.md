@@ -65,7 +65,7 @@ npm run dev                      # http://localhost:5173
 # 4) 데이터
 #  (A) 빠른 시작 — 영화+좌표 픽스처 로드 (TMDB 키·ML 스택 불필요, 권장)
 cd backend
-python manage.py loaddata movies        # 영화 299편 + 전역 좌표(umap_x/y)
+python manage.py loaddata movies        # 영화 4,958편 + 전역 좌표(umap_x/y)
 
 #  (B) 직접 생성/갱신 (개발자 A · 데이터 파이프라인, ML 스택 필요)
 pip install -r requirements-ml.txt
@@ -75,3 +75,16 @@ python manage.py seed_demo               # 데모 유저·시청기록·친구 (
 ```
 
 자세한 DB 세팅·트러블슈팅은 Docker 가이드 문서 참고.
+
+## 추천 동작 확인 (김호준)
+
+`loaddata movies`(또는 `build_coords`)로 영화·좌표가 있는 상태에서:
+
+```powershell
+python manage.py seed_genre_demos         # 장르별 단일 취향 데모 8명 생성(공포·로맨스·액션…)
+python manage.py show_areas genre_horror  # 안전(본 영화 kNN)·미탐색 추천 출력
+```
+
+- **안전 추천**에 그 장르 영화가 나오면 정상(공포 데모 → 공포). 본 영화 집합 kNN(k=3) 기준 — 배경은 `docs/08_journal/A-08-safe-knn.md`.
+- **미탐색 추천**은 아직 무게중심 거리 기준이라 다른 장르가 섞인다(의도된 현재 상태, A-08).
+- 출력 한글이 깨지면 `chcp 65001`(UTF-8 전환).
