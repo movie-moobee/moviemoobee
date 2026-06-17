@@ -3,7 +3,7 @@ import AppLayout from '@/layouts/AppLayout.vue'
 
 const routes = [
   { path: '/login',      name: 'login',      component: () => import('@/views/LoginView.vue'),      meta: { public: true } },
-  { path: '/register',   name: 'register',   component: () => import('@/views/RegisterView.vue'),   meta: { public: true } },
+  { path: '/signup',     name: 'signup',     component: () => import('@/views/SignupView.vue'),     meta: { public: true } },
   { path: '/onboarding', name: 'onboarding', component: () => import('@/views/OnboardingView.vue') },
   {
     path: '/',

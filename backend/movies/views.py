@@ -1,6 +1,5 @@
 from django.db.models import Q
 from rest_framework.generics import ListAPIView, RetrieveAPIView
-from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -10,8 +9,7 @@ from movies.services.tmdb import TMDBClient
 
 
 class MovieListView(ListAPIView):
-    # TODO: 인증 후 IsAuthenticated로 변경 (1.1)
-    permission_classes = [AllowAny]
+    # 로그인 필수 (전역 IsAuthenticated 기본값 적용)
     serializer_class = MovieListSerializer
 
     def get_queryset(self):
@@ -25,15 +23,13 @@ class MovieListView(ListAPIView):
 
 
 class MovieDetailView(RetrieveAPIView):
-    # TODO: 인증 후 IsAuthenticated로 변경 (1.1)
-    permission_classes = [AllowAny]
+    # 로그인 필수 (전역 IsAuthenticated 기본값 적용)
     serializer_class = MovieDetailSerializer
     queryset = Movie.objects.prefetch_related("genres")
 
 
 class MovieExtrasView(APIView):
-    # TODO: 인증 후 IsAuthenticated로 변경 (1.1)
-    permission_classes = [AllowAny]
+    # 로그인 필수 (전역 IsAuthenticated 기본값 적용)
 
     def get(self, request, pk):
         movie = Movie.objects.filter(pk=pk).first()
