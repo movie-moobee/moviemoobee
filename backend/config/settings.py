@@ -16,9 +16,16 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "django.contrib.sites",  # allauth 의존
     # 3rd party
     "rest_framework",
+    "rest_framework.authtoken",  # DRF 토큰 인증
     "corsheaders",
+    "dj_rest_auth",  # 로그인/로그아웃/유저/비번
+    "allauth",
+    "allauth.account",
+    "allauth.socialaccount",  # 미사용이나 dj-rest-auth registration이 import
+    "dj_rest_auth.registration",  # 회원가입
     # local apps
     "accounts",
     "movies",
@@ -35,6 +42,7 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "allauth.account.middleware.AccountMiddleware",  # allauth 65 필수
 ]
 
 ROOT_URLCONF = "config.urls"
@@ -69,8 +77,37 @@ USE_TZ = True
 STATIC_URL = "static/"
 
 REST_FRAMEWORK = {
-    "DEFAULT_AUTHENTICATION_CLASSES": ["rest_framework.authentication.SessionAuthentication"],
+    # 09_tech_notes: Session → Token 전환 (모든 API 기본 인증)
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "rest_framework.authentication.TokenAuthentication",
+    ],
+    # 로그인 필수가 기본. 공개는 회원가입·로그인뿐(dj-rest-auth 뷰가 자체 AllowAny).
+    # 영화 검색·조회 등 나머지 전 API는 IsAuthenticated 유지 — 로컬 뷰에 AllowAny 금지.
+    "DEFAULT_PERMISSION_CLASSES": [
+        "rest_framework.permissions.IsAuthenticated",
+    ],
 }
+
+# --- 인증 (dj-rest-auth + allauth) · F-AUTH-01~05 ---
+SITE_ID = 1
+AUTHENTICATION_BACKENDS = [
+    "django.contrib.auth.backends.ModelBackend",  # admin/username
+    "allauth.account.auth_backends.AuthenticationBackend",  # 이메일 로그인
+]
+# allauth 65 신형 설정: 이메일+비번 로그인, 회원가입 입력 필드
+ACCOUNT_LOGIN_METHODS = {"email"}
+ACCOUNT_SIGNUP_FIELDS = ["email*", "password1*", "password2*"]
+ACCOUNT_EMAIL_VERIFICATION = "none"  # 로컬 시연: 메일 인증 생략
+ACCOUNT_UNIQUE_EMAIL = True
+REST_AUTH = {
+    "USE_JWT": False,  # DRF 토큰 방식 (09_tech_notes)
+    "SESSION_LOGIN": False,
+    "TOKEN_MODEL": "rest_framework.authtoken.models.Token",
+    # 회원가입에 nickname(필수)·profile_image_url(선택) 추가 (F-AUTH-01)
+    "REGISTER_SERIALIZER": "accounts.serializers.CustomRegisterSerializer",
+}
+# 로컬: 메일 발송 대신 콘솔 출력
+EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 
 # Vue 개발 서버
 CORS_ALLOWED_ORIGINS = ["http://localhost:5173"]
