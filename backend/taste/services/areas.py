@@ -97,10 +97,10 @@ def detect_areas(user, safe_top=10, unexplored_top=10, reachable_band=(30, 70)):
       
     - 진짜 차단(호출 자체 스킵)은 진입부의 공유 게이트 책임 — 여기 가드는 belt-and-suspenders.
     
-    - reachable_band=(lo,hi): 미탐색은 '도달 가능한' 저밀도만. 사용자 좌표 거리 분위수
-      [lo,hi] 밴드 안에서만 최저 밀도를 고른다. <lo=이미 탐색권(너무 가까움),
+    - reachable_band=(lo,hi): 미탐색은 '도달 가능한' 저밀도만. 본 영화 kNN 거리 분위수
+      [lo,hi] 밴드 안에서만 최저 밀도를 고른다. <lo=이미 탐색권(봉우리 코앞),
       >hi=도달 불가/취향 무관(변두리 허공) → 중간 밴드 = '갈 만한데 안 가본 곳'(4.2).
-      사용자 좌표가 없으면(선호 영화 0편) 밴드 적용 불가 → 절대 최저 밀도로 폴백.
+      미관람이 없으면(knn None) 밴드 적용 불가 → 절대 최저 밀도로 폴백.
     """
     watched_ids, watched_coords = _watched(user)
     
@@ -118,33 +118,36 @@ def detect_areas(user, safe_top=10, unexplored_top=10, reachable_band=(30, 70)):
     unwatched = [i for i, mid in enumerate(ids) if mid not in watched_ids]
     uw_coords = coords[unwatched]                          # (U,2)
 
-    # 안전 추천: 본 영화 '집합'과의 kNN(K=SAFE_KNN_K) 거리 — 미관람마다 최근접 K편 평균(작을수록 안전).
+    # 안전·미탐색 공용: 본 영화 '집합'과의 kNN(K=SAFE_KNN_K) 거리 — 미관람마다 최근접 K편 평균.
     # 무게중심 1점이 아니라 본 영화들 자체를 기준 삼아 다봉 취향의 '골짜기' 오추천을 막는다(A-08).
-    safe = []
+    knn = None
     if len(unwatched):
         d_watched = np.linalg.norm(                           # (U, M) 미관람×본영화 거리
             uw_coords[:, None, :] - watched_coords[None, :, :], axis=2)
         k = min(SAFE_KNN_K, watched_coords.shape[0])
-        knn = np.sort(d_watched, axis=1)[:, :k].mean(axis=1)  # (U,) 최근접 K편 평균 거리
+        knn = np.sort(d_watched, axis=1)[:, :k].mean(axis=1)  # (U,) 작을수록 취향 봉우리에 가까움
+
+    # 안전: kNN 거리 최소 Top N. coord는 후속 MMR 다양성 계산용(응답엔 노출 안 됨).
+    safe = []
+    if knn is not None:
         order = heapq.nsmallest(safe_top, range(len(unwatched)), key=lambda j: knn[j])
         safe = [{"movie_id": ids[unwatched[j]], "title": titles[unwatched[j]],
-                 "distance": float(knn[j])} for j in order]
+                 "distance": float(knn[j]),
+                 "coord": (float(uw_coords[j][0]), float(uw_coords[j][1]))} for j in order]
 
-    # 미탐색 도달가능 밴드용 거리(무게중심 기준 — 이번 단계 유지). 안전은 위 kNN을 쓴다.
-    dist = (np.linalg.norm(uw_coords - user_coord, axis=1)
-            if user_coord is not None and len(unwatched) else None)
-
+    # 미탐색: kNN 도달가능 밴드 안에서 KDE 밀도 최저 Top N.
+    # 밴드 기준도 kNN 거리(본 영화 봉우리 근접도) — 무게중심 골짜기 문제를 미탐색에서도 제거(A-09). knn 없으면 전체.
     unexplored = []
     density = kde_density(watched_coords, uw_coords)         # 미관람만 평가 (None 또는 (U,))
     if density is not None:
-        # 도달가능 밴드: 거리 분위수 [lo,hi] 안의 후보만(변두리 허공 제외). 좌표 없으면 전체.
         candidates = range(len(unwatched))
-        if dist is not None and reachable_band is not None:
-            lo, hi = np.percentile(dist, reachable_band)
-            candidates = [j for j in range(len(unwatched)) if lo <= dist[j] <= hi]
+        if knn is not None and reachable_band is not None:
+            lo, hi = np.percentile(knn, reachable_band)
+            candidates = [j for j in range(len(unwatched)) if lo <= knn[j] <= hi]
         order = heapq.nsmallest(unexplored_top, candidates, key=lambda j: density[j])
         unexplored = [{"movie_id": ids[unwatched[j]], "title": titles[unwatched[j]],
-                       "density": float(density[j])} for j in order]
+                       "density": float(density[j]),
+                       "coord": (float(uw_coords[j][0]), float(uw_coords[j][1]))} for j in order]
 
     return {
         "user_coord": None if user_coord is None else (float(user_coord[0]), float(user_coord[1])),
