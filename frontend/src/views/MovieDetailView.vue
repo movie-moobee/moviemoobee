@@ -7,9 +7,9 @@ import { getMovie, getMovieExtras } from "@/api/movies";
 
 const route = useRoute();
 const movie = ref(null);
-const extras = ref({ ott: [], trailer: null });
-const loading = ref(true); // 영화 메타(DB) — 이게 끝나면 화면을 그림
-const extrasLoading = ref(true); // OTT·예고편(TMDB 실시간) — 본문을 막지 않고 따로 채움
+const extras = ref({ ott: [] });
+const loading = ref(true); // 영화 메타(DB, 예고편 포함) — 이게 끝나면 화면을 그림
+const extrasLoading = ref(true); // OTT(TMDB 실시간) — 본문을 막지 않고 따로 채움
 const error = ref("");
 
 const IMG = "https://image.tmdb.org/t/p/w500";
@@ -39,11 +39,11 @@ onMounted(async () => {
     loading.value = false;
   }
 
-  // 2) OTT·예고편은 화면을 막지 않고 따로 — 실패해도 본문은 유지.
+  // 2) OTT는 화면을 막지 않고 따로 — 실패해도 본문은 유지.
   try {
     extras.value = await getMovieExtras(id);
   } catch {
-    // OTT/예고편 실패는 치명적이지 않음 — 빈 상태로 둠
+    // OTT 실패는 치명적이지 않음 — 빈 상태로 둠
   } finally {
     extrasLoading.value = false;
   }
@@ -164,26 +164,17 @@ onMounted(async () => {
         </p>
       </section>
 
-      <!-- 예고편 (로딩 중엔 자리 유지, 없으면 섹션 숨김) -->
+      <!-- 예고편 (DB의 trailer_key — 본문과 함께 즉시 표시, 없으면 섹션 숨김) -->
       <section
-        v-if="extrasLoading || extras.trailer"
+        v-if="movie.trailer_key"
         class="block"
       >
         <h2 class="block__title">
           예고편
         </h2>
-        <p
-          v-if="extrasLoading"
-          class="msg msg--left"
-        >
-          불러오는 중…
-        </p>
-        <div
-          v-else
-          class="trailer"
-        >
+        <div class="trailer">
           <iframe
-            :src="`https://www.youtube.com/embed/${extras.trailer}`"
+            :src="`https://www.youtube.com/embed/${movie.trailer_key}`"
             title="trailer"
             frameborder="0"
             allowfullscreen
