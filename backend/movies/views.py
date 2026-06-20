@@ -38,7 +38,7 @@ class MovieListView(ListAPIView):
 class MovieDetailView(RetrieveAPIView):
     # 로그인 필수 (전역 IsAuthenticated 기본값 적용)
     serializer_class = MovieDetailSerializer
-    queryset = Movie.objects.prefetch_related("genres")
+    queryset = Movie.objects.prefetch_related("genres", "keywords")
 
 
 class MovieExtrasView(APIView):
