@@ -106,6 +106,7 @@ class Command(BaseCommand):
                 "poster_path": d["poster_path"],
                 "director": d["director"],
                 "cast": d.get("cast", ""),   # 배우 상위 5명(콤마 구분) — fetch_detail에서 추출(B)
+                "trailer_key": d.get("trailer_key", ""),   # 유튜브 예고편 키 — fetch_detail videos에서 추출(B)
             },
         )
 
