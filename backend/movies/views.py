@@ -1,3 +1,4 @@
+from django.core.cache import cache
 from django.db.models import Q
 from rest_framework.generics import (
     ListAPIView,
@@ -43,17 +44,23 @@ class MovieDetailView(RetrieveAPIView):
 
 class MovieExtrasView(APIView):
     # 로그인 필수 (전역 IsAuthenticated 기본값 적용)
+    # 예고편은 DB(Movie.trailer_key)로 옮겨 상세 응답에 포함 → 여기선 OTT만.
+    # OTT는 자주 바뀌어 DB 저장 대신 6시간 캐싱(영화별, 전 유저 공유).
+
+    OTT_TTL = 60 * 60 * 6  # 6시간
 
     def get(self, request, pk):
         movie = Movie.objects.filter(pk=pk).first()
         if not movie:
             return Response({"detail": "Not found."}, status=404)
 
-        client = TMDBClient()
-        ott = client.fetch_watch_providers(movie.tmdb_id)
-        trailer = client.fetch_videos(movie.tmdb_id)
+        cache_key = f"ott:{movie.tmdb_id}"
+        ott = cache.get(cache_key)
+        if ott is None:  # 캐시 미스 → TMDB 실시간 1회, 이후 6시간 재사용
+            ott = TMDBClient().fetch_watch_providers(movie.tmdb_id)
+            cache.set(cache_key, ott, self.OTT_TTL)
 
-        return Response({"ott": ott, "trailer": trailer})
+        return Response({"ott": ott})
 
 
 class WatchRecordListCreateView(ListCreateAPIView):

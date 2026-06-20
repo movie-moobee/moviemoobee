@@ -14,8 +14,8 @@ export async function getMovie(id) {
   return data;
 }
 
-// OTT·예고편 (TMDB watch providers + trailer)
+// OTT (TMDB watch providers, 서버 6시간 캐싱). 예고편은 상세 응답의 trailer_key로 분리.
 export async function getMovieExtras(id) {
   const { data } = await api.get(`/movies/${id}/extras/`);
-  return data; // { ott: [{name, logo}], trailer: "<youtubeKey>"|null }
+  return data; // { ott: [{name, logo}] }
 }
