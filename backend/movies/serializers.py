@@ -12,9 +12,12 @@ class MovieListSerializer(serializers.ModelSerializer):
 
 
 class MovieDetailSerializer(serializers.ModelSerializer):
+    # ⚠️ my_record(요청 유저별)를 포함한다 → 이 응답은 절대 캐싱 금지.
+    #    캐싱은 유저 무관 데이터(OTT extras)에만. 메타가 빨라 캐싱 불필요.
     genres = serializers.SerializerMethodField()
     keywords = serializers.SerializerMethodField()
     cast = serializers.SerializerMethodField()
+    my_record = serializers.SerializerMethodField()
 
     def get_genres(self, obj):
         return list(obj.genres.values_list("name", flat=True))
@@ -25,12 +28,25 @@ class MovieDetailSerializer(serializers.ModelSerializer):
     def get_cast(self, obj):
         return [name.strip() for name in obj.cast.split(",") if name.strip()]
 
+    def get_my_record(self, obj):
+        # 안 본 영화면 None → 프론트가 등록/수정 버튼 분기. (F-WAT-01)
+        user = self.context["request"].user
+        rec = WatchRecord.objects.filter(user=user, movie=obj).first()
+        if not rec:
+            return None
+        return {
+            "id": rec.id,
+            "rating": rec.rating,
+            "review": rec.review,
+            "watched_on": rec.watched_on,
+        }
+
     class Meta:
         model = Movie
         fields = [
             "id", "tmdb_id", "title", "release_year", "poster_path", "vote_average",
             "overview", "director", "cast", "runtime", "original_language",
-            "genres", "keywords", "trailer_key", "umap_x", "umap_y",
+            "genres", "keywords", "trailer_key", "my_record", "umap_x", "umap_y",
         ]
 
 
