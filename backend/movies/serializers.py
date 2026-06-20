@@ -13,10 +13,14 @@ class MovieListSerializer(serializers.ModelSerializer):
 
 class MovieDetailSerializer(serializers.ModelSerializer):
     genres = serializers.SerializerMethodField()
+    keywords = serializers.SerializerMethodField()
     cast = serializers.SerializerMethodField()
 
     def get_genres(self, obj):
         return list(obj.genres.values_list("name", flat=True))
+
+    def get_keywords(self, obj):
+        return list(obj.keywords.values_list("name", flat=True))
 
     def get_cast(self, obj):
         return [name.strip() for name in obj.cast.split(",") if name.strip()]
@@ -26,7 +30,7 @@ class MovieDetailSerializer(serializers.ModelSerializer):
         fields = [
             "id", "tmdb_id", "title", "release_year", "poster_path", "vote_average",
             "overview", "director", "cast", "runtime", "original_language",
-            "genres", "umap_x", "umap_y",
+            "genres", "keywords", "umap_x", "umap_y",
         ]
 
 
