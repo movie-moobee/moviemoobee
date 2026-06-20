@@ -1,13 +1,17 @@
 <script setup>
-// 영화 상세 (F-MOV-02 메타 / F-MOV-03 OTT / 예고편).
-// 시청영화 등록·내 별점·이용자 리뷰(F-WAT-01·F-MOV-04)는 1.2 머지 후 추가.
+// 영화 상세 (F-MOV-02 메타 / F-MOV-03 OTT / 예고편 / F-WAT-01 시청 등록).
+// 이용자 리뷰(F-MOV-04)는 2.4에서 추가.
 import { ref, onMounted, computed } from "vue";
 import { useRoute } from "vue-router";
 import { getMovie, getMovieExtras } from "@/api/movies";
+import RatingStars from "@/components/base/RatingStars.vue";
+import WatchRecordModal from "@/components/WatchRecordModal.vue";
 
 const route = useRoute();
 const movie = ref(null);
 const extras = ref({ ott: [] });
+const myRecord = ref(null); // 내 시청기록(있으면 수정, 없으면 등록). 상세 응답 my_record에서.
+const showModal = ref(false);
 const loading = ref(true); // 영화 메타(DB, 예고편 포함) — 이게 끝나면 화면을 그림
 const extrasLoading = ref(true); // OTT(TMDB 실시간) — 본문을 막지 않고 따로 채움
 const error = ref("");
@@ -32,6 +36,7 @@ onMounted(async () => {
   // 1) 영화 메타 먼저 — DB라 즉시. 끝나는 즉시 화면을 그린다.
   try {
     movie.value = await getMovie(id);
+    myRecord.value = movie.value.my_record; // null이면 미등록
   } catch {
     error.value = "영화 정보를 불러오지 못했습니다.";
     return;
@@ -48,6 +53,17 @@ onMounted(async () => {
     extrasLoading.value = false;
   }
 });
+
+// 등록/수정 저장 완료 — 모달이 API 처리 후 record를 넘겨줌. 상세 UI 즉시 갱신.
+function onSaved(rec) {
+  myRecord.value = {
+    id: rec.id,
+    rating: rec.rating,
+    review: rec.review,
+    watched_on: rec.watched_on,
+  };
+  showModal.value = false;
+}
 </script>
 
 <template>
@@ -97,10 +113,23 @@ onMounted(async () => {
             >{{ k }}</span>
           </div>
 
-          <div class="rating">
-            <span class="rating__star">⭐</span>
-            <span class="rating__num">{{ movie.vote_average ?? "-" }}</span>
-            <span class="rating__den">/ 10 · TMDB</span>
+          <div class="ratings">
+            <div class="rating">
+              <span class="rating__star">⭐</span>
+              <span class="rating__num">{{ movie.vote_average ?? "-" }}</span>
+              <span class="rating__den">/ 10 · TMDB</span>
+            </div>
+            <div
+              v-if="myRecord"
+              class="rating rating--mine"
+            >
+              <span class="rating__label">내 별점</span>
+              <RatingStars
+                :model-value="Number(myRecord.rating)"
+                readonly
+                :size="18"
+              />
+            </div>
           </div>
 
           <p
@@ -110,7 +139,27 @@ onMounted(async () => {
             출연: {{ movie.cast.join(", ") }}
           </p>
 
-          <!-- TODO(1.2 머지 후): ＋시청영화 등록 · 내 별점 -->
+          <!-- 시청 등록/수정 (F-WAT-01) -->
+          <div class="watch">
+            <template v-if="myRecord">
+              <span class="watch__badge">✓ 시청영화로 등록됨</span>
+              <button
+                class="watch__btn"
+                type="button"
+                @click="showModal = true"
+              >
+                ★ 별점·리뷰 수정
+              </button>
+            </template>
+            <button
+              v-else
+              class="watch__btn watch__btn--add"
+              type="button"
+              @click="showModal = true"
+            >
+              ＋ 시청영화 등록 · 별점 매기기
+            </button>
+          </div>
         </div>
       </div>
 
@@ -182,8 +231,17 @@ onMounted(async () => {
         </div>
       </section>
 
-      <!-- TODO(1.2 머지 후): 이용자 리뷰 목록 (F-MOV-04) -->
+      <!-- TODO(2.4): 이용자 리뷰 목록 (F-MOV-04) -->
     </template>
+
+    <!-- 시청 등록·별점·리뷰 모달 (등록=POST / 수정=PATCH, 모달이 자체 처리) -->
+    <WatchRecordModal
+      v-if="showModal && movie"
+      :movie="movie"
+      :initial-record="myRecord"
+      @saved="onSaved"
+      @close="showModal = false"
+    />
   </div>
 </template>
 
@@ -253,11 +311,20 @@ onMounted(async () => {
   color: var(--text);
   border-color: var(--border-hover);
 }
+.ratings {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
 .rating {
   display: flex;
   align-items: baseline;
   gap: 6px;
-  margin-bottom: 14px;
+}
+.rating--mine {
+  align-items: center;
 }
 .rating__num {
   font-size: 22px;
@@ -268,11 +335,54 @@ onMounted(async () => {
   font-size: 13px;
   color: var(--text-muted);
 }
+.rating__label {
+  font-size: 13px;
+  color: var(--text-muted);
+}
 .cast {
   font-size: 13px;
   color: var(--text-muted);
   margin: 0;
   line-height: 1.6;
+}
+/* 시청 등록/수정 */
+.watch {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 22px;
+}
+.watch__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #2bb24b;
+  padding: 7px 12px;
+  border: 1px solid rgba(43, 178, 75, 0.4);
+  border-radius: var(--radius-sm);
+  background: rgba(43, 178, 75, 0.08);
+}
+.watch__btn {
+  font-size: 13px;
+  font-family: var(--font);
+  color: var(--text);
+  padding: 8px 14px;
+  border: 1px solid var(--border-hover);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  cursor: pointer;
+}
+.watch__btn:hover {
+  border-color: var(--text-muted);
+}
+.watch__btn--add {
+  font-weight: 600;
+  color: #fff;
+  background: var(--accent, #f0a020);
+  border-color: transparent;
 }
 /* 블록 */
 .block {
