@@ -94,7 +94,10 @@ class TMDBClient:
         try:
             data = self.get(
                 f"/movie/{movie_id}",
-                {"append_to_response": "credits,keywords,videos"},
+                # include_video_language: get()이 붙이는 language=ko-KR 로는 videos가 한국어만 잡혀
+                # 대부분 영화의 예고편이 비어버린다 → 영어 원어 트레일러도 포함(커버리지 28%→90%+).
+                {"append_to_response": "credits,keywords,videos",
+                 "include_video_language": "en,ko"},
             )
         except requests.RequestException:
             return None
