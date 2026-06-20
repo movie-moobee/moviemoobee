@@ -105,6 +105,8 @@ REST_AUTH = {
     "TOKEN_MODEL": "rest_framework.authtoken.models.Token",
     # 회원가입에 nickname(필수)·profile_image_url(선택) 추가 (F-AUTH-01)
     "REGISTER_SERIALIZER": "accounts.serializers.CustomRegisterSerializer",
+    # /api/auth/user/ 에 nickname·onboarded 노출 (가드용)
+    "USER_DETAILS_SERIALIZER": "accounts.serializers.UserDetailsSerializer",
 }
 # 로컬: 메일 발송 대신 콘솔 출력
 EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"

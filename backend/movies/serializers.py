@@ -1,6 +1,8 @@
+from decimal import Decimal
+
 from rest_framework import serializers
 
-from movies.models import Genre, Movie
+from movies.models import Genre, Movie, WatchRecord
 
 
 class MovieListSerializer(serializers.ModelSerializer):
@@ -26,3 +28,31 @@ class MovieDetailSerializer(serializers.ModelSerializer):
             "overview", "director", "cast", "runtime", "original_language",
             "genres", "umap_x", "umap_y",
         ]
+
+
+class WatchRecordSerializer(serializers.ModelSerializer):
+    """시청기록 CRUD (F-WAT-01/03/04 공용, 온보딩 F-ONB-01도 사용).
+    rating 필수·0.5단위(F-WAT-02), review·watched_on 선택. user는 요청 토큰에서."""
+
+    # 쓰기: movie는 id로 받음 / 읽기: 카드용 영화 정보 노출
+    movie = serializers.PrimaryKeyRelatedField(queryset=Movie.objects.all(), write_only=True)
+    movie_detail = MovieListSerializer(source="movie", read_only=True)
+
+    class Meta:
+        model = WatchRecord
+        fields = ["id", "movie", "movie_detail", "rating", "review", "watched_on", "created_at"]
+        read_only_fields = ["id", "created_at"]
+
+    def validate_rating(self, value):
+        # 0.5~5.0 범위 + 0.5 단위로 정규화 (round(x*2)/2)
+        if value < Decimal("0.5") or value > Decimal("5.0"):
+            raise serializers.ValidationError("별점은 0.5에서 5.0 사이여야 합니다.")
+        return (value / Decimal("0.5")).quantize(Decimal("1")) * Decimal("0.5")
+
+    def validate(self, attrs):
+        # 중복 등록 방지(생성 시에만). 모델 UniqueConstraint를 깔끔한 400으로.
+        if self.instance is None:
+            user = self.context["request"].user
+            if WatchRecord.objects.filter(user=user, movie=attrs["movie"]).exists():
+                raise serializers.ValidationError({"movie": "이미 등록한 영화입니다."})
+        return attrs
