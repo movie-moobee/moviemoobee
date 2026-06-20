@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import AppLayout from '@/layouts/AppLayout.vue'
+import { fetchOnboarded } from '@/api/auth'
 
 const routes = [
   { path: '/login',      name: 'login',      component: () => import('@/views/LoginView.vue'),      meta: { public: true } },
@@ -25,11 +26,18 @@ const router = createRouter({
   routes,
 })
 
-router.beforeEach((to) => {
+router.beforeEach(async (to) => {
   const isAuthed = !!localStorage.getItem('token')
-  if (!to.meta.public && !isAuthed && to.name !== 'login') {
-    return { name: 'login' }
+  // 비로그인: 공개 라우트만 허용, 나머지는 로그인으로
+  if (!isAuthed) {
+    return to.meta.public ? true : { name: 'login' }
   }
+  // 로그인됨: 온보딩·공개 라우트는 그대로 통과
+  if (to.name === 'onboarding' || to.meta.public) return true
+  // 온보딩 미완이면 내부 진입 차단 → 온보딩으로 (onboarded는 1회 조회 후 캐시)
+  const onboarded = await fetchOnboarded()
+  if (!onboarded) return { name: 'onboarding' }
+  return true
 })
 
 export default router

@@ -1,10 +1,19 @@
 from django.db.models import Q
-from rest_framework.generics import ListAPIView, RetrieveAPIView
+from rest_framework.generics import (
+    ListAPIView,
+    ListCreateAPIView,
+    RetrieveAPIView,
+    RetrieveUpdateDestroyAPIView,
+)
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from movies.models import Movie
-from movies.serializers import MovieDetailSerializer, MovieListSerializer
+from movies.models import Movie, WatchRecord
+from movies.serializers import (
+    MovieDetailSerializer,
+    MovieListSerializer,
+    WatchRecordSerializer,
+)
 from movies.services.tmdb import TMDBClient
 
 
@@ -19,6 +28,10 @@ class MovieListView(ListAPIView):
             qs = qs.filter(Q(title__icontains=search) | Q(original_title__icontains=search))
         else:
             qs = qs.order_by("-vote_count")
+        # ?limit=N (온보딩 인기 10편 등). 전체 카탈로그 통째 반환 방지.
+        limit = self.request.query_params.get("limit")
+        if limit and limit.isdigit():
+            qs = qs[: int(limit)]
         return qs
 
 
@@ -41,3 +54,27 @@ class MovieExtrasView(APIView):
         trailer = client.fetch_videos(movie.tmdb_id)
 
         return Response({"ott": ott, "trailer": trailer})
+
+
+class WatchRecordListCreateView(ListCreateAPIView):
+    """내 시청기록 목록(GET) + 등록(POST). 별점 매겨 담기 = 여기.
+    생성·삭제 시 taste 시그널이 사용자 좌표 자동 재계산(F-MAP-00)."""
+    serializer_class = WatchRecordSerializer
+
+    def get_queryset(self):
+        return (
+            WatchRecord.objects.filter(user=self.request.user)
+            .select_related("movie")
+            .order_by("-created_at")
+        )
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+
+
+class WatchRecordDetailView(RetrieveUpdateDestroyAPIView):
+    """시청기록 수정(PATCH: 별점·리뷰)·삭제(DELETE). 본인 것만."""
+    serializer_class = WatchRecordSerializer
+
+    def get_queryset(self):
+        return WatchRecord.objects.filter(user=self.request.user).select_related("movie")

@@ -36,3 +36,12 @@ class CustomRegisterSerializer(RegisterSerializer):
         if url:  # 비었으면 모델 기본값(null) 유지
             user.profile_image_url = url
         user.save()
+
+
+class UserDetailsSerializer(serializers.ModelSerializer):
+    """GET /api/auth/user/ 응답. 프론트 가드가 onboarded로 진입 판단."""
+
+    class Meta:
+        model = User
+        fields = ["pk", "email", "nickname", "profile_image_url", "onboarded"]
+        read_only_fields = ["pk", "email", "onboarded"]  # onboarded는 완료 API로만 변경

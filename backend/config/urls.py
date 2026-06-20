@@ -11,6 +11,7 @@ urlpatterns = [
     path("api/auth/registration/", include("dj_rest_auth.registration.urls")),
     path("api/accounts/", include("accounts.urls")),
     path("api/movies/", include("movies.urls")),
+    path("api/watch-records/", include("movies.watch_urls")),  # 시청기록 CRUD (F-WAT·온보딩)
     path("api/social/", include("social.urls")),
     path("api/taste/", include("taste.urls")),
 ]
