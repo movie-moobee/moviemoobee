@@ -7,7 +7,7 @@
 from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand
 
-from taste.services.areas import detect_areas
+from taste.services.recommend import get_recommendations
 
 User = get_user_model()
 DEMO = ["demo_a", "demo_b", "demo_c"]
@@ -26,7 +26,7 @@ class Command(BaseCommand):
             if not user:
                 self.stdout.write(f"[skip] {name} 없음 (seed_demo 먼저)")
                 continue
-            r = detect_areas(user)
+            r = get_recommendations(user)   # MMR 선별까지 거친 최종 추천
             self.stdout.write("=" * 60)
             self.stdout.write(f"{user.username} ({user.nickname})  좌표={r['user_coord']}")
             if not r["enough"]:
