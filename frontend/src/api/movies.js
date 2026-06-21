@@ -8,6 +8,12 @@ export async function searchMovies(query) {
   return data;
 }
 
+// 최근 추가된 영화 (메인 가로 스크롤, created_at 신규순)
+export async function getRecentMovies(limit = 12) {
+  const { data } = await api.get("/movies/", { params: { sort: "recent", limit } });
+  return data;
+}
+
 // 상세 (제목·장르·키워드·감독·줄거리·평점 등)
 export async function getMovie(id) {
   const { data } = await api.get(`/movies/${id}/`);

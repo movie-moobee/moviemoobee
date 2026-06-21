@@ -28,6 +28,8 @@ class MovieListView(ListAPIView):
         qs = Movie.objects.all()
         if search:
             qs = qs.filter(Q(title__icontains=search) | Q(original_title__icontains=search))
+        elif self.request.query_params.get("sort") == "recent":
+            qs = qs.order_by("-created_at")   # 메인 '최근 추가된 영화' (F-MAIN, 김호준)
         else:
             qs = qs.order_by("-vote_count")
         # ?limit=N (온보딩 인기 10편 등). 전체 카탈로그 통째 반환 방지.

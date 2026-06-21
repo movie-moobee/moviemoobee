@@ -10,7 +10,8 @@ const routes = [
     path: '/',
     component: AppLayout,
     children: [
-      { path: '',            name: 'map',            component: () => import('@/views/MapView.vue') },
+      { path: '',            name: 'home',           component: () => import('@/views/MainView.vue') },
+      { path: 'map',         name: 'map',            component: () => import('@/views/MapView.vue') },
       { path: 'movies',      name: 'movies',         component: () => import('@/views/MovieSearchView.vue') },
       { path: 'movies/:id',  name: 'movie-detail',   component: () => import('@/views/MovieDetailView.vue') },
       { path: 'records',     name: 'records',        component: () => import('@/views/WatchRecordsView.vue') },
