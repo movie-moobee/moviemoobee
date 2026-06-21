@@ -30,6 +30,7 @@ data/cache/
 
 # AI 코딩 가이드 · 설정 (개인용 — 공유 안 함)
 CLAUDE.md
+status_by_KHJ.md
 .claude/
 
 # 에디터 · OS
