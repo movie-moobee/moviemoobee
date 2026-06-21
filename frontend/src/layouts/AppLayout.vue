@@ -2,6 +2,7 @@
 import { RouterLink, RouterView } from 'vue-router'
 
 const navItems = [
+  { name: 'home',    label: '홈' },
   { name: 'map',     label: '지도' },
   { name: 'movies',  label: '영화' },
   { name: 'records', label: '기록' },
@@ -12,16 +13,28 @@ const navItems = [
 <template>
   <div class="shell">
     <header class="nav">
-      <RouterLink :to="{ name: 'map' }" class="brand">무비무비</RouterLink>
+      <RouterLink
+        :to="{ name: 'home' }"
+        class="brand"
+      >
+        무비무비
+      </RouterLink>
       <nav class="links">
         <RouterLink
           v-for="item in navItems"
           :key="item.name"
           :to="{ name: item.name }"
           class="link"
-        >{{ item.label }}</RouterLink>
+        >
+          {{ item.label }}
+        </RouterLink>
       </nav>
-      <RouterLink :to="{ name: 'profile' }" class="avatar">나</RouterLink>
+      <RouterLink
+        :to="{ name: 'profile' }"
+        class="avatar"
+      >
+        나
+      </RouterLink>
     </header>
     <main class="content">
       <RouterView />
