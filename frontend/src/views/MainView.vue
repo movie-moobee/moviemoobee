@@ -5,9 +5,11 @@ import { onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import { getMyMap } from "@/api/taste";
 import { getRecentMovies } from "@/api/movies";
+import { useMarkerMode } from "@/composables/useMarkerMode";
 import TasteMapCanvas from "@/components/TasteMapCanvas.vue";
 
 const router = useRouter();
+const markerMode = useMarkerMode();   // 지도 페이지에서 고른 마커 모드를 홈 프리뷰도 따름
 const map = ref(null);          // { enough, watched:[...] }
 const recent = ref([]);
 const loading = ref(true);
@@ -59,6 +61,7 @@ function goRegister() {
           :interactive="false"
           :width="1040"
           :height="376"
+          :mode="markerMode"
         />
         <span class="preview__hint">지도 자세히 보기 →</span>
       </button>
