@@ -13,6 +13,7 @@ from movies.models import Movie, WatchRecord
 from movies.serializers import (
     MovieDetailSerializer,
     MovieListSerializer,
+    MovieReviewSerializer,
     WatchRecordSerializer,
 )
 from movies.services.tmdb import TMDBClient
@@ -61,6 +62,21 @@ class MovieExtrasView(APIView):
             cache.set(cache_key, ott, self.OTT_TTL)
 
         return Response({"ott": ott})
+
+
+class MovieReviewsView(ListAPIView):
+    """이 영화에 달린 전 유저 리뷰(리뷰 있는 것만), 최신순. (F-MOV-04)
+    별점만 남기고 리뷰 없는 기록은 제외. 로그인 필수(전역 기본)."""
+    serializer_class = MovieReviewSerializer
+
+    def get_queryset(self):
+        return (
+            WatchRecord.objects.filter(movie_id=self.kwargs["pk"])
+            .exclude(review__isnull=True)
+            .exclude(review="")
+            .select_related("user")
+            .order_by("-created_at")
+        )
 
 
 class WatchRecordListCreateView(ListCreateAPIView):

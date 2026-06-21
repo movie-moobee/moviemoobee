@@ -76,3 +76,15 @@ class WatchRecordSerializer(serializers.ModelSerializer):
             if WatchRecord.objects.filter(user=user, movie=attrs["movie"]).exists():
                 raise serializers.ValidationError({"movie": "이미 등록한 영화입니다."})
         return attrs
+
+
+class MovieReviewSerializer(serializers.ModelSerializer):
+    """상세의 이용자 리뷰 카드 (F-MOV-04). 전 유저의 리뷰 있는 시청기록을 읽기 전용 노출.
+    작성자 닉네임·아바타 + 별점·내용·작성일."""
+
+    nickname = serializers.CharField(source="user.nickname", read_only=True)
+    profile_image_url = serializers.CharField(source="user.profile_image_url", read_only=True)
+
+    class Meta:
+        model = WatchRecord
+        fields = ["id", "nickname", "profile_image_url", "rating", "review", "created_at"]

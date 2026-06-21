@@ -19,3 +19,9 @@ export async function getMovieExtras(id) {
   const { data } = await api.get(`/movies/${id}/extras/`);
   return data; // { ott: [{name, logo}] }
 }
+
+// 이용자 리뷰 (전 유저, 리뷰 있는 것만 최신순) — F-MOV-04
+export async function getMovieReviews(id) {
+  const { data } = await api.get(`/movies/${id}/reviews/`);
+  return data.results ?? data; // 나중에 페이지네이션 붙어도 안 깨지게 results 우선
+}
