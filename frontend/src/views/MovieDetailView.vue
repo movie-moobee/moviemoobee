@@ -1,19 +1,20 @@
 <script setup>
-// 영화 상세 (F-MOV-02 메타 / F-MOV-03 OTT / 예고편 / F-WAT-01 시청 등록).
-// 이용자 리뷰(F-MOV-04)는 2.4에서 추가.
-import { ref, onMounted, computed } from "vue";
+// 영화 상세 (F-MOV-02 메타 / F-MOV-03 OTT / 예고편 / F-WAT-01 시청 등록 / F-MOV-04 이용자 리뷰).
+import { ref, onMounted, computed, watch } from "vue";
 import { useRoute } from "vue-router";
-import { getMovie, getMovieExtras } from "@/api/movies";
+import { getMovie, getMovieExtras, getMovieReviews } from "@/api/movies";
 import RatingStars from "@/components/base/RatingStars.vue";
 import WatchRecordModal from "@/components/WatchRecordModal.vue";
 
 const route = useRoute();
 const movie = ref(null);
 const extras = ref({ ott: [] });
+const reviews = ref([]); // 전 유저 이용자 리뷰
 const myRecord = ref(null); // 내 시청기록(있으면 수정, 없으면 등록). 상세 응답 my_record에서.
 const showModal = ref(false);
 const loading = ref(true); // 영화 메타(DB, 예고편 포함) — 이게 끝나면 화면을 그림
 const extrasLoading = ref(true); // OTT(TMDB 실시간) — 본문을 막지 않고 따로 채움
+const reviewsLoading = ref(true); // 이용자 리뷰 — 본문을 막지 않고 따로 채움
 const error = ref("");
 
 const IMG = "https://image.tmdb.org/t/p/w500";
@@ -30,8 +31,44 @@ const meta = computed(() => {
   ].filter(Boolean).join(" · ");
 });
 
-onMounted(async () => {
-  const { id } = route.params;
+// ISO → "YYYY.MM.DD"
+function fmtDate(iso) {
+  if (!iso) return "";
+  const d = new Date(iso);
+  const p = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}.${p(d.getMonth() + 1)}.${p(d.getDate())}`;
+}
+
+async function loadExtras(id) {
+  extrasLoading.value = true;
+  try {
+    extras.value = await getMovieExtras(id);
+  } catch {
+    // OTT 실패는 치명적이지 않음 — 빈 상태로 둠
+  } finally {
+    extrasLoading.value = false;
+  }
+}
+
+async function loadReviews(id) {
+  reviewsLoading.value = true;
+  try {
+    reviews.value = await getMovieReviews(id);
+  } catch {
+    // 리뷰 실패는 치명적이지 않음 — 빈 상태로 둠
+  } finally {
+    reviewsLoading.value = false;
+  }
+}
+
+async function load(id) {
+  // 상태 초기화 — 상세→상세 이동(:id 변경) 시 이전 영화 데이터 잔상 방지
+  loading.value = true;
+  error.value = "";
+  movie.value = null;
+  myRecord.value = null;
+  reviews.value = [];
+  extras.value = { ott: [] };
 
   // 1) 영화 메타 먼저 — DB라 즉시. 끝나는 즉시 화면을 그린다.
   try {
@@ -44,14 +81,16 @@ onMounted(async () => {
     loading.value = false;
   }
 
-  // 2) OTT는 화면을 막지 않고 따로 — 실패해도 본문은 유지.
-  try {
-    extras.value = await getMovieExtras(id);
-  } catch {
-    // OTT 실패는 치명적이지 않음 — 빈 상태로 둠
-  } finally {
-    extrasLoading.value = false;
-  }
+  // 2) OTT·이용자 리뷰는 본문을 막지 않고 서로 독립적으로(병렬) 로드.
+  //    리뷰가 느린 OTT를 기다리지 않도록 await 없이 동시에 띄운다.
+  loadExtras(id);
+  loadReviews(id);
+}
+
+// 최초 진입 + 상세→상세(:id 변경) 모두 처리. (RouterView가 컴포넌트를 재사용해도 재로드)
+onMounted(() => load(route.params.id));
+watch(() => route.params.id, (id) => {
+  if (id) load(id);
 });
 
 // 등록/수정 저장 완료 — 모달이 API 처리 후 record를 넘겨줌. 상세 UI 즉시 갱신.
@@ -63,6 +102,7 @@ function onSaved(rec) {
     watched_on: rec.watched_on,
   };
   showModal.value = false;
+  loadReviews(route.params.id); // 내 리뷰가 목록에 반영되도록 재조회
 }
 </script>
 
@@ -231,7 +271,64 @@ function onSaved(rec) {
         </div>
       </section>
 
-      <!-- TODO(2.4): 이용자 리뷰 목록 (F-MOV-04) -->
+      <!-- 이용자 리뷰 (F-MOV-04) -->
+      <section class="block">
+        <h2 class="block__title">
+          이용자 리뷰
+        </h2>
+        <p
+          v-if="reviewsLoading"
+          class="msg msg--left"
+        >
+          불러오는 중…
+        </p>
+        <div
+          v-else-if="reviews.length"
+          class="reviews"
+        >
+          <div
+            v-for="r in reviews"
+            :key="r.id"
+            class="review"
+          >
+            <div class="review__head">
+              <img
+                v-if="r.profile_image_url"
+                :src="r.profile_image_url"
+                :alt="r.nickname"
+                class="review__avatar"
+              >
+              <div
+                v-else
+                class="review__avatar review__avatar--empty"
+              >
+                {{ (r.nickname || "?").charAt(0) }}
+              </div>
+              <div class="review__who">
+                <span class="review__nick">{{ r.nickname }}</span>
+                <RatingStars
+                  :model-value="Number(r.rating)"
+                  readonly
+                  :size="14"
+                />
+              </div>
+              <span class="review__date">{{ fmtDate(r.created_at) }}</span>
+            </div>
+            <p
+              v-if="r.review"
+              class="review__body"
+            >
+              {{ r.review }}
+            </p>
+          </div>
+        </div>
+        <p
+          v-else
+          class="msg msg--left"
+        >
+          아직 리뷰가 없습니다. 첫 리뷰를 남겨보세요!
+        </p>
+      </section>
     </template>
 
     <!-- 시청 등록·별점·리뷰 모달 (등록=POST / 수정=PATCH, 모달이 자체 처리) -->
@@ -436,6 +533,60 @@ function onSaved(rec) {
   inset: 0;
   width: 100%;
   height: 100%;
+}
+/* 이용자 리뷰 */
+.reviews {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.review {
+  padding: 14px 16px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+.review__head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.review__avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex: none;
+}
+.review__avatar--empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: 14px;
+  font-weight: 600;
+}
+.review__who {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.review__nick {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+.review__date {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.review__body {
+  font-size: 14px;
+  line-height: 1.65;
+  color: var(--text);
+  margin: 11px 0 0;
 }
 @media (max-width: 680px) {
   .hero {
