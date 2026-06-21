@@ -2,25 +2,46 @@
 // 취향 지도 페이지 (F-MAP, 김호준) — 4개 내부 탭의 셸 + '취향 지도' 탭.
 // 지도 렌더는 <TasteMapCanvas>(홈 프리뷰와 공유). 여기선 탭·게이트·범례·선택 패널 담당.
 // (KDE 탐색도 영역·영역 클릭=4.4, 검색 반짝=3.4 → 해당 탭에서.)
-import { onMounted, ref } from "vue";
-import { useRouter } from "vue-router";
+import { computed, onMounted, ref } from "vue";
+import { useRoute, useRouter } from "vue-router";
 import { getMyMap } from "@/api/taste";
+import { searchMovies } from "@/api/movies";
 import TasteMapCanvas from "@/components/TasteMapCanvas.vue";
+import WatchRecordModal from "@/components/WatchRecordModal.vue";
 
 const router = useRouter();
+const route = useRoute();
 const TABS = [
   { key: "map", label: "취향 지도" },
   { key: "records", label: "시청 영화 목록" },
   { key: "search", label: "영화 검색·등록" },
   { key: "explore", label: "지도 탐색" },
 ];
-const activeTab = ref("map");
+const TAB_KEYS = TABS.map((t) => t.key);
+// 탭 상태를 URL ?tab= 에 보존 → 새로고침·뒤로가기에도 유지
+const activeTab = ref(TAB_KEYS.includes(route.query.tab) ? route.query.tab : "map");
+function setTab(key) {
+  activeTab.value = key;
+  router.replace({ query: { ...route.query, tab: key } });
+}
 
 const loading = ref(true);
 const error = ref("");
 const data = ref(null);          // { enough, watched:[...] }
 const selected = ref(null);      // 캔버스에서 클릭한 별
 const IMG = "https://image.tmdb.org/t/p/w185";
+
+// 지도 내 검색(반짝, 3.4): 본 영화 제목 매칭 → 그 별 반짝
+const findQuery = ref("");
+const highlightId = ref(null);
+
+// 영화 검색·등록 탭(3.4)
+const searchQuery = ref("");
+const searchResults = ref([]);
+const searched = ref(false);
+const searching = ref(false);
+const searchError = ref("");
+const regMovie = ref(null);      // 등록 모달에 넘길 영화(있으면 모달 열림)
 
 onMounted(async () => {
   try {
@@ -39,7 +60,51 @@ function openDetail() {
   if (selected.value) router.push({ name: "movie-detail", params: { id: selected.value.movie_id } });
 }
 function goRegister() {
-  router.push({ name: "movies" });
+  setTab("search");
+}
+
+// 본 영화 목록 자동완성(in-memory 필터 — 매우 가벼움) → 선택하면 그 별 반짝
+const findMatches = computed(() => {
+  const q = findQuery.value.trim().toLowerCase();
+  if (!q) return [];
+  return data.value.watched.filter((w) => w.title.toLowerCase().includes(q)).slice(0, 8);
+});
+const showFind = ref(false);
+function onFindInput() {
+  showFind.value = findQuery.value.trim().length > 0;
+  if (!findQuery.value.trim()) highlightId.value = null;
+}
+function onFindBlur() {
+  setTimeout(() => { showFind.value = false; }, 120);   // 항목 클릭이 먼저 처리되도록 약간 지연
+}
+function onPickFind(m) {
+  highlightId.value = m.movie_id;
+  selected.value = m;
+  findQuery.value = m.title;
+  showFind.value = false;
+}
+function onFindEnter() {
+  if (findMatches.value.length) onPickFind(findMatches.value[0]);   // 첫 매칭 선택
+}
+
+async function onSearch() {
+  if (!searchQuery.value.trim()) return;
+  searching.value = true;
+  searchError.value = "";
+  try {
+    searchResults.value = await searchMovies(searchQuery.value.trim());
+    searched.value = true;
+  } catch {
+    searchError.value = "검색에 실패했습니다.";
+  } finally {
+    searching.value = false;
+  }
+}
+
+// 등록 모달 저장 완료 → 닫고 지도 갱신(새 별·좌표·편수 반영)
+async function onRegistered() {
+  regMovie.value = null;
+  data.value = await getMyMap();
 }
 </script>
 
@@ -53,7 +118,7 @@ function goRegister() {
         class="tab"
         :class="{ 'tab--on': activeTab === t.key }"
         type="button"
-        @click="activeTab = t.key"
+        @click="setTab(t.key)"
       >
         {{ t.label }}
       </button>
@@ -105,6 +170,7 @@ function goRegister() {
             :watched="data.watched"
             :width="980"
             :height="560"
+            :highlight-id="highlightId"
             @select="selected = $event"
           />
           <div class="legend">
@@ -114,8 +180,56 @@ function goRegister() {
           </div>
         </div>
 
-        <!-- 사이드: 선택한 별 -->
+        <!-- 사이드 -->
         <aside class="side">
+          <!-- 내가 본 영화 찾기 → 자동완성 목록에서 선택 → 지도에서 반짝 -->
+          <div class="card find-card">
+            <div class="card__tag">
+              내가 본 영화 찾기
+            </div>
+            <input
+              v-model="findQuery"
+              class="find"
+              type="text"
+              placeholder="제목 일부 입력 → 목록 선택 또는 Enter ✨"
+              @input="onFindInput"
+              @focus="showFind = true"
+              @blur="onFindBlur"
+              @keyup.enter="onFindEnter"
+            >
+            <ul
+              v-if="showFind && findMatches.length"
+              class="findlist"
+            >
+              <li
+                v-for="m in findMatches"
+                :key="m.movie_id"
+              >
+                <button
+                  class="finditem"
+                  type="button"
+                  @mousedown.prevent
+                  @click="onPickFind(m)"
+                >
+                  <img
+                    v-if="poster(m.poster_path)"
+                    :src="poster(m.poster_path)"
+                    :alt="m.title"
+                    class="finditem__poster"
+                  >
+                  <span class="finditem__title">{{ m.title }}</span>
+                  <span class="finditem__year">{{ m.release_year || "" }}</span>
+                </button>
+              </li>
+            </ul>
+            <p
+              v-else-if="findQuery && !findMatches.length"
+              class="find__none"
+            >
+              그 제목으로 본 영화가 없어요.
+            </p>
+          </div>
+
           <div class="card">
             <div class="card__tag">
               선택한 영화 <span
@@ -167,7 +281,80 @@ function goRegister() {
       </div>
     </template>
 
-    <!-- 나머지 탭(3.4·4.4에서 구현) -->
+    <!-- 영화 검색·등록 탭 (3.4) -->
+    <div
+      v-else-if="activeTab === 'search'"
+      class="reg"
+    >
+      <div class="bar">
+        <input
+          v-model="searchQuery"
+          class="bar__input"
+          type="text"
+          placeholder="등록할 영화 제목 검색"
+          @keyup.enter="onSearch"
+        >
+        <button
+          class="bar__btn"
+          type="button"
+          @click="onSearch"
+        >
+          검색
+        </button>
+      </div>
+      <p
+        v-if="searchError"
+        class="msg msg--error"
+      >
+        {{ searchError }}
+      </p>
+      <p
+        v-else-if="searching"
+        class="msg"
+      >
+        검색 중…
+      </p>
+      <div
+        v-else-if="searchResults.length"
+        class="grid"
+      >
+        <button
+          v-for="m in searchResults"
+          :key="m.id"
+          class="rcard"
+          type="button"
+          @click="regMovie = m"
+        >
+          <div class="rcard__poster">
+            <img
+              v-if="poster(m.poster_path)"
+              :src="poster(m.poster_path)"
+              :alt="m.title"
+            >
+          </div>
+          <div class="rcard__title">
+            {{ m.title }}
+          </div>
+          <div class="rcard__meta">
+            {{ m.release_year || "" }} · ＋ 등록
+          </div>
+        </button>
+      </div>
+      <p
+        v-else-if="searched"
+        class="msg"
+      >
+        결과가 없습니다.
+      </p>
+      <p
+        v-else
+        class="msg"
+      >
+        지도에 더할 영화를 검색해보세요. 별점을 매겨 등록하면 별이 하나 켜져요.
+      </p>
+    </div>
+
+    <!-- 나머지 탭(B 시청목록 / 4.4 지도탐색) -->
     <div
       v-else
       class="msg placeholder"
@@ -175,13 +362,18 @@ function goRegister() {
       <template v-if="activeTab === 'records'">
         시청 영화 목록 탭 — 곧 연결됩니다.
       </template>
-      <template v-else-if="activeTab === 'search'">
-        영화 검색·등록 탭 — 3.4에서 구현됩니다.
-      </template>
       <template v-else>
         지도 탐색(미탐색·안전 추천) 탭 — 4.4에서 구현됩니다.
       </template>
     </div>
+
+    <!-- 시청 등록 모달 (B 재사용). 저장되면 지도 갱신 -->
+    <WatchRecordModal
+      v-if="regMovie"
+      :movie="regMovie"
+      @saved="onRegistered"
+      @close="regMovie = null"
+    />
   </div>
 </template>
 
@@ -387,5 +579,166 @@ function goRegister() {
 }
 .card--count b {
   color: var(--text);
+}
+
+/* 내가 본 영화 찾기 (반짝) */
+.find {
+  width: 100%;
+  margin-top: 8px;
+  padding: 9px 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-size: 13px;
+  font-family: var(--font);
+}
+.find::placeholder {
+  color: var(--text-faint);
+}
+.find:focus {
+  outline: none;
+  border-color: var(--gold);
+}
+.find__none {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--text-faint);
+}
+.find-card {
+  position: relative;
+}
+.findlist {
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  top: calc(100% - 6px);
+  z-index: 20;
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+  max-height: 280px;
+  overflow-y: auto;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+.finditem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 8px;
+  background: none;
+  border: none;
+  border-radius: 4px;
+  text-align: left;
+  cursor: pointer;
+  font-family: var(--font);
+}
+.finditem:hover {
+  background: var(--surface);
+}
+.finditem__poster {
+  width: 24px;
+  height: 36px;
+  object-fit: cover;
+  border-radius: 2px;
+  flex: none;
+  background: var(--surface);
+}
+.finditem__title {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.finditem__year {
+  font-size: 11.5px;
+  color: var(--text-muted);
+  flex: none;
+}
+
+/* 영화 검색·등록 탭 */
+.reg {
+  padding-top: 4px;
+}
+.bar {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 22px;
+}
+.bar__input {
+  flex: 1;
+  padding: 12px 16px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-size: 14px;
+  font-family: var(--font);
+}
+.bar__input::placeholder {
+  color: var(--text-faint);
+}
+.bar__input:focus {
+  outline: none;
+  border-color: var(--gold);
+}
+.bar__btn {
+  padding: 0 22px;
+  background: var(--gold);
+  color: #1a1206;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 18px;
+}
+.rcard {
+  background: none;
+  border: none;
+  padding: 0;
+  text-align: left;
+  cursor: pointer;
+  font-family: var(--font);
+}
+.rcard__poster {
+  aspect-ratio: 2 / 3;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: var(--surface-2);
+}
+.rcard__poster img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.2s;
+}
+.rcard:hover .rcard__poster img {
+  transform: scale(1.04);
+}
+.rcard__title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  margin-top: 8px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rcard__meta {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 2px;
 }
 </style>

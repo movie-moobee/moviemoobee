@@ -10,6 +10,7 @@ const props = defineProps({
   interactive: { type: Boolean, default: true }, // 호버 툴팁·클릭 선택(프리뷰는 false)
   width: { type: Number, default: 640 },        // viewBox 비율(프리뷰는 와이드·낮게)
   height: { type: Number, default: 430 },
+  highlightId: { type: Number, default: null }, // 지도 내 검색(3.4): 이 영화 별을 반짝
 });
 const emit = defineEmits(["select"]);
 
@@ -63,6 +64,7 @@ const markers = computed(() => {
   });
 });
 const selected = computed(() => markers.value.find((m) => m.movie_id === selectedId.value) || null);
+const highlighted = computed(() => markers.value.find((m) => m.movie_id === props.highlightId) || null);
 
 function onSelect(m) {
   if (!props.interactive) return;
@@ -161,6 +163,18 @@ function poster(p) {
         stroke-width="1.6"
         opacity="0.9"
       />
+
+      <!-- 지도 내 검색: 매칭된 별 반짝 (3.4) -->
+      <circle
+        v-if="highlighted"
+        :cx="highlighted.px"
+        :cy="highlighted.py"
+        :r="highlighted.r + 11"
+        fill="none"
+        stroke="#aee1ff"
+        stroke-width="2.5"
+        class="blink"
+      />
     </svg>
 
     <!-- 커서 옆 호버 툴팁 (별점 10점 표기) -->
@@ -209,6 +223,13 @@ function poster(p) {
 @keyframes twinkle {
   0%, 100% { fill-opacity: 1; }
   50% { fill-opacity: 0.62; }
+}
+.blink {
+  animation: blink 0.85s ease-in-out infinite;
+}
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.15; }
 }
 
 /* 커서 추적 툴팁 */
