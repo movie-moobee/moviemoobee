@@ -6,6 +6,7 @@ import { computed, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { getMyMap } from "@/api/taste";
 import { searchMovies } from "@/api/movies";
+import { useMarkerMode } from "@/composables/useMarkerMode";
 import TasteMapCanvas from "@/components/TasteMapCanvas.vue";
 import WatchRecordModal from "@/components/WatchRecordModal.vue";
 
@@ -23,6 +24,15 @@ const activeTab = ref(TAB_KEYS.includes(route.query.tab) ? route.query.tab : "ma
 function setTab(key) {
   activeTab.value = key;
   router.replace({ query: { ...route.query, tab: key } });
+}
+
+// 마커 모드(별/포스터) — 홈과 공유(localStorage). /map에선 ?view= 와도 동기화.
+const markerMode = useMarkerMode();
+const VIEWS = ["stars", "posters"];
+if (VIEWS.includes(route.query.view)) markerMode.value = route.query.view;
+function setView(v) {
+  markerMode.value = v;
+  router.replace({ query: { ...route.query, view: v } });
 }
 
 const loading = ref(true);
@@ -166,16 +176,42 @@ async function onRegistered() {
         class="map-layout"
       >
         <div class="mapframe">
+          <!-- 마커 모드 토글 (별 / 포스터) -->
+          <div class="modetoggle">
+            <button
+              type="button"
+              class="modetoggle__btn"
+              :class="{ 'modetoggle__btn--on': markerMode === 'stars' }"
+              @click="setView('stars')"
+            >
+              별
+            </button>
+            <button
+              type="button"
+              class="modetoggle__btn"
+              :class="{ 'modetoggle__btn--on': markerMode === 'posters' }"
+              @click="setView('posters')"
+            >
+              포스터
+            </button>
+          </div>
           <TasteMapCanvas
             :watched="data.watched"
             :width="980"
             :height="560"
             :highlight-id="highlightId"
+            :mode="markerMode"
             @select="selected = $event"
           />
           <div class="legend">
-            <span><i class="dot dot--high" /> 크고 밝은 별 = 고평점</span>
-            <span><i class="dot dot--low" /> 작고 흐린 별 = 저평점</span>
+            <template v-if="markerMode === 'stars'">
+              <span><i class="dot dot--high" /> 크고 밝은 별 = 고평점</span>
+              <span><i class="dot dot--low" /> 작고 흐린 별 = 저평점</span>
+            </template>
+            <template v-else>
+              <span><i class="sw sw--poster" /> 포스터 = 내가 본 영화</span>
+              <span><i class="sw sw--bar" /> 금색 바 = 별점</span>
+            </template>
             <span>모여 있을수록 = 비슷한 취향</span>
           </div>
         </div>
@@ -456,10 +492,53 @@ async function onRegistered() {
   gap: 20px;
 }
 .mapframe {
+  position: relative;
   border: 1px solid #262a36;
   border-radius: 8px;
   overflow: hidden;
   background: #0e1018;
+}
+.modetoggle {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 10;
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  background: rgba(14, 16, 24, 0.7);
+  border: 1px solid #2c3142;
+  border-radius: 999px;
+}
+.modetoggle__btn {
+  padding: 5px 14px;
+  background: none;
+  border: none;
+  border-radius: 999px;
+  color: #aeb4c4;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: var(--font);
+  cursor: pointer;
+}
+.modetoggle__btn--on {
+  background: var(--gold);
+  color: #1a1206;
+}
+.sw {
+  display: inline-block;
+}
+.sw--poster {
+  width: 9px;
+  height: 13px;
+  border-radius: 2px;
+  background: #2a3142;
+  border: 1px solid #3a4358;
+}
+.sw--bar {
+  width: 14px;
+  height: 3px;
+  background: #f4b860;
 }
 .legend {
   display: flex;
