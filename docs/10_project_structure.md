@@ -9,7 +9,7 @@
 
 ## 최상위
 ```
-movie-moobee/
+13-pjt/
 ├─ README.md                  처음 시작·폴더개요·담당
 ├─ CLAUDE.md                  바이브코딩 가이드+도메인 불변식 (gitignore=개인용)
 ├─ docker-compose.yml         ⚙️ 로컬 PostgreSQL(+adminer) 컨테이너

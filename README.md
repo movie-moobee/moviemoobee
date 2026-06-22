@@ -8,7 +8,7 @@
 
 ## 폴더 구조
 ```
-movie-moobee/
+13-pjt/
 ├─ CLAUDE.md                      # 바이브 코딩 가이드(도메인 불변식 포함)
 ├─ docker-compose.yml             # 로컬 PostgreSQL
 ├─ .env.example                   # 환경변수 예시 (.env 는 커밋 금지)

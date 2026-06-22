@@ -19,8 +19,8 @@
 
 ### 1-1. 레포 클론
 ```bash
-git clone https://lab.ssafy.com/000304jun/movie-moobee.git
-cd movie-moobee
+git clone https://lab.ssafy.com/000304jun/13-pjt.git
+cd 13-pjt
 ```
 
 ### 1-2. .env 만들기 (레포 루트)
