@@ -6,7 +6,12 @@ from rest_framework.views import APIView
 
 from accounts.models import User
 from .models import Friendship
-from .serializers import ReceivedRequestSerializer, UserCardSerializer
+from .serializers import (
+    FriendProfileSerializer,
+    FriendSerializer,
+    ReceivedRequestSerializer,
+    UserCardSerializer,
+)
 
 
 def _relation_map(me, user_ids):
@@ -122,5 +127,58 @@ class FriendRequestRejectView(APIView):
             addressee=request.user,
             status=Friendship.Status.PENDING,
         )
+        f.delete()
+        return Response(status=204)
+
+
+def _accepted_between(me, other_id):
+    """me 와 other_id 의 수락된 친구관계(한 행, 양방향) 반환 — 없으면 None."""
+    return Friendship.objects.filter(
+        Q(requester=me, addressee_id=other_id)
+        | Q(requester_id=other_id, addressee=me),
+        status=Friendship.Status.ACCEPTED,
+    ).first()
+
+
+class FriendListView(APIView):
+    """GET /api/social/friends/ — 내 친구 목록 (F-FRD-04, accepted). 본 영화 편수 포함."""
+
+    def get(self, request):
+        me = request.user
+        rows = Friendship.objects.filter(
+            Q(requester=me) | Q(addressee=me), status=Friendship.Status.ACCEPTED
+        )
+        friend_ids = [
+            f.addressee_id if f.requester_id == me.id else f.requester_id for f in rows
+        ]
+        friends = (
+            User.objects.filter(id__in=friend_ids)
+            .annotate(watch_count=Count("watch_records"))
+            .order_by("nickname")
+        )
+        return Response(
+            FriendSerializer(friends, many=True, context={"request": request}).data
+        )
+
+
+class FriendDetailView(APIView):
+    """친구 프로필 상세 / 친구 끊기 (F-FRD-04). 친구 사이일 때만 접근.
+    GET    /api/social/friends/<pk>/ — 프로필 + 시청작 그리드.
+    DELETE /api/social/friends/<pk>/ — 친구 끊기(양방향 관계 1행 삭제)."""
+
+    def get(self, request, pk):
+        if not _accepted_between(request.user, pk):
+            return Response({"detail": "친구만 볼 수 있습니다."}, status=403)
+        user = get_object_or_404(
+            User.objects.annotate(watch_count=Count("watch_records")), pk=pk
+        )
+        return Response(
+            FriendProfileSerializer(user, context={"request": request}).data
+        )
+
+    def delete(self, request, pk):
+        f = _accepted_between(request.user, pk)
+        if not f:
+            return Response({"detail": "친구가 아닙니다."}, status=404)
         f.delete()
         return Response(status=204)

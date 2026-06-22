@@ -40,3 +40,36 @@ class ReceivedRequestSerializer(serializers.Serializer):
             "profile_image_url": build_image_url(u.profile_image, self.context),
             "watch_count": u.watch_records.count(),
         }
+
+
+class FriendSerializer(serializers.Serializer):
+    """친구 목록 카드 (F-FRD-04). 닉네임·아바타·본 영화 편수.
+    watch_count 는 뷰에서 annotate(Count("watch_records")) 로 주입."""
+
+    id = serializers.IntegerField()
+    nickname = serializers.CharField()
+    profile_image_url = serializers.SerializerMethodField()
+    watch_count = serializers.IntegerField(read_only=True)
+
+    def get_profile_image_url(self, obj):
+        return build_image_url(obj.profile_image, self.context)
+
+
+class FriendProfileSerializer(FriendSerializer):
+    """친구 프로필 상세 (F-FRD-04, 화면 13 헤더). 목록 카드 + 친구의 시청작 그리드.
+    취향 비교 지도(F-FRD-05)·챗봇(5.4)은 추후."""
+
+    watched = serializers.SerializerMethodField()
+
+    def get_watched(self, obj):
+        recs = obj.watch_records.select_related("movie").order_by("-created_at")
+        return [
+            {
+                "id": r.movie_id,
+                "title": r.movie.title,
+                "poster_path": r.movie.poster_path,
+                "release_year": r.movie.release_year,
+                "rating": float(r.rating),
+            }
+            for r in recs
+        ]
