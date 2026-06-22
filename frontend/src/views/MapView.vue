@@ -76,10 +76,14 @@ function goRegister() {
 }
 
 // 본 영화 목록 자동완성(in-memory 필터 — 매우 가벼움) → 선택하면 그 별 반짝
+// 제목순 정렬(localeCompare, numeric: '아이언맨 2' < '아이언맨 10' 자연정렬). filter가 새 배열이라 sort 안전.
 const findMatches = computed(() => {
   const q = findQuery.value.trim().toLowerCase();
   if (!q) return [];
-  return data.value.watched.filter((w) => w.title.toLowerCase().includes(q)).slice(0, 8);
+  return data.value.watched
+    .filter((w) => w.title.toLowerCase().includes(q))
+    .sort((a, b) => a.title.localeCompare(b.title, "ko", { numeric: true }))
+    .slice(0, 8);
 });
 const showFind = ref(false);
 function onFindInput() {
