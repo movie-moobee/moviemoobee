@@ -76,6 +76,10 @@ USE_I18N = True
 USE_TZ = True
 STATIC_URL = "static/"
 
+# 업로드 파일(프로필 사진 등). 개발: 로컬 media/ 폴더 + DEBUG 시 static() 서빙(config/urls).
+MEDIA_URL = "/media/"
+MEDIA_ROOT = BASE_DIR / "media"
+
 REST_FRAMEWORK = {
     # 09_tech_notes: Session → Token 전환 (모든 API 기본 인증)
     "DEFAULT_AUTHENTICATION_CLASSES": [
@@ -103,10 +107,12 @@ REST_AUTH = {
     "USE_JWT": False,  # DRF 토큰 방식 (09_tech_notes)
     "SESSION_LOGIN": False,
     "TOKEN_MODEL": "rest_framework.authtoken.models.Token",
-    # 회원가입에 nickname(필수)·profile_image_url(선택) 추가 (F-AUTH-01)
+    # 회원가입에 nickname(필수) 추가 (F-AUTH-01). 사진은 프로필 수정에서만.
     "REGISTER_SERIALIZER": "accounts.serializers.CustomRegisterSerializer",
-    # /api/auth/user/ 에 nickname·onboarded 노출 (가드용)
+    # /api/auth/user/ 조회·수정(F-AUTH-04): nickname·사진·onboarded
     "USER_DETAILS_SERIALIZER": "accounts.serializers.UserDetailsSerializer",
+    # 비밀번호 변경 시 현재 비밀번호 확인 요구 (와이어프레임 09)
+    "OLD_PASSWORD_FIELD_ENABLED": True,
 }
 # 로컬: 메일 발송 대신 콘솔 출력
 EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"

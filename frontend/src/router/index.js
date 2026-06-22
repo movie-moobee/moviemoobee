@@ -17,7 +17,8 @@ const routes = [
       { path: 'records',     name: 'records',        component: () => import('@/views/WatchRecordsView.vue') },
       { path: 'friends',     name: 'friends',        component: () => import('@/views/FriendsView.vue') },
       { path: 'friends/:id', name: 'friend-compare', component: () => import('@/views/FriendCompareView.vue') },
-      { path: 'profile',     name: 'profile',        component: () => import('@/views/ProfileView.vue') },
+      { path: 'me',          name: 'profile',        component: () => import('@/views/ProfileView.vue') },
+      { path: 'me/edit',     name: 'profile-edit',   component: () => import('@/views/EditProfileView.vue') },
     ],
   },
 ]

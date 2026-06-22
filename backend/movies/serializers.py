@@ -83,7 +83,15 @@ class MovieReviewSerializer(serializers.ModelSerializer):
     작성자 닉네임·아바타 + 별점·내용·작성일."""
 
     nickname = serializers.CharField(source="user.nickname", read_only=True)
-    profile_image_url = serializers.CharField(source="user.profile_image_url", read_only=True)
+    profile_image_url = serializers.SerializerMethodField()
+
+    def get_profile_image_url(self, obj):
+        # 프로필 사진(ImageField) → 절대 URL. 없으면 None.
+        img = obj.user.profile_image
+        if not img:
+            return None
+        request = self.context.get("request")
+        return request.build_absolute_uri(img.url) if request else img.url
 
     class Meta:
         model = WatchRecord

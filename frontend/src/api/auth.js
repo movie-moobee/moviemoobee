@@ -59,6 +59,37 @@ export async function completeOnboarding() {
   onboardedCache = true;
 }
 
+// 내 프로필 조회 (F-AUTH-04) → { pk, email, nickname, profile_image_url, onboarded }
+export async function getMe() {
+  const { data } = await api.get("/auth/user/");
+  return data;
+}
+
+// 프로필 수정 (닉네임 + 선택 사진파일). 사진 있으면 multipart, 없으면 JSON.
+export async function updateProfile({ nickname, imageFile }) {
+  if (imageFile) {
+    const fd = new FormData();
+    if (nickname != null) fd.append("nickname", nickname);
+    fd.append("profile_image", imageFile);
+    const { data } = await api.patch("/auth/user/", fd);
+    return data;
+  }
+  const { data } = await api.patch("/auth/user/", { nickname });
+  return data;
+}
+
+// 비밀번호 변경 (F-AUTH-04) — 현재 비밀번호 확인(OLD_PASSWORD_FIELD_ENABLED) 포함
+export async function changePassword({ old_password, new_password1, new_password2 }) {
+  await api.post("/auth/password/change/", { old_password, new_password1, new_password2 });
+}
+
+// 계정 삭제 (F-AUTH-05, Hard). 성공 시 토큰·캐시 정리.
+export async function deleteAccount() {
+  await api.delete("/accounts/me/");
+  clearToken();
+  onboardedCache = null;
+}
+
 // 로그아웃 = 서버 토큰 폐기 + 클라이언트 토큰 삭제 + 캐시 초기화
 export async function logout() {
   try {
