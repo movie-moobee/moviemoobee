@@ -14,6 +14,7 @@ const routes = [
       { path: 'map',         name: 'map',            component: () => import('@/views/MapView.vue') },
       { path: 'movies',      name: 'movies',         component: () => import('@/views/MovieSearchView.vue') },
       { path: 'movies/:id',  name: 'movie-detail',   component: () => import('@/views/MovieDetailView.vue') },
+      { path: 'recommend',   name: 'recommend',      component: () => import('@/views/RecommendView.vue') },
       { path: 'records',     name: 'records',        component: () => import('@/views/WatchRecordsView.vue') },
       { path: 'friends',     name: 'friends',        component: () => import('@/views/FriendsView.vue') },
       { path: 'friends/:id', name: 'friend-compare', component: () => import('@/views/FriendCompareView.vue') },
