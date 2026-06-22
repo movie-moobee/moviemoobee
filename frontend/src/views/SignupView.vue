@@ -1,6 +1,6 @@
 <script setup>
 // 회원가입 4단계 위저드 (F-AUTH-01)
-import { ref, computed } from "vue";
+import { ref, computed, watch, nextTick, onMounted } from "vue";
 import { useRouter } from "vue-router";
 import { register } from "@/api/auth";
 
@@ -15,6 +15,19 @@ const password1 = ref("");
 const password2 = ref("");
 const error = ref("");
 const submitting = ref(false);
+
+// 각 스텝의 첫 입력칸 — 스텝 전환 시 자동 포커스(칸 클릭 없이 바로 입력)
+const emailInput = ref(null);
+const nicknameInput = ref(null);
+const pw1Input = ref(null);
+const pw2Input = ref(null);
+
+function focusStep(s) {
+  const target = { 1: emailInput, 2: pw1Input, 3: pw2Input }[s];
+  nextTick(() => target?.value?.focus());
+}
+onMounted(() => focusStep(1));
+watch(step, (s) => focusStep(s));
 
 const emailValid = computed(() => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.value));
 // 8자 이상 + 영문/숫자/특수문자 포함
@@ -68,6 +81,11 @@ async function submit() {
   }
 }
 
+function prev() {
+  error.value = "";
+  if (step.value > 1) step.value -= 1;
+}
+
 function start() {
   router.push("/onboarding");
 }
@@ -116,10 +134,12 @@ function start() {
         >이메일</label>
         <input
           id="r-email"
+          ref="emailInput"
           v-model="email"
           type="email"
           class="box-input"
           placeholder="이메일 주소를 입력하세요"
+          @keydown.enter.prevent="nicknameInput?.focus()"
         >
         <label
           class="lbl"
@@ -127,6 +147,7 @@ function start() {
         >닉네임</label>
         <input
           id="r-nick"
+          ref="nicknameInput"
           v-model="nickname"
           type="text"
           class="box-input"
@@ -158,6 +179,7 @@ function start() {
         >비밀번호</label>
         <input
           id="r-pw"
+          ref="pw1Input"
           v-model="password1"
           type="password"
           class="box-input"
@@ -173,12 +195,21 @@ function start() {
         >
           {{ error }}
         </p>
-        <button
-          class="btn-dark"
-          type="submit"
-        >
-          다음
-        </button>
+        <div class="btn-row">
+          <button
+            class="btn-ghost"
+            type="button"
+            @click="prev"
+          >
+            이전
+          </button>
+          <button
+            class="btn-dark"
+            type="submit"
+          >
+            다음
+          </button>
+        </div>
       </form>
 
       <!-- 3. 비밀번호 확인 -->
@@ -193,6 +224,7 @@ function start() {
         >비밀번호 확인</label>
         <input
           id="r-pw2"
+          ref="pw2Input"
           v-model="password2"
           type="password"
           class="box-input"
@@ -205,13 +237,23 @@ function start() {
         >
           {{ error }}
         </p>
-        <button
-          class="btn-dark"
-          type="submit"
-          :disabled="submitting"
-        >
-          {{ submitting ? "처리 중…" : "다음" }}
-        </button>
+        <div class="btn-row">
+          <button
+            class="btn-ghost"
+            type="button"
+            :disabled="submitting"
+            @click="prev"
+          >
+            이전
+          </button>
+          <button
+            class="btn-dark"
+            type="submit"
+            :disabled="submitting"
+          >
+            {{ submitting ? "처리 중…" : "다음" }}
+          </button>
+        </div>
       </form>
 
       <!-- 4. 완료 -->
@@ -401,6 +443,33 @@ function start() {
   background: #000;
 }
 .btn-dark:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+/* 이전/다음 한 줄 배치 */
+.btn-row {
+  display: flex;
+  gap: 12px;
+  margin-top: 40px;
+}
+.btn-row .btn-dark {
+  flex: 1;
+  margin-top: 0;
+}
+.btn-ghost {
+  padding: 18px 28px;
+  background: transparent;
+  color: #1a1a1a;
+  border: 1px solid #d3cfc6;
+  font-size: 15px;
+  font-family: var(--font);
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+.btn-ghost:hover:not(:disabled) {
+  border-color: #1a1a1a;
+}
+.btn-ghost:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
