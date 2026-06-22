@@ -32,3 +32,20 @@ export async function acceptFriendRequest(id) {
 export async function rejectFriendRequest(id) {
   await api.delete(`/social/friendships/${id}/`);
 }
+
+// 내 친구 목록 (F-FRD-04) → [{ id, nickname, profile_image_url, watch_count }]
+export async function getFriends() {
+  const { data } = await api.get("/social/friends/");
+  return data;
+}
+
+// 친구 프로필 상세 (친구만) → { id, nickname, profile_image_url, watch_count, watched:[...] }
+export async function getFriendProfile(id) {
+  const { data } = await api.get(`/social/friends/${id}/`);
+  return data;
+}
+
+// 친구 끊기 (양방향 관계 해제)
+export async function unfriend(id) {
+  await api.delete(`/social/friends/${id}/`);
+}

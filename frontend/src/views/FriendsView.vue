@@ -1,21 +1,62 @@
 <script setup>
-// 친구 페이지 (F-FRD-01~03, 와이어프레임 12) — 검색·요청·받은요청 수락/거절.
-// 탭: 친구 목록(5.2 예정 placeholder) / 친구 검색 / 받은 요청(뱃지).
+// 친구 페이지 (F-FRD-01~04, 와이어프레임 12) — 친구목록·검색·받은요청.
+// 탭: 친구 목록(삭제) / 친구 검색(요청) / 받은 요청(수락·거절, 뱃지).
 import { computed, onMounted, ref } from "vue";
+import { useRouter } from "vue-router";
 import {
   searchUsers,
   sendFriendRequest,
   getReceivedRequests,
   acceptFriendRequest,
   rejectFriendRequest,
+  getFriends,
+  unfriend,
 } from "@/api/social";
+import ConfirmDialog from "@/components/ConfirmDialog.vue";
 
+const router = useRouter();
 const TABS = [
   { key: "list", label: "친구 목록" },
   { key: "search", label: "친구 검색" },
   { key: "received", label: "받은 요청" },
 ];
-const activeTab = ref("search"); // 친구 목록은 5.2라 검색을 기본 탭으로
+const activeTab = ref("list"); // 친구 목록이 기본 탭(와이어프레임 12)
+
+// --- 친구 목록 (F-FRD-04) ---
+const friends = ref([]);
+const friendsLoading = ref(true);
+const friendsError = ref("");
+const unfriendTarget = ref(null); // 끊기 확인 대상 친구
+const unfriending = ref(false);
+
+async function loadFriends() {
+  friendsLoading.value = true;
+  try {
+    friends.value = await getFriends();
+  } catch {
+    friendsError.value = "친구 목록을 불러오지 못했습니다.";
+  } finally {
+    friendsLoading.value = false;
+  }
+}
+
+function openProfile(friend) {
+  router.push({ name: "friend-compare", params: { id: friend.id } });
+}
+
+async function confirmUnfriend() {
+  if (!unfriendTarget.value || unfriending.value) return;
+  unfriending.value = true;
+  try {
+    await unfriend(unfriendTarget.value.id);
+    friends.value = friends.value.filter((u) => u.id !== unfriendTarget.value.id);
+    unfriendTarget.value = null;
+  } catch {
+    friendsError.value = "친구 끊기에 실패했습니다.";
+  } finally {
+    unfriending.value = false;
+  }
+}
 
 // --- 친구 검색 ---
 const query = ref("");
@@ -80,6 +121,7 @@ async function onAccept(reqItem) {
     // 검색 결과에 그 사람이 떠 있으면 관계도 갱신
     const u = results.value.find((x) => x.id === reqItem.requester.id);
     if (u) u.relation = "friend";
+    loadFriends(); // 친구 목록 탭에 방금 수락한 친구가 바로 보이도록 갱신
   } catch {
     receivedError.value = "수락에 실패했습니다. 잠시 후 다시 시도해주세요.";
   } finally {
@@ -103,7 +145,10 @@ async function onReject(reqItem) {
   }
 }
 
-onMounted(loadReceived); // 뱃지 수가 어느 탭에서든 보이도록 미리 로드
+onMounted(() => {
+  loadFriends();
+  loadReceived(); // 뱃지 수가 어느 탭에서든 보이도록 미리 로드
+});
 
 function initial(nickname) {
   return (nickname || "?").trim().charAt(0).toUpperCase();
@@ -130,13 +175,71 @@ function initial(nickname) {
       </button>
     </div>
 
-    <!-- 친구 목록 탭 (5.2 예정) -->
-    <div
-      v-if="activeTab === 'list'"
-      class="msg placeholder"
-    >
-      친구 목록 탭 — 5.2에서 구현됩니다.
-    </div>
+    <!-- 친구 목록 탭 (F-FRD-04) -->
+    <template v-if="activeTab === 'list'">
+      <p
+        v-if="friendsError"
+        class="msg msg--error"
+      >
+        {{ friendsError }}
+      </p>
+      <p
+        v-if="friendsLoading"
+        class="msg"
+      >
+        불러오는 중…
+      </p>
+      <p
+        v-else-if="friends.length === 0"
+        class="msg"
+      >
+        아직 친구가 없습니다. 친구 검색에서 요청을 보내보세요.
+      </p>
+      <ul
+        v-else
+        class="cards"
+      >
+        <li
+          v-for="u in friends"
+          :key="u.id"
+          class="card card--click"
+          @click="openProfile(u)"
+        >
+          <div class="avatar">
+            <img
+              v-if="u.profile_image_url"
+              :src="u.profile_image_url"
+              :alt="u.nickname"
+            >
+            <span v-else>{{ initial(u.nickname) }}</span>
+          </div>
+          <div class="card__info">
+            <p class="card__name">
+              {{ u.nickname }}
+            </p>
+            <p class="card__meta">
+              본 영화 {{ u.watch_count }}편
+            </p>
+          </div>
+          <div class="card__actions">
+            <button
+              class="act act--primary"
+              type="button"
+              @click.stop="openProfile(u)"
+            >
+              취향 비교
+            </button>
+            <button
+              class="act act--danger"
+              type="button"
+              @click.stop="unfriendTarget = u"
+            >
+              친구 삭제
+            </button>
+          </div>
+        </li>
+      </ul>
+    </template>
 
     <!-- 친구 검색 탭 -->
     <template v-else-if="activeTab === 'search'">
@@ -303,6 +406,19 @@ function initial(nickname) {
         </li>
       </ul>
     </template>
+
+    <!-- 친구 끊기 확인 -->
+    <ConfirmDialog
+      v-if="unfriendTarget"
+      title="친구를 삭제할까요?"
+      :message="`'${unfriendTarget.nickname}' 님과 친구를 끊습니다.`"
+      confirm-label="친구 삭제"
+      cancel-label="취소"
+      :danger="true"
+      :busy="unfriending"
+      @confirm="confirmUnfriend"
+      @cancel="unfriendTarget = null"
+    />
   </div>
 </template>
 
@@ -402,6 +518,12 @@ function initial(nickname) {
 .card--pending {
   border-style: dashed;
 }
+.card--click {
+  cursor: pointer;
+}
+.card--click:hover {
+  border-color: var(--border-hover, var(--text-muted));
+}
 
 .avatar {
   width: 52px;
@@ -473,6 +595,13 @@ function initial(nickname) {
   color: var(--text-muted);
   border-color: var(--border);
   cursor: default;
+}
+.act--danger {
+  color: var(--danger);
+  border-color: var(--border);
+}
+.act--danger:hover {
+  border-color: var(--danger);
 }
 
 .msg {
