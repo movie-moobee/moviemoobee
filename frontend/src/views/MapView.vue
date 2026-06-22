@@ -9,6 +9,7 @@ import { searchMovies } from "@/api/movies";
 import { useMarkerMode } from "@/composables/useMarkerMode";
 import TasteMapCanvas from "@/components/TasteMapCanvas.vue";
 import WatchRecordModal from "@/components/WatchRecordModal.vue";
+import WatchRecordsList from "@/components/WatchRecordsList.vue";
 
 const router = useRouter();
 const route = useRoute();
@@ -114,6 +115,11 @@ async function onSearch() {
 // 등록 모달 저장 완료 → 닫고 지도 갱신(새 별·좌표·편수 반영)
 async function onRegistered() {
   regMovie.value = null;
+  data.value = await getMyMap();
+}
+
+// 시청 목록 탭에서 수정·삭제 → 좌표/별 재계산 반영(탭 전환 시 stale 방지)
+async function onRecordsChanged() {
   data.value = await getMyMap();
 }
 </script>
@@ -390,17 +396,18 @@ async function onRegistered() {
       </p>
     </div>
 
-    <!-- 나머지 탭(B 시청목록 / 4.4 지도탐색) -->
+    <!-- 시청 영화 목록 탭 (2.3) -->
+    <WatchRecordsList
+      v-else-if="activeTab === 'records'"
+      @changed="onRecordsChanged"
+    />
+
+    <!-- 지도 탐색 탭(4.4) -->
     <div
       v-else
       class="msg placeholder"
     >
-      <template v-if="activeTab === 'records'">
-        시청 영화 목록 탭 — 곧 연결됩니다.
-      </template>
-      <template v-else>
-        지도 탐색(미탐색·안전 추천) 탭 — 4.4에서 구현됩니다.
-      </template>
+      지도 탐색(미탐색·안전 추천) 탭 — 4.4에서 구현됩니다.
     </div>
 
     <!-- 시청 등록 모달 (B 재사용). 저장되면 지도 갱신 -->
