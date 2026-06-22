@@ -19,3 +19,12 @@ class OnboardingCompleteView(APIView):
             user.onboarded = True
             user.save(update_fields=["onboarded"])  # 좌표 시그널과 무관(필드 한정 저장)
         return Response({"onboarded": True})
+
+
+class AccountDeleteView(APIView):
+    """계정 삭제 (F-AUTH-05). Hard delete — 본인 계정을 즉시 영구 삭제.
+    cascade로 시청기록·친구관계·알림·토큰까지 함께 삭제됨(복구 불가)."""
+
+    def delete(self, request):
+        request.user.delete()
+        return Response(status=204)

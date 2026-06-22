@@ -1,3 +1,5 @@
+from django.conf import settings
+from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import path, include
 
@@ -15,3 +17,7 @@ urlpatterns = [
     path("api/social/", include("social.urls")),
     path("api/taste/", include("taste.urls")),
 ]
+
+# 개발(DEBUG) 중 업로드 사진(MEDIA) 서빙. 운영은 웹서버(nginx 등)가 담당.
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
