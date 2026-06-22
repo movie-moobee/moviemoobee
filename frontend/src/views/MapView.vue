@@ -5,7 +5,7 @@
 import { computed, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { getMyMap } from "@/api/taste";
-import { searchMovies } from "@/api/movies";
+import { searchMovies, getMovie } from "@/api/movies";
 import { useMarkerMode } from "@/composables/useMarkerMode";
 import TasteMapCanvas from "@/components/TasteMapCanvas.vue";
 import WatchRecordModal from "@/components/WatchRecordModal.vue";
@@ -53,6 +53,7 @@ const searched = ref(false);
 const searching = ref(false);
 const searchError = ref("");
 const regMovie = ref(null);      // 등록 모달에 넘길 영화(있으면 모달 열림)
+const regRecord = ref(null);     // 그 영화의 내 시청기록(있으면 수정 모드 + 기존 리뷰 채움)
 
 onMounted(async () => {
   try {
@@ -112,9 +113,23 @@ async function onSearch() {
   }
 }
 
+// 검색 결과 클릭 → 상세를 조회해 내 시청기록(my_record)을 받고 모달을 연다.
+// 이미 본 영화면 수정 모달(기존 별점·리뷰 채움), 안 본 영화면 등록 모달.
+// ※ 모달은 setup에서 initialRecord를 1회만 읽으므로 record 확정 후에 마운트해야 한다.
+async function onPickRegister(m) {
+  try {
+    const detail = await getMovie(m.id);
+    regRecord.value = detail.my_record;   // null=신규 등록 / 있으면 수정
+  } catch {
+    regRecord.value = null;               // 조회 실패 시 등록 모드로 진행
+  }
+  regMovie.value = m;
+}
+
 // 등록 모달 저장 완료 → 닫고 지도 갱신(새 별·좌표·편수 반영)
 async function onRegistered() {
   regMovie.value = null;
+  regRecord.value = null;
   data.value = await getMyMap();
 }
 
@@ -225,6 +240,9 @@ async function onRecordsChanged() {
         <!-- 사이드 -->
         <aside class="side">
           <!-- 내가 본 영화 찾기 → 자동완성 목록에서 선택 → 지도에서 반짝 -->
+          <div class="card card--count">
+            내가 본 영화 <b>{{ data.watched.length }}</b>편
+          </div>
           <div class="card find-card">
             <div class="card__tag">
               내가 본 영화 찾기
@@ -233,7 +251,7 @@ async function onRecordsChanged() {
               v-model="findQuery"
               class="find"
               type="text"
-              placeholder="제목 일부 입력 → 목록 선택 또는 Enter ✨"
+              placeholder="제목을 입력하세요."
               @input="onFindInput"
               @focus="showFind = true"
               @blur="onFindBlur"
@@ -274,10 +292,7 @@ async function onRecordsChanged() {
 
           <div class="card">
             <div class="card__tag">
-              선택한 영화 <span
-                v-if="!selected"
-                class="card__hint"
-              >— 별을 눌러보세요</span>
+              선택한 영화 
             </div>
             <div
               v-if="selected"
@@ -313,11 +328,26 @@ async function onRecordsChanged() {
               v-else
               class="card__empty"
             >
-              지도의 빛나는 별이 내가 본 영화예요. 밝을수록 높게 준 별점.
+              지도에서 영화를 클릭해보세요.
             </p>
           </div>
-          <div class="card card--count">
-            내가 본 영화 <b>{{ data.watched.length }}</b>편
+
+          <!-- 내 취향 요약 (주=좋아요 별점가중 장르 / 미탐색=KDE 안 가본 장르) -->
+          <div
+            v-if="data.summary"
+            class="card"
+          >
+            <div class="card__tag">
+              내 취향 요약
+            </div>
+            <div class="summary">
+              <span class="summary__label">내 선호 장르</span>
+              <span class="summary__val">{{ data.summary.main.join(" · ") || "—" }}</span>
+            </div>
+            <div class="summary">
+              <span class="summary__label">미탐색 장르</span>
+              <span class="summary__val summary__val--unexp">{{ data.summary.unexplored.join(" · ") || "—" }}</span>
+            </div>
           </div>
         </aside>
       </div>
@@ -365,7 +395,7 @@ async function onRecordsChanged() {
           :key="m.id"
           class="rcard"
           type="button"
-          @click="regMovie = m"
+          @click="onPickRegister(m)"
         >
           <div class="rcard__poster">
             <img
@@ -392,7 +422,7 @@ async function onRecordsChanged() {
         v-else
         class="msg"
       >
-        지도에 더할 영화를 검색해보세요. 별점을 매겨 등록하면 별이 하나 켜져요.
+        지도에 더할 영화를 검색해보세요.
       </p>
     </div>
 
@@ -414,6 +444,7 @@ async function onRecordsChanged() {
     <WatchRecordModal
       v-if="regMovie"
       :movie="regMovie"
+      :initial-record="regRecord"
       @saved="onRegistered"
       @close="regMovie = null"
     />
@@ -665,6 +696,26 @@ async function onRecordsChanged() {
 }
 .card--count b {
   color: var(--text);
+}
+
+/* 내 취향 요약 */
+.summary {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-top: 8px;
+  font-size: 13px;
+}
+.summary__label {
+  flex: none;
+  color: var(--text-muted);
+}
+.summary__val {
+  font-weight: 600;
+  color: var(--text);
+}
+.summary__val--unexp {
+  color: var(--gold);
 }
 
 /* 내가 본 영화 찾기 (반짝) */

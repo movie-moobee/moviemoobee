@@ -75,6 +75,11 @@ function ringR(m) {
 }
 function onSelect(m) {
   if (!props.interactive) return;
+  if (selectedId.value === m.movie_id) {   // 같은 별 재클릭 → 선택 해제(패널·링 사라짐)
+    selectedId.value = null;
+    emit("select", null);
+    return;
+  }
   selectedId.value = m.movie_id;
   emit("select", m);
 }
