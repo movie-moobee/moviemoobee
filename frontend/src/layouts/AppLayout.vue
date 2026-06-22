@@ -3,10 +3,10 @@ import { RouterLink, RouterView } from 'vue-router'
 
 const navItems = [
   { name: 'home',    label: '홈' },
-  { name: 'map',     label: '지도' },
-  { name: 'movies',  label: '영화' },
-  { name: 'records', label: '기록' },
-  { name: 'friends', label: '친구' },
+  { name: 'map',       label: '지도' },
+  { name: 'movies',    label: '영화' },
+  { name: 'recommend', label: '추천' },
+  { name: 'friends',   label: '친구' },
 ]
 </script>
 

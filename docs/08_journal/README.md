@@ -18,6 +18,7 @@
 | [A-03-build-coords.md](A-03-build-coords.md) | TF-IDF + UMAP 전역 좌표 생성·적재 | 2026-06-07 | 0.5 |
 | [A-04-movies-fixture.md](A-04-movies-fixture.md) | 영화+좌표 fixture(페어 공유 시드) | 2026-06-07 | 0.5 후속 |
 | [A-05-user-coord.md](A-05-user-coord.md) | 사용자 좌표 계산·캐싱 + 시그널 + seed_demo | 2026-06-07 | 3.1 (F-MAP-00) |
+| [A-12-map-tab-polish.md](A-12-map-tab-polish.md) | 지도 보강: 취향 요약(주=별점가중·미탐색=KDE)·별 토글·등록탭 수정모달 | 2026-06-22 | 3.x 후속 |
 
 ## 작성 템플릿
 ```markdown
