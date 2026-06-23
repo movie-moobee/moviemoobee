@@ -13,3 +13,9 @@ export async function getRecommendations() {
   const { data } = await api.get("/taste/recommendations");
   return data; // { enough, safe:[{id,title,...,distance}], unexplored:[{...,density,continent}], today }
 }
+
+// 지도 탐색: 취향 지도(본 영화·대륙) + 안전·미탐색 추천 핀 좌표 (F-MAP-03, 4.4)
+export async function getExplore() {
+  const { data } = await api.get("/taste/explore");
+  return data; // { enough, watched:[full], anchors:[{name,x,y}], safe:[..,x,y], unexplored:[..,x,y,continent] }
+}

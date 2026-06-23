@@ -2,7 +2,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from .services.recommend import get_recommendations
+from .services.recommend import get_explore, get_recommendations
 from .services.taste_map import get_map
 
 
@@ -27,3 +27,15 @@ def taste_map(request):
     별점=별 밝기. enough=False(시청<5)면 watched 는 빈 리스트 — 프론트가 경고 오버레이(차단 아님).
     """
     return Response(get_map(request.user))
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def explore(request):
+    """지도 탐색 탭 (F-MAP-03, 4.4): KDE 탐색도 배경 + 본 영화 + 안전·미탐색 추천(좌표 포함).
+
+    응답: {enough, grid:{w,h,extent,values}, watched:[{x,y,rating}],
+           safe:[{...,x,y,distance}], unexplored:[{...,x,y,density,continent}]}.
+    안전·미탐색 = 추천 페이지와 같은 전역 Top N — 지도 핀으로 토글 표시.
+    """
+    return Response(get_explore(request.user))

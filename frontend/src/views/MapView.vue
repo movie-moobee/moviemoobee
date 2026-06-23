@@ -2,9 +2,9 @@
 // 취향 지도 페이지 (F-MAP, 김호준) — 4개 내부 탭의 셸 + '취향 지도' 탭.
 // 지도 렌더는 <TasteMapCanvas>(홈 프리뷰와 공유). 여기선 탭·게이트·범례·선택 패널 담당.
 // (KDE 탐색도 영역·영역 클릭=4.4, 검색 반짝=3.4 → 해당 탭에서.)
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { getMyMap } from "@/api/taste";
+import { getMyMap, getExplore } from "@/api/taste";
 import { searchMovies, getMovie } from "@/api/movies";
 import { useMarkerMode } from "@/composables/useMarkerMode";
 import TasteMapCanvas from "@/components/TasteMapCanvas.vue";
@@ -140,6 +140,46 @@ async function onRegistered() {
 // 시청 목록 탭에서 수정·삭제 → 좌표/별 재계산 반영(탭 전환 시 stale 방지)
 async function onRecordsChanged() {
   data.value = await getMyMap();
+}
+
+// ── 지도 탐색 탭(4.4, 와이어프레임 10·d/10·e) ──────────────────────
+const exploreData = ref(null);     // { grid, watched, safe:[+x,y], unexplored:[+x,y] }
+const exploreLoading = ref(false);
+const exploreSub = ref("unexplored");     // 서브탭: 'unexplored' | 'safe'
+const pinned = ref(new Set());            // [지도] 토글 켠 영화 id (둘 다 기본 ON)
+
+// 탐색 탭을 처음 열 때만 로드(지연). data(취향 지도)와 분리 — getExplore가 자체 enough를 반환하므로
+// data 로드를 기다릴 필요 없다. (data에 묶으면 ?tab=explore로 새로고침 시 data 도착 전 watch가
+// 헛돌고 재실행 안 돼 무한 로딩됐다.) 게이트(5편 미만)는 exploreData.enough로 판단.
+watch(activeTab, async (tab) => {
+  if (tab !== "explore" || exploreData.value || exploreLoading.value) return;
+  exploreLoading.value = true;
+  try {
+    const d = await getExplore();
+    exploreData.value = d;
+    if (d.enough) pinned.value = new Set([...d.safe, ...d.unexplored].map((m) => m.id));  // 기본 전부 핀
+  } finally {
+    exploreLoading.value = false;
+  }
+}, { immediate: true });
+
+// 활성 서브탭의 추천 리스트(번호 매김 + 핀 색 kind) + 토글 켠 것만 핀
+const exploreList = computed(() =>
+  (exploreData.value?.[exploreSub.value] || []).map((m, i) => ({ ...m, num: i + 1, kind: exploreSub.value })));
+const explorePins = computed(() => exploreList.value.filter((m) => pinned.value.has(m.id)));
+
+function togglePin(id) {
+  const s = new Set(pinned.value);
+  s.has(id) ? s.delete(id) : s.add(id);
+  pinned.value = s;
+}
+function exploreLabel(m) {
+  return exploreSub.value === "safe"
+    ? `안전 · 유사도 ${Math.max(0, 1 - m.distance).toFixed(2)}`
+    : `미탐색 · ${m.continent || "새 취향"}`;
+}
+function onPickExploreMovie(m) {
+  router.push({ name: "movie-detail", params: { id: m.id } });
 }
 </script>
 
@@ -445,13 +485,124 @@ async function onRecordsChanged() {
       @changed="onRecordsChanged"
     />
 
-    <!-- 지도 탐색 탭(4.4) -->
-    <div
-      v-else
-      class="msg placeholder"
-    >
-      지도 탐색(미탐색·안전 추천) 탭 — 4.4에서 구현됩니다.
-    </div>
+    <!-- 지도 탐색 탭(4.4, 와이어프레임 10·d/10·e) -->
+    <template v-else>
+      <p
+        v-if="exploreLoading || !exploreData"
+        class="msg"
+      >
+        탐색도를 그리는 중…
+      </p>
+      <div
+        v-else-if="!exploreData.enough"
+        class="gate"
+      >
+        <div class="gate__title">
+          아직 지도를 탐색할 수 없어요
+        </div>
+        <p class="gate__desc">
+          영화 <b>5편 이상</b>을 등록하면 탐색도가 만들어집니다.
+        </p>
+        <button
+          class="gate__btn"
+          type="button"
+          @click="goRegister"
+        >
+          영화 등록하러 가기
+        </button>
+      </div>
+      <template v-else>
+        <div class="explore-head">
+          {{ exploreSub === "safe" ? "안전 추천" : "미탐색 추천" }}
+          <span class="explore-head__hint">— {{ exploreSub === "safe" ? "내 취향 근처(좌표 거리 Top N)" : "내 지도의 빈 곳(KDE) 도전 추천" }}</span>
+        </div>
+        <div class="map-layout">
+          <div class="mapframe">
+            <TasteMapCanvas
+              :watched="exploreData.watched"
+              :anchors="exploreData.anchors"
+              :pins="explorePins"
+              :width="980"
+              :height="560"
+              mode="stars"
+              @pin-click="onPickExploreMovie"
+            />
+          </div>
+          <aside class="side">
+            <!-- 서브탭: 미탐색 / 안전 -->
+            <div class="subtab">
+              <button
+                type="button"
+                class="subtab__btn"
+                :class="{ 'subtab__btn--on': exploreSub === 'unexplored' }"
+                @click="exploreSub = 'unexplored'"
+              >
+                미탐색
+              </button>
+              <button
+                type="button"
+                class="subtab__btn"
+                :class="{ 'subtab__btn--on': exploreSub === 'safe' }"
+                @click="exploreSub = 'safe'"
+              >
+                안전
+              </button>
+            </div>
+
+            <div
+              v-for="m in exploreList"
+              :key="m.id"
+              class="exitem"
+            >
+              <span
+                class="exitem__num"
+                :class="[`exitem__num--${exploreSub}`, { 'exitem__num--off': !pinned.has(m.id) }]"
+              >{{ m.num }}</span>
+              <button
+                class="exitem__poster"
+                type="button"
+                @click="onPickExploreMovie(m)"
+              >
+                <img
+                  v-if="poster(m.poster_path)"
+                  :src="poster(m.poster_path)"
+                  :alt="m.title"
+                >
+              </button>
+              <div class="exitem__body">
+                <button
+                  class="exitem__title"
+                  type="button"
+                  @click="onPickExploreMovie(m)"
+                >
+                  {{ m.title }}
+                </button>
+                <div
+                  class="exitem__label"
+                  :class="`exitem__label--${exploreSub}`"
+                >
+                  {{ exploreLabel(m) }}
+                </div>
+                <button
+                  type="button"
+                  class="exitem__toggle"
+                  :class="[`exitem__toggle--${exploreSub}`, { 'exitem__toggle--on': pinned.has(m.id) }]"
+                  @click="togglePin(m.id)"
+                >
+                  지도 <span class="exitem__sw"><span class="exitem__knob" /></span>
+                </button>
+              </div>
+            </div>
+            <p
+              v-if="!exploreList.length"
+              class="card__empty"
+            >
+              이 트랙의 추천이 아직 없어요.
+            </p>
+          </aside>
+        </div>
+      </template>
+    </template>
 
     <!-- 시청 등록 모달 (B 재사용). 저장되면 지도 갱신 -->
     <WatchRecordModal
@@ -890,5 +1041,161 @@ async function onRecordsChanged() {
   font-size: 12px;
   color: var(--text-muted);
   margin-top: 2px;
+}
+
+/* 지도 탐색(4.4) — 와이어프레임 10·d/10·e */
+.explore-head {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 14px;
+}
+.explore-head__hint {
+  font-weight: 400;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.subtab {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 14px;
+}
+.subtab__btn {
+  padding: 8px 16px;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 600;
+  font-family: var(--font);
+  cursor: pointer;
+}
+.subtab__btn--on {
+  color: var(--text);
+  border-bottom-color: var(--gold);
+}
+.exitem {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 11px 0;
+  border-top: 1px solid var(--border);
+}
+.exitem:first-of-type {
+  border-top: none;
+}
+.exitem__num {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: #fff;
+  margin-top: 20px;
+}
+.exitem__num--unexplored {
+  background: #c06d00;
+}
+.exitem__num--safe {
+  background: #1c4fbf;
+}
+.exitem__num--off {
+  background: var(--surface);
+  color: var(--text-faint);
+}
+.exitem__poster {
+  width: 42px;
+  height: 62px;
+  flex: none;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  overflow: hidden;
+  background: var(--surface-2);
+  cursor: pointer;
+}
+.exitem__poster img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.exitem__body {
+  flex: 1;
+  min-width: 0;
+}
+.exitem__title {
+  display: block;
+  width: 100%;
+  padding: 0;
+  background: none;
+  border: none;
+  text-align: left;
+  font-family: var(--font);
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text);
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.exitem__title:hover {
+  color: var(--gold);
+}
+.exitem__label {
+  margin-top: 4px;
+  font-size: 12px;
+}
+.exitem__label--unexplored {
+  color: #c06d00;
+}
+.exitem__label--safe {
+  color: #4f86ff;
+}
+.exitem__toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 8px;
+  padding: 0;
+  background: none;
+  border: none;
+  font-family: var(--font);
+  font-size: 11px;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.exitem__sw {
+  width: 30px;
+  height: 17px;
+  border-radius: 10px;
+  background: var(--line, #2a3142);
+  position: relative;
+  transition: background 0.15s;
+}
+.exitem__knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: #fff;
+  transition: left 0.15s;
+}
+.exitem__toggle--on .exitem__knob {
+  left: 15px;
+}
+.exitem__toggle--on.exitem__toggle--unexplored .exitem__sw {
+  background: #c06d00;
+}
+.exitem__toggle--on.exitem__toggle--safe .exitem__sw {
+  background: #1c4fbf;
 }
 </style>
