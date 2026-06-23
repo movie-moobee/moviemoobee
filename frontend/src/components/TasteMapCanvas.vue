@@ -135,6 +135,26 @@ function onHover(m, e) {
 function poster(p) {
   return p ? IMG + p : "";
 }
+
+// 5각 별 path (별 모드). 바깥 반경 r, 안쪽 0.42r. 위 꼭짓점부터 시계방향.
+function starPath(cx, cy, r) {
+  const inner = r * 0.42;
+  let d = "";
+  for (let i = 0; i < 10; i++) {
+    const ang = (Math.PI / 5) * i - Math.PI / 2;
+    const rad = i % 2 === 0 ? r : inner;
+    d += (i ? "L" : "M") + (cx + Math.cos(ang) * rad).toFixed(1) + "," + (cy + Math.sin(ang) * rad).toFixed(1);
+  }
+  return d + "Z";
+}
+
+// 성운(별 모드 배경) — 좌표는 캔버스 비율 고정. 푸른 가스 구름 4덩이.
+const nebulae = computed(() => [
+  { cx: W * 0.2, cy: H * 0.62, r: Math.min(W, H) * 0.42 },
+  { cx: W * 0.74, cy: H * 0.34, r: Math.min(W, H) * 0.36 },
+  { cx: W * 0.55, cy: H * 0.82, r: Math.min(W, H) * 0.3 },
+  { cx: W * 0.88, cy: H * 0.58, r: Math.min(W, H) * 0.26 },
+]);
 </script>
 
 <template>
@@ -207,12 +227,29 @@ function poster(p) {
         >
           <feGaussianBlur stdDeviation="2.6" />
         </filter>
+        <radialGradient id="nebula">
+          <stop
+            offset="0%"
+            stop-color="#3a5a8c"
+            stop-opacity="0.5"
+          />
+          <stop
+            offset="55%"
+            stop-color="#243a63"
+            stop-opacity="0.16"
+          />
+          <stop
+            offset="100%"
+            stop-color="#243a63"
+            stop-opacity="0"
+          />
+        </radialGradient>
       </defs>
 
       <rect
         :width="W"
         :height="H"
-        :fill="mode === 'posters' ? '#080a10' : '#0e1018'"
+        :fill="mode === 'posters' ? '#080a10' : '#090b13'"
       />
 
       <!-- 장르 대륙 글로우(배경 — 별 뒤). 월드 모드는 장르색 파스텔 영토. 라벨은 최상단(A-14). -->
@@ -248,10 +285,22 @@ function poster(p) {
 
       <!-- ===== 별 모드 ===== -->
       <template v-if="mode === 'stars'">
-        <!-- 옅은 격자 -->
+        <!-- 성운(가스 구름) 배경 -->
+        <g class="continents">
+          <circle
+            v-for="(n, i) in nebulae"
+            :key="`neb${i}`"
+            :cx="n.cx"
+            :cy="n.cy"
+            :r="n.r"
+            fill="url(#nebula)"
+          />
+        </g>
+        <!-- 옅은 점선 격자 -->
         <g
-          stroke="#1c1f2c"
+          stroke="#1b1f2e"
           stroke-width="1"
+          stroke-dasharray="2 6"
         >
           <line
             v-for="i in 4"
@@ -270,14 +319,12 @@ function poster(p) {
             :y2="H"
           />
         </g>
-        <!-- 본 영화 = 빛나는 별 (별점 = 크기·밝기) -->
+        <!-- 본 영화 = 빛나는 별 (별점 = 크기·밝기). 별 모양 path. -->
         <g filter="url(#glow)">
-          <circle
+          <path
             v-for="m in markers"
             :key="m.movie_id"
-            :cx="m.px"
-            :cy="m.py"
-            :r="m.r"
+            :d="starPath(m.px, m.py, m.r)"
             :fill="m.color"
             :fill-opacity="m.op"
             class="star"
