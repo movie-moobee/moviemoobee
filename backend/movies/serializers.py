@@ -46,7 +46,7 @@ class MovieDetailSerializer(serializers.ModelSerializer):
         fields = [
             "id", "tmdb_id", "title", "release_year", "poster_path", "vote_average",
             "overview", "director", "cast", "runtime", "original_language",
-            "genres", "keywords", "trailer_key", "my_record", "umap_x", "umap_y",
+            "genres", "keywords", "trailer_key", "my_record", "map_x", "map_y",
         ]
 
 

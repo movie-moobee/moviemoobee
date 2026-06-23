@@ -3,7 +3,7 @@
 PoC-A(1_fetch_movies.py) 로직을 Django DB 적재로 이식.
 - 인증: .env 의 TMDB_API_KEY 는 v4 Read Access Token(JWT) → Authorization: Bearer 헤더 사용.
 - 멱등성: tmdb_id 기준 update_or_create 라 재실행해도 중복 안 생김.
-- 좌표(umap_x/y)는 여기서 안 건드림 → build_coords 가 채움(전역 고정 좌표 불변식).
+- 좌표(map_x/y)는 여기서 안 건드림 → build_coords 가 채움(전역 고정 좌표 불변식).
 """
 import time
 

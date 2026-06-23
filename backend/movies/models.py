@@ -26,8 +26,8 @@ class Movie(models.Model):
     director = models.CharField(max_length=255, blank=True)
     cast = models.CharField(max_length=500, blank=True, default="")  # "배우A,배우B,..." 콤마 구분, 상위 5명
     trailer_key = models.CharField(max_length=20, blank=True, default="")  # YouTube 예고편 키(import 적재). 빈 값=없음
-    umap_x = models.FloatField(null=True, blank=True)   # 전역 좌표 X
-    umap_y = models.FloatField(null=True, blank=True)   # 전역 좌표 Y
+    map_x = models.FloatField(null=True, blank=True)   # 취향 지도 전역 좌표 X (앵커 대륙 지도, A-14)
+    map_y = models.FloatField(null=True, blank=True)   # 취향 지도 전역 좌표 Y
     created_at = models.DateTimeField(auto_now_add=True)
     genres = models.ManyToManyField(Genre, related_name="movies", blank=True)
     keywords = models.ManyToManyField(Keyword, related_name="movies", blank=True)

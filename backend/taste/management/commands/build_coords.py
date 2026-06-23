@@ -1,7 +1,7 @@
 """전체 영화 → 앵커(장르 대륙) + 키워드 미시분산 → 2D 좌표 생성·적재 (김호준 담당).
 
 좌표 재설계 배경·실측은 docs/08_journal/A-14-anchor-map-coords.md.
-- 좌표(umap_x/umap_y, 필드명은 역사적 이름 유지)는 전 사용자 공통·전역 고정값(CLAUDE.md 불변식).
+- 좌표(map_x/map_y)는 전 사용자 공통·전역 고정값(CLAUDE.md 불변식).
 - "가까우면 비슷"이 성립하도록 장르 대륙을 고정 배치(거시) + 같은 대륙 안은 키워드로 분산(미시).
 - 여기서 한 번만 fit 하고, 학습된 벡터라이저·앵커·MDS·SVD를 .pkl로 저장한다.
   신규 영화는 이 모델로 transform 만 해야 한다(재학습 금지 — 다시 fit하면 모두의 좌표가 바뀜).
@@ -34,10 +34,16 @@ ANCHOR_SCALE = 10.0     # 앵커 2D 좌표 스케일(±)
 ALPHA = 0.5             # ★ 미시(키워드) 오프셋 크기 — 튜닝 손잡이. ↑면 분리↑(과하면 대륙 이탈).
                         #   변경 시 build_coords 재실행으로 전 좌표 재bake 필요.
 
+# 안전 추천용 고차원 임베딩 차원 (A-15 safe_by_liked). 거시공간 SVD 축소 — 2D 붕괴 없이
+# 봉우리 분리·후속편 정확도를 살린다. 없으면 추천은 옛 2D 안전으로 폴백하므로 선택적 산출물.
+SAFE_DIMS = 48
+
 # 학습된 모델 저장 경로 (taste/artifacts/coords_model.pkl). *.pkl 은 gitignore 됨.
 MODEL_PATH = Path(__file__).resolve().parents[2] / "artifacts" / "coords_model.pkl"
 # 앵커(대륙) 위치 — 프론트 지도 라벨/배경용. pkl과 달리 커밋되어 ML스택 없이도 지도가 대륙을 그림.
 ANCHORS_PATH = Path(__file__).resolve().parents[2] / "artifacts" / "anchors.json"
+# 안전 추천용 고차원 벡터(ids, vecs) — pkl처럼 gitignore. 신규 영화 없으면 build_coords로만 생성.
+SAFE_VECTORS_PATH = Path(__file__).resolve().parents[2] / "artifacts" / "safe_vectors.npz"
 
 
 def _tokenize(items):
@@ -46,7 +52,7 @@ def _tokenize(items):
 
 
 class Command(BaseCommand):
-    help = "앵커(장르대륙)+키워드 미시분산 → movies.umap_x/y 좌표 생성·적재 (김호준)"
+    help = "앵커(장르대륙)+키워드 미시분산 → movies.map_x/y 좌표 생성·적재 (김호준)"
 
     def handle(self, *args, **opts):
         # 무거운 ML 의존성은 커맨드 실행 시점에만 import (웹 부팅엔 불필요) ★
@@ -113,8 +119,8 @@ class Command(BaseCommand):
 
         # DB 반영
         for m, (cx, cy) in zip(movies, coords):
-            m.umap_x, m.umap_y = float(cx), float(cy)
-        Movie.objects.bulk_update(movies, ["umap_x", "umap_y"], batch_size=500)
+            m.map_x, m.map_y = float(cx), float(cy)
+        Movie.objects.bulk_update(movies, ["map_x", "map_y"], batch_size=500)
 
         # 좌표가 바뀌었으니 추천 서비스의 메모리 좌표 캐시 무효화.
         from taste.services.areas import clear_movies_cache
@@ -126,6 +132,14 @@ class Command(BaseCommand):
             json.dump([{"name": n, "x": float(p[0]), "y": float(p[1])}
                        for n, p in zip(anchor_names, anchor_pos)], f, ensure_ascii=False, indent=2)
 
+        # 안전 추천용 고차원 임베딩: 거시공간(x_macro)을 SVD로 축소 → L2정규화(코사인=내적).
+        # 2D 좌표는 같은 장르를 한 점에 뭉개(붕괴) 안전 10편이 클론이 되지만, 이 공간은 봉우리
+        # 안 미세차(키워드·감독)를 보존한다. safe_by_liked 가 좋아한 영화별 kNN에 쓴다(A-15).
+        svd_safe = TruncatedSVD(n_components=SAFE_DIMS, random_state=42)
+        x_safe = normalize(svd_safe.fit_transform(x_macro)).astype("float32")
+        np.savez(SAFE_VECTORS_PATH, ids=np.array(mids, dtype="int64"), vecs=x_safe)
+        self.stdout.write(f"[좌표] 안전 고차원 벡터 저장 {x_safe.shape} → {SAFE_VECTORS_PATH.name}")
+
         # 모델 직렬화 (신규 영화 transform용 — 재fit 금지)
         MODEL_PATH.parent.mkdir(parents=True, exist_ok=True)
         with open(MODEL_PATH, "wb") as f:
@@ -134,7 +148,7 @@ class Command(BaseCommand):
                 "weights": (WEIGHT_GENRES, WEIGHT_KEYWORDS, WEIGHT_DIRECTORS),
                 "anchor_names": anchor_names, "anchor_vecs": anchor_vecs, "anchor_pos": anchor_pos,
                 "svd": svd, "kw_mean": kw_mean, "kw_std": kw_std,
-                "softmax_t": SOFTMAX_T, "alpha": ALPHA,
+                "softmax_t": SOFTMAX_T, "alpha": ALPHA, "svd_safe": svd_safe,
             }, f)
 
         self.stdout.write(self.style.SUCCESS(

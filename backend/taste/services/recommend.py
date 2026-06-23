@@ -1,7 +1,10 @@
-"""추천 (F-REC). 안전=본 영화 kNN 근접 Top N, 미탐색=KDE 저밀도(kNN 도달가능 밴드).
+"""추천 (F-REC). 안전=본 영화 kNN 근접 Top N, 미탐색=안 가본 장르 대륙으로 분산한 저밀도.
 
-흐름: detect_areas 가 안전·미탐색 '후보 풀'(40)을 산출 → MMR 로 다양성 고려해 10편 선별
-→ 영화 메타(포스터·연도·평점) 보강. kNN/KDE가 한 봉우리에 뭉치는 걸 MMR이 펼친다(A-09).
+흐름: detect_areas 가 안전 후보 풀(40)을 산출 → MMR 로 같은 봉우리 프랜차이즈 중복만 제거해 10편.
+미탐색은 unexplored_by_continent 가 대륙별로 퍼뜨려 10편(A-15). 영화 메타(포스터·연도·평점) 보강.
+
+미탐색이 MMR(좌표만 다양화)이 아니라 대륙 분산인 이유: 단일 도달밴드 최저밀도는 한 대륙(골짜기)에
+수렴해 한 장르만 나온다(A-13). 앵커 좌표는 장르로 구조화돼 대륙 단위 분산이 다양성을 구조적으로 보장.
 """
 import random
 
@@ -11,23 +14,26 @@ from django.utils import timezone
 from movies.models import Movie
 from movies.serializers import MovieListSerializer
 
-from .areas import detect_areas
+from .areas import detect_areas, safe_by_liked, unexplored_by_continent
 
-SAFE_POOL = 40           # MMR 후보 풀 크기(키워도 추천 다양성 불변 — 검증 A-09). 40으로 충분.
-UNEXPLORED_POOL = 40
-MMR_LAMBDA_SAFE = 0.7    # 안전: 적합도 우선(신선함은 미탐색 담당) + 같은 봉우리 프랜차이즈 중복만 제거.
-MMR_LAMBDA_UNEXPLORED = 0.5  # 미탐색: 발견 다양성 위해 더 펼침. (둘 다 검증 A-09, 소프트값)
+SAFE_POOL = 40           # 폴백 MMR 후보 풀 크기(키워도 추천 다양성 불변 — 검증 A-09). 40으로 충분.
+MMR_LAMBDA_SAFE = 0.7    # 폴백 안전: 적합도 우선 + 같은 봉우리 프랜차이즈 중복만 제거.
 DAILY_PICK_MIN_VOTE = 7.0   # '오늘의 추천' 후보 최소 평점.
 
 
 def get_recommendations(user, safe_n=10, unexplored_n=10):
-    """안전·미탐색 추천(MMR 선별 + 영화 메타) + 오늘의 추천. enough=False면 빈 리스트 그대로."""
-    result = detect_areas(user, safe_top=SAFE_POOL, unexplored_top=UNEXPLORED_POOL)
+    """안전(좋아한 영화별 고차원 kNN 라운드로빈)·미탐색(대륙 분산) 추천 + 영화 메타 + 오늘의 추천.
+
+    안전은 safe_by_liked(고차원)가 1순위 — 2D 붕괴로 안전 10편이 클론이 되고 한 봉우리만 나오는
+    문제를 좋아한 영화별 kNN 라운드로빈으로 해소(A-15, 무게중심 없이 A-08 원칙 유지). 고차원
+    산출물(safe_vectors)이 없으면 옛 2D 안전(detect_areas + MMR)으로 폴백. enough=False면 빈 리스트."""
+    result = detect_areas(user, safe_top=SAFE_POOL, unexplored_top=0)
     if result["enough"]:
-        safe = mmr_select(result["safe"], "distance", MMR_LAMBDA_SAFE, safe_n)
-        unexplored = mmr_select(result["unexplored"], "density", MMR_LAMBDA_UNEXPLORED, unexplored_n)
+        safe = safe_by_liked(user, safe_n)
+        if safe is None:                 # 고차원 산출물 없음 → 옛 2D 안전
+            safe = mmr_select(result["safe"], "distance", MMR_LAMBDA_SAFE, safe_n)
         result["safe"] = _enrich(safe, "distance")
-        result["unexplored"] = _enrich(unexplored, "density")
+        result["unexplored"] = _enrich(unexplored_by_continent(user, unexplored_n), "density")
         result["today"] = daily_pick(user)
     return result
 
@@ -55,7 +61,7 @@ def daily_pick(user):
 
 def mmr_select(items, score_key, lam, n):
     """후보 풀에서 MMR로 n개 선별. 관련성(score_key, 낮을수록 좋음)과 다양성(이미 뽑힌 것과의
-    UMAP 좌표 거리)을 λ로 절충: 점수 = λ·적합도 − (1−λ)·근접도. 풀 내 [0,1] 정규화."""
+    2D 좌표 거리)을 λ로 절충: 점수 = λ·적합도 − (1−λ)·근접도. 풀 내 [0,1] 정규화."""
     if len(items) <= n:
         return items
     coords = np.array([it["coord"] for it in items], dtype=float)    # (P,2)
@@ -86,5 +92,7 @@ def _enrich(items, score_key):
             continue
         data = MovieListSerializer(movie).data
         data[score_key] = it[score_key]
+        if "continent" in it:           # 미탐색: 어느 장르 대륙에서 왔는지(프론트 라벨용)
+            data["continent"] = it["continent"]
         out.append(data)
     return out

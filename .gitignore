@@ -20,6 +20,7 @@ frontend/dist/
 # 데이터·모델 캐시 (대용량) — 필요 시 경로 조정
 *.pkl
 *.joblib
+*.npz
 data/raw/
 data/cache/
 

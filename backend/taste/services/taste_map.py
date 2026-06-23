@@ -3,7 +3,7 @@
 지도에 뜨는 점은 오직 '내가 본 영화'(★) — 그 외 영화는 안 띄운다(불변식).
 별 자체의 밝기·크기 = 내가 준 별점(높을수록 밝게 반짝). 와이어프레임 기준.
 ※ KDE 탐색도(밝은 안전영역/어두운 미탐색영역 '배경')는 영역 클릭=지도탐색이라 4.4에서 함께 넣는다.
-※ 무게중심(user_coord)은 안전추천에서 버렸고 지도에서도 표시 안 함(A-10 제거 방향).
+※ 사용자 단일 좌표(무게중심)는 폐기됨 — 모든 로직이 본 영화 '집합' 기반(A-08/A-15). 지도엔 안 띄운다.
 ※ 취향 요약(와이어프레임 10 우측 박스):
   - 주 클러스터 = 내가 '좋아한' 영화 장르의 별점 가중 빈도(개인화).
   - 미탐색 = 실제 KDE 미탐색 추천 영화의 장르(좌표공간 기반). '안 본 큰 장르' 단순빈도로 내면
@@ -18,7 +18,7 @@ from django.db.models.functions import Cast, Greatest
 
 from movies.models import Genre
 
-LIKE_NEUTRAL = 3.0   # 좋아요 기준점 — coords.py(사용자 좌표)와 동일. weight = max(rating-3, 0).
+LIKE_NEUTRAL = 3.0   # 좋아요 기준점(별점>3=좋아함). 안전추천(areas)과 동일. weight = max(rating-3, 0).
 
 # 앵커(장르 대륙) 위치 — build_coords가 생성·커밋(anchors.json). 지도가 대륙 라벨/배경을 그린다(A-14).
 _ANCHORS_PATH = Path(__file__).resolve().parents[1] / "artifacts" / "anchors.json"
@@ -43,7 +43,7 @@ def genre_summary(user):
       weight = max(rating-3, 0) — 사용자 좌표·안전추천과 동일 철학(싫어한 장르는 취향 대표 아님).
       동률(정확히 같은 가중)은 id 순으로 결정적 처리(임의 동전던지기 제거).
       ※ 좋아한 영화가 0편(모든 별점 ≤3)이면 가중치가 전부 0 → 단순 시청 빈도로 폴백
-        (coords.py 의 'Σw≈0 → 단순평균' 폴백과 같은 패턴).
+        ('좋아한 게 없으면 본 것 전체로' — 안전추천의 liked 폴백과 같은 패턴).
     - unexplored(미탐색): 2칸. 1순위는 실제 KDE 미탐색 추천 영화 집합의 장르(좌표공간 기반·개인화,
       이미 본 장르 제외). KDE가 2칸을 못 채우면(후보 중 새 장르 0·1개) '안 본 큰 장르'(카탈로그
       크기순)로 남은 칸 보충 — 중복 제외. → 1칸은 개인화, 부족분만 카탈로그.
@@ -134,10 +134,10 @@ def get_map(user):
     from .areas import MAP_MIN_WATCHED  # 게이트 기준값(추천과 단일 출처)
 
     rows = list(user.watch_records.filter(
-        movie__umap_x__isnull=False, movie__umap_y__isnull=False
+        movie__map_x__isnull=False, movie__map_y__isnull=False
     ).values_list(
         "movie_id", "movie__title", "movie__poster_path",
-        "movie__release_year", "movie__umap_x", "movie__umap_y", "rating",
+        "movie__release_year", "movie__map_x", "movie__map_y", "rating",
     ))
 
     if len(rows) < MAP_MIN_WATCHED:

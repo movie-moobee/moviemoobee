@@ -28,7 +28,7 @@ class Command(BaseCommand):
                 continue
             r = get_recommendations(user)   # MMR 선별까지 거친 최종 추천
             self.stdout.write("=" * 60)
-            self.stdout.write(f"{user.username} ({user.nickname})  좌표={r['user_coord']}")
+            self.stdout.write(f"{user.username} ({user.nickname})")
             if not r["enough"]:
                 self.stdout.write("   (시청 5편 미만 — 지도·추천 비활성, 경고 오버레이 대상)\n")
                 continue
