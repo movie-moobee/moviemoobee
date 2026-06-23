@@ -47,3 +47,33 @@ export async function getMovieReviews(id) {
   const { data } = await api.get(`/movies/${id}/reviews/`);
   return data.results ?? data; // 나중에 페이지네이션 붙어도 안 깨지게 results 우선
 }
+
+// 리뷰 좋아요/싫어요 설정·교체 (value: 1=좋아요 / -1=싫어요) — F-REV
+// → { like_count, dislike_count, my_reaction }
+export async function setReviewReaction(recordId, value) {
+  const { data } = await api.put(`/movies/reviews/${recordId}/reaction/`, { value });
+  return data;
+}
+
+// 리뷰 반응 취소 → { like_count, dislike_count, my_reaction: null }
+export async function removeReviewReaction(recordId) {
+  const { data } = await api.delete(`/movies/reviews/${recordId}/reaction/`);
+  return data;
+}
+
+// 리뷰 댓글 목록 (오래된 순) → [{ id, nickname, profile_image_url, body, created_at, is_mine }]
+export async function getReviewComments(recordId) {
+  const { data } = await api.get(`/movies/reviews/${recordId}/comments/`);
+  return data.results ?? data;
+}
+
+// 리뷰 댓글 작성 → 생성된 댓글
+export async function addReviewComment(recordId, body) {
+  const { data } = await api.post(`/movies/reviews/${recordId}/comments/`, { body });
+  return data;
+}
+
+// 리뷰 댓글 삭제 (본인만)
+export async function deleteReviewComment(commentId) {
+  await api.delete(`/movies/comments/${commentId}/`);
+}

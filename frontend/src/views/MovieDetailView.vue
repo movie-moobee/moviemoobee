@@ -1,10 +1,21 @@
 <script setup>
 // 영화 상세 (F-MOV-02 메타 / F-MOV-03 OTT / 예고편 / F-WAT-01 시청 등록 / F-MOV-04 이용자 리뷰).
-import { ref, onMounted, computed, watch } from "vue";
+import { ref, reactive, onMounted, computed, watch } from "vue";
 import { useRoute } from "vue-router";
-import { getMovie, getMovieExtras, getMovieReviews } from "@/api/movies";
+import {
+  getMovie,
+  getMovieExtras,
+  getMovieReviews,
+  setReviewReaction,
+  removeReviewReaction,
+  getReviewComments,
+  addReviewComment,
+  deleteReviewComment,
+} from "@/api/movies";
+import { updateWatchRecord, deleteWatchRecord } from "@/api/watchRecords";
 import RatingStars from "@/components/base/RatingStars.vue";
 import WatchRecordModal from "@/components/WatchRecordModal.vue";
+import ConfirmDialog from "@/components/ConfirmDialog.vue";
 
 const route = useRoute();
 const movie = ref(null);
@@ -60,6 +71,135 @@ async function loadReviews(id) {
     reviewsLoading.value = false;
   }
 }
+
+// 리뷰 좋아요/싫어요 (F-REV). 같은 버튼 재클릭=취소, 다른 버튼=교체.
+const reactingId = ref(null);
+async function onReact(r, value) {
+  if (r.is_mine || reactingId.value) return; // 자기 리뷰엔 반응 불가, 중복요청 방지
+  reactingId.value = r.id;
+  try {
+    const res = r.my_reaction === value
+      ? await removeReviewReaction(r.id)
+      : await setReviewReaction(r.id, value);
+    r.like_count = res.like_count;
+    r.dislike_count = res.dislike_count;
+    r.my_reaction = res.my_reaction;
+  } catch {
+    // 실패 시 조용히 무시(서버 상태가 정답) — 다음 조회/클릭 때 정정
+  } finally {
+    reactingId.value = null;
+  }
+}
+
+// 리뷰 댓글 (F-REV, 평탄). 리뷰별 스레드 상태: open·list·loading·input·posting
+const threads = reactive({}); // { [reviewId]: {...} }
+function thread(r) {
+  if (!threads[r.id]) {
+    threads[r.id] = { open: false, list: [], loaded: false, loading: false, input: "", posting: false };
+  }
+  return threads[r.id];
+}
+async function toggleComments(r) {
+  const t = thread(r);
+  t.open = !t.open;
+  if (t.open && !t.loaded) {
+    t.loading = true;
+    try {
+      t.list = await getReviewComments(r.id);
+      t.loaded = true;
+    } catch {
+      /* 빈 상태로 둠 */
+    } finally {
+      t.loading = false;
+    }
+  }
+}
+async function submitComment(r) {
+  const t = thread(r);
+  const body = t.input.trim();
+  if (!body || t.posting) return;
+  t.posting = true;
+  try {
+    const c = await addReviewComment(r.id, body);
+    t.list.push(c);
+    t.input = "";
+    r.comment_count = (r.comment_count || 0) + 1;
+  } catch {
+    /* 무시 */
+  } finally {
+    t.posting = false;
+  }
+}
+// 댓글 삭제는 경고창 확인 후 — { r, comment } 보관
+const commentToDelete = ref(null);
+const deletingComment = ref(false);
+function askRemoveComment(r, comment) {
+  commentToDelete.value = { r, comment };
+}
+async function confirmRemoveComment() {
+  if (!commentToDelete.value || deletingComment.value) return;
+  const { r, comment } = commentToDelete.value;
+  deletingComment.value = true;
+  try {
+    await deleteReviewComment(comment.id);
+    const t = thread(r);
+    t.list = t.list.filter((c) => c.id !== comment.id);
+    r.comment_count = Math.max(0, (r.comment_count || 1) - 1);
+    commentToDelete.value = null;
+  } catch {
+    /* 무시 — 서버 상태가 정답 */
+  } finally {
+    deletingComment.value = false;
+  }
+}
+
+// 내 리뷰 수정(텍스트만 인라인)·삭제(시청기록 통째). 둘 다 본인 리뷰(is_mine)에서만.
+const editing = reactive({}); // { [reviewId]: { active, text, saving } }
+function startEditReview(r) {
+  editing[r.id] = { active: true, text: r.review || "", saving: false };
+}
+function cancelEditReview(r) {
+  if (editing[r.id]) editing[r.id].active = false;
+}
+async function saveEditReview(r) {
+  const e = editing[r.id];
+  const text = e.text.trim();
+  if (!text || e.saving) return;
+  e.saving = true;
+  try {
+    await updateWatchRecord(r.id, { review: text }); // 별점은 그대로, 리뷰 텍스트만
+    r.review = text;
+    if (myRecord.value && myRecord.value.id === r.id) myRecord.value.review = text;
+    e.active = false;
+  } catch {
+    /* 무시 */
+  } finally {
+    e.saving = false;
+  }
+}
+
+// 삭제 = 시청기록 통째(별점 포함, 취향 지도 영향) → 강한 경고
+const reviewToDelete = ref(null);
+const deletingReview = ref(false);
+function askDeleteReview(r) {
+  reviewToDelete.value = r;
+}
+async function confirmDeleteReview() {
+  if (!reviewToDelete.value || deletingReview.value) return;
+  const r = reviewToDelete.value;
+  deletingReview.value = true;
+  try {
+    await deleteWatchRecord(r.id);
+    reviews.value = reviews.value.filter((x) => x.id !== r.id);
+    if (myRecord.value && myRecord.value.id === r.id) myRecord.value = null; // 상단 '등록' 버튼 복귀
+    reviewToDelete.value = null;
+  } catch {
+    /* 무시 */
+  } finally {
+    deletingReview.value = false;
+  }
+}
+
 
 async function load(id) {
   // 상태 초기화 — 상세→상세 이동(:id 변경) 시 이전 영화 데이터 잔상 방지
@@ -314,12 +454,186 @@ function onSaved(rec) {
               </div>
               <span class="review__date">{{ fmtDate(r.created_at) }}</span>
             </div>
-            <p
-              v-if="r.review"
-              class="review__body"
+            <!-- 내 리뷰 인라인 수정 (리뷰 텍스트만, 별점 제외) -->
+            <div
+              v-if="r.is_mine && editing[r.id]?.active"
+              class="review__edit"
             >
-              {{ r.review }}
-            </p>
+              <textarea
+                v-model="editing[r.id].text"
+                class="review__edit-area"
+                rows="3"
+                placeholder="리뷰를 입력하세요"
+              />
+              <div class="review__edit-actions">
+                <button
+                  type="button"
+                  class="owner-btn"
+                  @click="cancelEditReview(r)"
+                >
+                  취소
+                </button>
+                <button
+                  type="button"
+                  class="owner-btn owner-btn--primary"
+                  :disabled="!editing[r.id].text.trim() || editing[r.id].saving"
+                  @click="saveEditReview(r)"
+                >
+                  {{ editing[r.id].saving ? "저장 중…" : "저장" }}
+                </button>
+              </div>
+            </div>
+
+            <template v-else>
+              <!-- 본문 + 좋아요/싫어요 (F-REV): 같은 행, 버튼은 오른쪽 끝 가로 배치 -->
+              <div class="review__content">
+                <p
+                  v-if="r.review"
+                  class="review__body"
+                >
+                  {{ r.review }}
+                </p>
+                <!-- 본인 리뷰엔 버튼 숨김, 반응 수만 표시 -->
+                <div
+                  v-if="!r.is_mine"
+                  class="react"
+                >
+                  <button
+                    type="button"
+                    class="react__btn"
+                    :class="{ 'react__btn--on': r.my_reaction === 1 }"
+                    :disabled="reactingId === r.id"
+                    @click="onReact(r, 1)"
+                  >
+                    👍 <span class="react__num">{{ r.like_count }}</span>
+                  </button>
+                  <button
+                    type="button"
+                    class="react__btn"
+                    :class="{ 'react__btn--on react__btn--down': r.my_reaction === -1 }"
+                    :disabled="reactingId === r.id"
+                    @click="onReact(r, -1)"
+                  >
+                    👎 <span class="react__num">{{ r.dislike_count }}</span>
+                  </button>
+                </div>
+                <div
+                  v-else
+                  class="react react--readonly"
+                >
+                  <span>👍 {{ r.like_count }}</span>
+                  <span>👎 {{ r.dislike_count }}</span>
+                </div>
+              </div>
+              <!-- 내 리뷰: 좋아요/싫어요 아래 수정/삭제 -->
+              <div
+                v-if="r.is_mine"
+                class="review__owner"
+              >
+                <button
+                  type="button"
+                  class="owner-btn"
+                  @click="startEditReview(r)"
+                >
+                  수정
+                </button>
+                <button
+                  type="button"
+                  class="owner-btn owner-btn--danger"
+                  @click="askDeleteReview(r)"
+                >
+                  삭제
+                </button>
+              </div>
+            </template>
+
+            <!-- 댓글 (F-REV, 평탄 구조) -->
+            <button
+              type="button"
+              class="cmt-toggle"
+              @click="toggleComments(r)"
+            >
+              댓글 {{ r.comment_count || 0 }}
+              <span class="cmt-toggle__caret">{{ threads[r.id]?.open ? "▴" : "▾" }}</span>
+            </button>
+            <div
+              v-if="threads[r.id]?.open"
+              class="cmts"
+            >
+              <p
+                v-if="threads[r.id].loading"
+                class="cmts__msg"
+              >
+                불러오는 중…
+              </p>
+              <ul
+                v-else-if="threads[r.id].list.length"
+                class="cmts__list"
+              >
+                <li
+                  v-for="c in threads[r.id].list"
+                  :key="c.id"
+                  class="cmt"
+                >
+                  <div
+                    v-if="c.profile_image_url"
+                    class="cmt__avatar"
+                  >
+                    <img
+                      :src="c.profile_image_url"
+                      :alt="c.nickname"
+                    >
+                  </div>
+                  <div
+                    v-else
+                    class="cmt__avatar cmt__avatar--empty"
+                  >
+                    {{ (c.nickname || "?").charAt(0) }}
+                  </div>
+                  <div class="cmt__main">
+                    <div class="cmt__top">
+                      <span class="cmt__nick">{{ c.nickname }}</span>
+                      <span class="cmt__date">{{ fmtDate(c.created_at) }}</span>
+                      <button
+                        v-if="c.is_mine"
+                        type="button"
+                        class="cmt__del"
+                        @click="askRemoveComment(r, c)"
+                      >
+                        삭제
+                      </button>
+                    </div>
+                    <p class="cmt__body">
+                      {{ c.body }}
+                    </p>
+                  </div>
+                </li>
+              </ul>
+              <p
+                v-else
+                class="cmts__msg"
+              >
+                아직 댓글이 없습니다.
+              </p>
+              <!-- 댓글 입력 -->
+              <div class="cmt-form">
+                <input
+                  v-model="threads[r.id].input"
+                  class="cmt-form__input"
+                  type="text"
+                  placeholder="댓글을 입력하세요"
+                  @keyup.enter="submitComment(r)"
+                >
+                <button
+                  type="button"
+                  class="cmt-form__btn"
+                  :disabled="threads[r.id].posting || !threads[r.id].input.trim()"
+                  @click="submitComment(r)"
+                >
+                  등록
+                </button>
+              </div>
+            </div>
           </div>
         </div>
         <p
@@ -338,6 +652,32 @@ function onSaved(rec) {
       :initial-record="myRecord"
       @saved="onSaved"
       @close="showModal = false"
+    />
+
+    <!-- 댓글 삭제 확인 -->
+    <ConfirmDialog
+      v-if="commentToDelete"
+      title="댓글을 삭제할까요?"
+      message="삭제한 댓글은 복구할 수 없습니다."
+      confirm-label="삭제"
+      cancel-label="취소"
+      :danger="true"
+      :busy="deletingComment"
+      @confirm="confirmRemoveComment"
+      @cancel="commentToDelete = null"
+    />
+
+    <!-- 리뷰(시청기록) 삭제 확인 — 별점까지 함께 삭제 경고 -->
+    <ConfirmDialog
+      v-if="reviewToDelete"
+      title="이 리뷰를 삭제할까요?"
+      message="이 영화의 시청기록(별점 포함)이 함께 삭제되며 취향 지도에서도 사라집니다. 복구할 수 없습니다."
+      confirm-label="삭제"
+      cancel-label="취소"
+      :danger="true"
+      :busy="deletingReview"
+      @confirm="confirmDeleteReview"
+      @cancel="reviewToDelete = null"
     />
   </div>
 </template>
@@ -582,11 +922,264 @@ function onSaved(rec) {
   font-size: 12px;
   color: var(--text-muted);
 }
+/* 본문 + 반응을 같은 행으로: 본문 왼쪽 채움, 버튼 오른쪽 끝 */
+.review__content {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 11px;
+}
 .review__body {
+  flex: 1;
+  min-width: 0;
   font-size: 14px;
   line-height: 1.65;
   color: var(--text);
-  margin: 11px 0 0;
+  margin: 0;
+}
+/* 좋아요/싫어요 (F-REV) */
+.react {
+  flex: none;
+  display: flex;
+  gap: 8px;
+}
+.react__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text-muted);
+  font-size: 13px;
+  font-family: var(--font);
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+.react__btn:hover:not(:disabled) {
+  border-color: var(--border-hover);
+  color: var(--text);
+}
+.react__btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.react__btn--on {
+  border-color: var(--gold);
+  color: var(--gold);
+}
+.react__btn--down.react__btn--on {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+.react__num {
+  font-weight: 600;
+}
+.react--readonly {
+  gap: 8px;
+}
+.react--readonly span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 14px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+/* 내 리뷰 수정/삭제 (F-REV) — 좋아요/싫어요 바로 아래(오른쪽 정렬) */
+.review__owner {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 10px;
+}
+.owner-btn {
+  padding: 5px 14px;
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  font-size: 12.5px;
+  font-family: var(--font);
+  cursor: pointer;
+}
+.owner-btn:hover:not(:disabled) {
+  border-color: var(--border-hover);
+  color: var(--text);
+}
+.owner-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.owner-btn--primary {
+  background: var(--gold);
+  color: #1a1206;
+  border-color: var(--gold);
+}
+.owner-btn--danger:hover {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+.review__edit {
+  margin-top: 11px;
+}
+.review__edit-area {
+  width: 100%;
+  padding: 10px 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-size: 14px;
+  font-family: var(--font);
+  line-height: 1.6;
+  resize: vertical;
+  box-sizing: border-box;
+}
+.review__edit-area:focus {
+  outline: none;
+  border-color: var(--gold);
+}
+.review__edit-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 8px;
+}
+/* 댓글 (F-REV) */
+.cmt-toggle {
+  margin-top: 10px;
+  padding: 4px 0;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 12.5px;
+  font-family: var(--font);
+  cursor: pointer;
+}
+.cmt-toggle:hover {
+  color: var(--text);
+}
+.cmt-toggle__caret {
+  font-size: 10px;
+}
+.cmts {
+  margin-top: 10px;
+  padding: 12px 14px;
+  background: var(--surface-2);
+  border-radius: var(--radius-sm);
+}
+.cmts__msg {
+  font-size: 12.5px;
+  color: var(--text-muted);
+  margin: 0 0 10px;
+}
+.cmts__list {
+  list-style: none;
+  margin: 0 0 12px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.cmt {
+  display: flex;
+  gap: 9px;
+}
+.cmt__avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  flex: none;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+.cmt__avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.cmt__main {
+  flex: 1;
+  min-width: 0;
+}
+.cmt__top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.cmt__nick {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text);
+}
+.cmt__date {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.cmt__del {
+  margin-left: auto;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 11.5px;
+  cursor: pointer;
+}
+.cmt__del:hover {
+  color: var(--danger);
+}
+.cmt__body {
+  margin: 3px 0 0;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--text);
+}
+.cmt-form {
+  display: flex;
+  gap: 8px;
+}
+.cmt-form__input {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 11px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-size: 13px;
+  font-family: var(--font);
+}
+.cmt-form__input::placeholder {
+  color: var(--text-faint);
+}
+.cmt-form__input:focus {
+  outline: none;
+  border-color: var(--gold);
+}
+.cmt-form__btn {
+  flex: none;
+  padding: 0 16px;
+  background: var(--gold);
+  color: #1a1206;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 600;
+  font-family: var(--font);
+  cursor: pointer;
+}
+.cmt-form__btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 @media (max-width: 680px) {
   .hero {

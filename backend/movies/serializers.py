@@ -2,7 +2,7 @@ from decimal import Decimal
 
 from rest_framework import serializers
 
-from movies.models import Genre, Movie, WatchRecord
+from movies.models import Genre, Movie, ReviewComment, WatchRecord
 
 
 class MovieListSerializer(serializers.ModelSerializer):
@@ -79,11 +79,19 @@ class WatchRecordSerializer(serializers.ModelSerializer):
 
 
 class MovieReviewSerializer(serializers.ModelSerializer):
-    """상세의 이용자 리뷰 카드 (F-MOV-04). 전 유저의 리뷰 있는 시청기록을 읽기 전용 노출.
-    작성자 닉네임·아바타 + 별점·내용·작성일."""
+    """상세의 이용자 리뷰 카드 (F-MOV-04 + F-REV 좋아요/싫어요).
+    작성자 닉네임·아바타 + 별점·내용·작성일 + 반응 집계·내 반응·본인여부.
+
+    like_count/dislike_count 는 뷰에서 annotate, my_reaction 은 context['my_reactions'] 주입.
+    is_mine 이면 프론트가 반응 버튼을 숨긴다(자기 리뷰엔 반응 불가)."""
 
     nickname = serializers.CharField(source="user.nickname", read_only=True)
     profile_image_url = serializers.SerializerMethodField()
+    like_count = serializers.IntegerField(read_only=True)
+    dislike_count = serializers.IntegerField(read_only=True)
+    comment_count = serializers.IntegerField(read_only=True)
+    my_reaction = serializers.SerializerMethodField()
+    is_mine = serializers.SerializerMethodField()
 
     def get_profile_image_url(self, obj):
         # 프로필 사진(ImageField) → 절대 URL. 없으면 None.
@@ -93,6 +101,42 @@ class MovieReviewSerializer(serializers.ModelSerializer):
         request = self.context.get("request")
         return request.build_absolute_uri(img.url) if request else img.url
 
+    def get_my_reaction(self, obj):
+        # 내가 이 리뷰에 한 반응(1/-1) 또는 None — 뷰가 1쿼리로 모아 context에 주입
+        return self.context.get("my_reactions", {}).get(obj.id)
+
+    def get_is_mine(self, obj):
+        request = self.context.get("request")
+        return bool(request and obj.user_id == request.user.id)
+
     class Meta:
         model = WatchRecord
-        fields = ["id", "nickname", "profile_image_url", "rating", "review", "created_at"]
+        fields = [
+            "id", "nickname", "profile_image_url", "rating", "review", "created_at",
+            "like_count", "dislike_count", "comment_count", "my_reaction", "is_mine",
+        ]
+
+
+class ReviewCommentSerializer(serializers.ModelSerializer):
+    """리뷰 댓글 (F-REV, 평탄 구조). 작성자 닉네임·아바타 + 내용·작성일 + 본인여부.
+    body 만 쓰기, 나머지는 읽기 전용. user/record 는 뷰에서 주입."""
+
+    nickname = serializers.CharField(source="user.nickname", read_only=True)
+    profile_image_url = serializers.SerializerMethodField()
+    is_mine = serializers.SerializerMethodField()
+
+    def get_profile_image_url(self, obj):
+        img = obj.user.profile_image
+        if not img:
+            return None
+        request = self.context.get("request")
+        return request.build_absolute_uri(img.url) if request else img.url
+
+    def get_is_mine(self, obj):
+        request = self.context.get("request")
+        return bool(request and obj.user_id == request.user.id)
+
+    class Meta:
+        model = ReviewComment
+        fields = ["id", "nickname", "profile_image_url", "body", "created_at", "is_mine"]
+        read_only_fields = ["id", "created_at"]
