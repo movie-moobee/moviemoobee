@@ -15,6 +15,7 @@ from movies.models import Movie
 from movies.serializers import MovieListSerializer
 
 from .areas import detect_areas, safe_by_liked, unexplored_by_continent
+from .taste_map import get_map
 
 SAFE_POOL = 40           # 폴백 MMR 후보 풀 크기(키워도 추천 다양성 불변 — 검증 A-09). 40으로 충분.
 MMR_LAMBDA_SAFE = 0.7    # 폴백 안전: 적합도 우선 + 같은 봉우리 프랜차이즈 중복만 제거.
@@ -96,3 +97,34 @@ def _enrich(items, score_key):
             data["continent"] = it["continent"]
         out.append(data)
     return out
+
+
+def get_explore(user):
+    """지도 탐색 탭 (F-MAP-03, 4.4): 취향 지도(본 영화 별·대륙)와 동일한 지도 위에
+    안전·미탐색 추천을 핀으로 얹는다.
+
+    지도 데이터(watched·anchors)는 get_map 그대로 재사용 → 취향 지도 탭과 100% 같은 별·성운.
+    추천은 추천 페이지(get_recommendations)와 같은 전역 Top N에 핀 좌표(map_x/map_y)를 붙인다.
+    와이어프레임 10·d/10·e. enough=False(시청<5)면 빈 결과."""
+    m = get_map(user)
+    if not m.get("enough"):
+        return {"enough": False}
+    rec = get_recommendations(user)
+    ids = [it["id"] for it in rec["safe"]] + [it["id"] for it in rec["unexplored"]]
+    coords = {mv.id: (mv.map_x, mv.map_y) for mv in Movie.objects.filter(id__in=ids)}
+
+    def attach(items):
+        out = []
+        for it in items:
+            c = coords.get(it["id"])
+            if c and c[0] is not None:
+                out.append({**it, "x": float(c[0]), "y": float(c[1])})
+        return out
+
+    return {
+        "enough": True,
+        "watched": m["watched"],     # 풀 데이터(movie_id·title·poster·x·y·rating) → 별 + 호버 툴팁
+        "anchors": m["anchors"],     # 장르 대륙 라벨
+        "safe": attach(rec["safe"]),
+        "unexplored": attach(rec["unexplored"]),
+    }

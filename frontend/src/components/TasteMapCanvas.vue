@@ -13,8 +13,11 @@ const props = defineProps({
   highlightId: { type: Number, default: null }, // 지도 내 검색(3.4): 이 영화 마커 반짝
   mode: { type: String, default: "stars" },     // 'stars' | 'posters'
   anchors: { type: Array, default: () => [] },  // [{name,x,y}] 장르 대륙(A-14). 있으면 고정 뷰포트.
+  // 지도 탐색(4.4): 추천 핀 오버레이 [{id,title,poster_path,release_year,vote_average,x,y,num,kind}].
+  // kind: 'safe'(하늘색) | 'unexplored'(호박색). 비면 핀 없음(취향 지도 탭).
+  pins: { type: Array, default: () => [] },
 });
-const emit = defineEmits(["select"]);
+const emit = defineEmits(["select", "pin-click"]);
 
 const W = props.width;
 const H = props.height;
@@ -110,6 +113,27 @@ const anchorMarkers = computed(() => {
     return { name: a.name, px, py, color: c, colorSoft: lighten(c, 0.32) };
   });
 });
+// 지도 탐색(4.4) 추천 핀 — 마커와 같은 변환으로 투영. 겹치면 황금각 나선 분산 + 원위치 연결선.
+const PIN_SEP = 30;
+const pinMarkers = computed(() => {
+  if (!props.pins?.length) return [];
+  const t = transform.value;
+  const placed = [];
+  return props.pins.map((m) => {
+    const [bx, by] = project(m.x, m.y, t);
+    let px = bx, py = by;
+    for (let k = 0; placed.some((p) => Math.hypot(p.px - px, p.py - py) < PIN_SEP) && k < 24; k++) {
+      const ang = k * 2.39996, rad = PIN_SEP + k * 4;
+      px = bx + Math.cos(ang) * rad;
+      py = by + Math.sin(ang) * rad;
+    }
+    placed.push({ px, py });
+    const safe = m.kind === "safe";
+    return { ...m, px, py, bx, by, moved: Math.hypot(px - bx, py - by) > 2,
+      fill: safe ? "#5bc5ff" : "#ff9d2e", textColor: safe ? "#07283a" : "#241a07" };
+  });
+});
+
 // 포스터 모드: 겹칠 때 고평점이 위로 오도록 별점 오름차순.
 const drawOrder = computed(() => [...markers.value].sort((a, b) => a.rating - b.rating));
 const selected = computed(() => markers.value.find((m) => m.movie_id === selectedId.value) || null);
@@ -131,6 +155,9 @@ function onSelect(m) {
 function onHover(m, e) {
   if (!props.interactive) return;
   hovered.value = { marker: m, x: e.clientX, y: e.clientY };
+}
+function onPinHover(m, e) {
+  hovered.value = { marker: m, x: e.clientX, y: e.clientY, pin: true };   // 핀=추천(평점 10점)
 }
 function poster(p) {
   return p ? IMG + p : "";
@@ -447,6 +474,52 @@ const nebulae = computed(() => [
         >{{ a.name }}</text>
       </g>
 
+      <!-- 지도 탐색(4.4) 추천 핀 — 토글 켠 것만, 번호. 겹치면 분산 + 원위치 연결선. -->
+      <g
+        v-for="m in pinMarkers"
+        :key="`pin${m.id}`"
+        class="pinmk"
+        @click="emit('pin-click', m)"
+        @mouseenter="onPinHover(m, $event)"
+        @mousemove="onPinHover(m, $event)"
+        @mouseleave="hovered = null"
+      >
+        <line
+          v-if="m.moved"
+          :x1="m.bx"
+          :y1="m.by"
+          :x2="m.px"
+          :y2="m.py"
+          :stroke="m.fill"
+          stroke-opacity="0.4"
+          stroke-width="1"
+        />
+        <circle
+          v-if="m.moved"
+          :cx="m.bx"
+          :cy="m.by"
+          r="2"
+          :fill="m.fill"
+          fill-opacity="0.5"
+        />
+        <circle
+          :cx="m.px"
+          :cy="m.py"
+          r="13"
+          :fill="m.fill"
+          filter="url(#glow)"
+        />
+        <text
+          :x="m.px"
+          :y="m.py + 4"
+          :fill="m.textColor"
+          font-size="12"
+          font-weight="700"
+          text-anchor="middle"
+          style="pointer-events: none"
+        >{{ m.num }}</text>
+      </g>
+
       <!-- 선택 강조 링 -->
       <circle
         v-if="interactive && selected"
@@ -488,7 +561,7 @@ const nebulae = computed(() => [
           {{ hovered.marker.title }}
         </div>
         <div class="tip__sub">
-          {{ hovered.marker.release_year || "" }} · ★ {{ hovered.marker.rating * 2 }} / 10
+          {{ hovered.marker.release_year || "" }} · ★ {{ hovered.pin ? hovered.marker.vote_average : hovered.marker.rating * 2 }} / 10
         </div>
       </div>
     </div>
@@ -541,6 +614,12 @@ const nebulae = computed(() => [
   stroke: #aee1ff;
   stroke-opacity: 1;
   stroke-width: 2.5;
+}
+.pinmk {
+  cursor: pointer;
+}
+.pinmk:hover circle {
+  filter: brightness(1.25);
 }
 .blink {
   animation: blink 0.85s ease-in-out infinite;
