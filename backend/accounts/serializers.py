@@ -1,6 +1,9 @@
 from django.contrib.auth import get_user_model
+from django.db.models import Q
 from dj_rest_auth.registration.serializers import RegisterSerializer
 from rest_framework import serializers
+
+from social.models import Friendship
 
 User = get_user_model()
 
@@ -44,15 +47,22 @@ class UserDetailsSerializer(serializers.ModelSerializer):
     사진은 profile_image(파일·write)로 받고, 응답엔 profile_image_url(URL·read)로 노출."""
 
     profile_image_url = serializers.SerializerMethodField()
+    friend_count = serializers.SerializerMethodField()  # 수락된 친구 수 (프로필 통계)
 
     class Meta:
         model = User
-        fields = ["pk", "email", "nickname", "profile_image", "profile_image_url", "onboarded"]
+        fields = ["pk", "email", "nickname", "profile_image", "profile_image_url", "onboarded", "friend_count"]
         read_only_fields = ["pk", "email", "onboarded"]  # onboarded는 완료 API로만 변경
         extra_kwargs = {"profile_image": {"write_only": True, "required": False}}
 
     def get_profile_image_url(self, obj):
         return build_image_url(obj.profile_image, self.context)
+
+    def get_friend_count(self, obj):
+        # 양방향 1행 모델 → requester/addressee 어느 쪽이든 accepted면 친구
+        return Friendship.objects.filter(
+            Q(requester=obj) | Q(addressee=obj), status=Friendship.Status.ACCEPTED
+        ).count()
 
     def validate_nickname(self, value):
         # 수정 시 본인 제외 중복검사 → 깔끔한 400 (없으면 DB IntegrityError 500)

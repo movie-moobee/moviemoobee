@@ -91,6 +91,14 @@ async function onLogout() {
               본 영화
             </div>
           </div>
+          <div class="stat">
+            <div class="stat__num">
+              {{ me.friend_count ?? 0 }}
+            </div>
+            <div class="stat__label">
+              친구
+            </div>
+          </div>
         </div>
       </header>
 
