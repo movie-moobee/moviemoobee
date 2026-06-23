@@ -1,7 +1,7 @@
 from rest_framework import serializers
 
 from accounts.serializers import build_image_url
-from .models import Friendship
+from .models import Friendship, Notification
 
 
 class UserCardSerializer(serializers.Serializer):
@@ -53,6 +53,33 @@ class FriendSerializer(serializers.Serializer):
 
     def get_profile_image_url(self, obj):
         return build_image_url(obj.profile_image, self.context)
+
+
+class NotificationSerializer(serializers.Serializer):
+    """알림 드롭다운 아이템 (F-NTF-01, 와이어프레임 14).
+
+    type: friend_request(요청·수락/거절 버튼 포함) / friend_accept(수락됨).
+    actor = 유발한 상대(요청자 또는 수락자). friendship 은 요청 알림의 수락/거절 대상.
+    """
+
+    id = serializers.IntegerField()
+    type = serializers.CharField()
+    is_read = serializers.BooleanField()
+    created_at = serializers.DateTimeField()
+    friendship_id = serializers.IntegerField(allow_null=True)  # 요청 알림의 수락/거절 대상 id
+    friendship_status = serializers.SerializerMethodField()     # pending|accepted|None(폐기됨)
+    actor = serializers.SerializerMethodField()
+
+    def get_friendship_status(self, obj):
+        return obj.friendship.status if obj.friendship_id else None
+
+    def get_actor(self, obj):
+        u = obj.actor
+        return {
+            "id": u.id,
+            "nickname": u.nickname,
+            "profile_image_url": build_image_url(u.profile_image, self.context),
+        }
 
 
 class FriendProfileSerializer(FriendSerializer):
