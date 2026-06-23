@@ -1,4 +1,4 @@
-"""카탈로그 정리: 2000년 이전 + 에로틱 로맨스 영화를 DB에서 삭제 (김호준, 1회성 큐레이션).
+"""카탈로그 정리: 2000년 이전 + 에로틱 로맨스 + 포스터 없는 유령 영화를 DB에서 삭제 (김호준, 큐레이션).
 
 기본은 미리보기(dry-run) — 무엇이 지워지고 시청기록이 몇 건 사라지는지만 출력한다.
 실제 삭제는 --execute 를 줘야 한다(Movie 삭제 시 WatchRecord가 CASCADE로 함께 삭제됨).
@@ -19,6 +19,10 @@ EROTIC_KEYWORDS = ["erotic", "eroticism", "erotique", "bdsm", "softcore", "sexpl
 # 키워드가 비어 키워드론 못 잡는 명백한 에로틱 로맨스 (제목 부분일치)
 MANUAL_RACY_TITLES = ["가브리엘의 지옥", "365일", "그레이의 50가지"]
 
+# 포스터 없는 영화 = 시각 추천에서 카드도 못 그리는 '유령'(정보 빈약·러닝타임 12분 등) → 영구 제외.
+# ※ 줄거리(overview)·러닝타임은 기준으로 안 씀: 줄거리 빈값은 대부분 정상 외국영화의 한글번역 누락,
+#    단편은 정상 픽사 단편이라 오배제된다(검증). 포스터 결측만이 깨끗한 유령 신호.
+
 
 class Command(BaseCommand):
     help = "2000년 이전 + 에로틱 로맨스 영화를 DB에서 삭제 (기본 미리보기, --execute로 실삭제)"
@@ -35,17 +39,21 @@ class Command(BaseCommand):
             racy_title |= Q(title__icontains=t)
         racy = racy_kw | racy_title
 
-        target = Movie.objects.filter(pre | racy).distinct()
+        ghost = Q(poster_path="")   # 포스터 없는 유령
+
+        target = Movie.objects.filter(pre | racy | ghost).distinct()
         target_ids = list(target.values_list("id", flat=True))
 
         n_pre = Movie.objects.filter(pre).count()
         n_racy = Movie.objects.filter(racy).distinct().count()
+        n_ghost = Movie.objects.filter(ghost).count()
         n_total = len(target_ids)
         n_wr = WatchRecord.objects.filter(movie_id__in=target_ids).count()
 
         self.stdout.write(f"전체 {Movie.objects.count()}편")
         self.stdout.write(f"  - 2000년 이전: {n_pre}편")
         self.stdout.write(f"  - 에로틱(키워드+수동): {n_racy}편")
+        self.stdout.write(f"  - 포스터 없는 유령: {n_ghost}편")
         self.stdout.write(f"  = 삭제 대상(중복 제거): {n_total}편  →  삭제 후 {Movie.objects.count() - n_total}편")
         self.stdout.write(f"  함께 삭제될 시청기록(CASCADE): {n_wr}건")
 

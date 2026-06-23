@@ -34,7 +34,7 @@ class Command(BaseCommand):
     help = "장르별 단일 취향 데모 유저 시드 (추천 검증용, 김호준)"
 
     def handle(self, *args, **opts):
-        if not Movie.objects.filter(umap_x__isnull=False).exists():
+        if not Movie.objects.filter(map_x__isnull=False).exists():
             raise CommandError("좌표 있는 영화가 없습니다. loaddata movies 또는 build_coords 먼저 실행하세요.")
 
         # 멱등성: 기존 장르 데모 유저 삭제(시청기록 cascade)
@@ -44,7 +44,7 @@ class Command(BaseCommand):
         for username, nickname, gname in GENRE_DEMOS:
             genre = Genre.objects.filter(name=gname).first()
             movies = list(
-                Movie.objects.filter(genres=genre, umap_x__isnull=False)
+                Movie.objects.filter(genres=genre, map_x__isnull=False)
                 .order_by("-vote_count")[:N_WATCH]
             )
             if len(movies) < 5:
@@ -58,12 +58,8 @@ class Command(BaseCommand):
             for m in movies:
                 WatchRecord.objects.create(user=user, movie=m, rating=5.0)  # 시그널이 좌표 캐싱
 
-            user.refresh_from_db()
             made += 1
-            self.stdout.write(
-                f"  {username}: '{gname}' {len(movies)}편(5.0) "
-                f"→ 좌표 ({user.coord_x:.2f}, {user.coord_y:.2f})"
-            )
+            self.stdout.write(f"  {username}: '{gname}' {len(movies)}편(5.0)")
 
         self.stdout.write(self.style.SUCCESS(
             f"[완료] 장르 데모 {made}명 (비밀번호 demo1234). "

@@ -20,6 +20,8 @@
 | [A-05-user-coord.md](A-05-user-coord.md) | 사용자 좌표 계산·캐싱 + 시그널 + seed_demo | 2026-06-07 | 3.1 (F-MAP-00) |
 | [A-12-map-tab-polish.md](A-12-map-tab-polish.md) | 지도 보강: 취향 요약(주=별점가중·미탐색=KDE)·별 토글·등록탭 수정모달 | 2026-06-22 | 3.x 후속 |
 | [A-13-unexplored-diversity.md](A-13-unexplored-diversity.md) | 미탐색 추천 다양화 재설계 탐색(거리대 분할) — 실험·보류 | 2026-06-22 | 4.3 후속(A-11) |
+| [A-14-anchor-map-coords.md](A-14-anchor-map-coords.md) | 앵커(장르 대륙) 좌표 전면 재설계 — 거시/미시 하이브리드 | 2026-06-23 | 4.x 좌표재설계 |
+| [A-15-reco-redesign-no-centroid.md](A-15-reco-redesign-no-centroid.md) | 추천 재설계 — 미탐색 대륙분산·안전 봉우리별 kNN·무게중심 폐기 | 2026-06-23 | 4.1~4.3 후속 |
 
 ## 작성 템플릿
 ```markdown

@@ -1,6 +1,5 @@
 """시연·테스트용 데모 시드 (Made By KHJ).
 데모 유저 + 취향 편향 시청기록(별점) + 친구관계를 만든다.
-시청기록을 개별 생성하므로 시그널이 발동해 각 유저 좌표(coord_x/y)가 자동 캐싱된다.
 멱등성: 재실행 시 기존 데모 유저를 지우고 다시 만든다.
 """
 import random
@@ -33,7 +32,7 @@ class Command(BaseCommand):
 
     def handle(self, *args, **opts):
         random.seed(42)
-        if not Movie.objects.filter(umap_x__isnull=False).exists():
+        if not Movie.objects.filter(map_x__isnull=False).exists():
             raise CommandError("좌표 있는 영화가 없습니다. loaddata movies 또는 build_coords 먼저 실행하세요.")
 
         # 멱등성: 기존 데모 유저 삭제(시청기록·친구는 cascade)
@@ -42,7 +41,7 @@ class Command(BaseCommand):
         # 영화가 가장 많은 상위 장르를 데모 유저별 주 취향으로 배정
         primary_genres = list(
             Genre.objects.annotate(
-                n=Count("movies", filter=Q(movies__umap_x__isnull=False))
+                n=Count("movies", filter=Q(movies__map_x__isnull=False))
             ).order_by("-n")[:len(DEMO_USERS)]
         )
 
@@ -57,10 +56,10 @@ class Command(BaseCommand):
             user.save(update_fields=["password"])
 
             primary = list(
-                Movie.objects.filter(genres=genre, umap_x__isnull=False).values_list("id", flat=True)
+                Movie.objects.filter(genres=genre, map_x__isnull=False).values_list("id", flat=True)
             )
             others = list(
-                Movie.objects.filter(umap_x__isnull=False).exclude(genres=genre).values_list("id", flat=True)
+                Movie.objects.filter(map_x__isnull=False).exclude(genres=genre).values_list("id", flat=True)
             )
             pick_primary = random.sample(primary, min(N_PRIMARY, len(primary)))
             pick_others = random.sample(others, min(N_RANDOM, len(others)))
@@ -74,8 +73,7 @@ class Command(BaseCommand):
             users.append(user)
             self.stdout.write(
                 f"  {username}: 주취향 '{genre.name}' "
-                f"{len(pick_primary)+len(pick_others)}편 시청 "
-                f"→ 좌표 ({user.coord_x:.2f}, {user.coord_y:.2f})"
+                f"{len(pick_primary)+len(pick_others)}편 시청"
             )
 
         # 친구관계: A ↔ B 수락됨
