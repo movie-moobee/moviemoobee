@@ -5,9 +5,11 @@ import { ref, onMounted } from "vue";
 import { useRouter } from "vue-router";
 import { getMe, logout } from "@/api/auth";
 import { listWatchRecords } from "@/api/watchRecords";
+import { useCurrentUser } from "@/composables/useCurrentUser";
 import RatingStars from "@/components/base/RatingStars.vue";
 
 const router = useRouter();
+const { clearUser } = useCurrentUser();
 const me = ref(null);
 const records = ref([]);
 const loading = ref(true);
@@ -29,6 +31,7 @@ async function onLogout() {
   loggingOut.value = true;
   try {
     await logout();
+    clearUser();
   } finally {
     router.push("/login");
   }
@@ -117,6 +120,9 @@ async function onLogout() {
               v-else
               class="card__poster card__poster--empty"
             >
+              {{ r.movie_detail.title }}
+            </div>
+            <div class="card__title">
               {{ r.movie_detail.title }}
             </div>
             <RatingStars
@@ -259,6 +265,15 @@ async function onLogout() {
   font-size: 11px;
   color: var(--text-muted);
   padding: 6px;
+}
+.card__title {
+  font-size: 12px;
+  color: var(--text);
+  line-height: 1.35;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
 }
 @media (max-width: 680px) {
   .grid {
