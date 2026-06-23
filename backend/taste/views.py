@@ -1,3 +1,4 @@
+from django.http import StreamingHttpResponse
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -39,3 +40,17 @@ def explore(request):
     안전·미탐색 = 추천 페이지와 같은 전역 Top N — 지도 핀으로 토글 표시.
     """
     return Response(get_explore(request.user))
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def chat(request):
+    """범용 영화 추천 AI 챗봇 (5.4). body {messages:[{role,content}]}.
+    내 취향 집합 최근접 후보로 grounding 한 LLM 응답을 SSE(text/event-stream)로 스트리밍.
+    """
+    from .services.chat import general_messages, sse
+    messages = general_messages(request.user, request.data.get("messages", []))
+    resp = StreamingHttpResponse(sse(messages), content_type="text/event-stream")
+    resp["Cache-Control"] = "no-cache"
+    resp["X-Accel-Buffering"] = "no"
+    return resp

@@ -122,3 +122,8 @@ CORS_ALLOWED_ORIGINS = ["http://localhost:5173"]
 
 # TMDB
 TMDB_API_KEY = os.environ.get("TMDB_API_KEY", "")
+
+# GMS (SSAFY LLM 게이트웨이) — OpenAI 호환. 키는 .env 에만(절대 커밋·클라이언트 노출 금지).
+GMS_KEY = os.environ.get("GMS_KEY", "")
+GMS_BASE_URL = os.environ.get("GMS_BASE_URL", "https://gms.ssafy.io/gmsapi/api.openai.com/v1")
+GMS_MODEL = os.environ.get("GMS_MODEL", "gpt-5-nano")

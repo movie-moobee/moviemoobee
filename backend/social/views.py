@@ -1,4 +1,5 @@
 from django.db.models import Count, Q
+from django.http import StreamingHttpResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework.response import Response
@@ -195,6 +196,23 @@ class FriendCompareView(APIView):
         friend = get_object_or_404(User, pk=pk)
         from taste.services.taste_map import get_compare
         return Response(get_compare(request.user, friend))
+
+
+class FriendCowatchView(APIView):
+    """POST /api/social/friends/<pk>/cowatch/ — '같이 볼 영화' AI 챗봇 (5.4, 와이어프레임 13).
+    친구 사이일 때만. body {messages:[{role,content}]}. 두 취향 겹침 후보로 grounding 한
+    LLM 응답을 SSE(text/event-stream)로 흘려보낸다(gpt-5-nano via GMS)."""
+
+    def post(self, request, pk):
+        if not _accepted_between(request.user, pk):
+            return Response({"detail": "친구만 볼 수 있습니다."}, status=403)
+        friend = get_object_or_404(User, pk=pk)
+        from taste.services.chat import cowatch_messages, sse
+        messages = cowatch_messages(request.user, friend, request.data.get("messages", []))
+        resp = StreamingHttpResponse(sse(messages), content_type="text/event-stream")
+        resp["Cache-Control"] = "no-cache"
+        resp["X-Accel-Buffering"] = "no"   # nginx 등 버퍼링 끄기(즉시 전송)
+        return resp
 
 
 class NotificationListView(APIView):

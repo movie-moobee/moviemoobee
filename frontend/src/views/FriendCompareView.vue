@@ -1,12 +1,13 @@
 <script setup>
-// 친구 프로필 상세 (F-FRD-04, 와이어프레임 13 헤더) — 프로필·시청작·친구 삭제.
-// 취향 비교 지도(F-FRD-05)·같이 볼 영화 챗봇(5.4)은 추후 → placeholder.
+// 친구 프로필 상세 (F-FRD-04, 와이어프레임 13) — 프로필·취향 비교 지도(5.3)·같이 볼 영화 챗봇(5.4)·시청작.
 import { computed, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { getFriendCompare, getFriendProfile, unfriend } from "@/api/social";
+import { streamChat } from "@/api/chat";
 import RatingStars from "@/components/base/RatingStars.vue";
 import ConfirmDialog from "@/components/ConfirmDialog.vue";
 import FriendCompareMap from "@/components/FriendCompareMap.vue";
+import ChatPanel from "@/components/ChatPanel.vue";
 
 const route = useRoute();
 const router = useRouter();
@@ -26,6 +27,11 @@ const commonGenres = computed(() => {
   const f = new Set(compare.value.friend.main);
   return compare.value.me.main.filter((g) => f.has(g));
 });
+
+// 같이 볼 영화 챗봇(5.4) — ChatPanel 에 주입할 SSE 스트림 함수.
+function cowatchStream(history, onDelta) {
+  return streamChat(`/social/friends/${route.params.id}/cowatch/`, history, onDelta);
+}
 
 async function load(id) {
   loading.value = true;
@@ -137,13 +143,22 @@ function poster(p) {
             </template>
           </p>
         </div>
-        <FriendCompareMap
-          :anchors="compare.anchors"
-          :mine="compare.me.watched"
-          :theirs="compare.friend.watched"
-          :shared-ids="compare.shared_ids"
-          :friend-name="profile.nickname"
-        />
+        <div class="compare__grid">
+          <FriendCompareMap
+            :anchors="compare.anchors"
+            :mine="compare.me.watched"
+            :theirs="compare.friend.watched"
+            :shared-ids="compare.shared_ids"
+            :friend-name="profile.nickname"
+          />
+          <ChatPanel
+            title="같이 볼 영화 AI"
+            subtitle="두 분 취향을 분석해 추천해요"
+            :intro="`${profile.nickname}님과 같이 볼 영화가 궁금하면 물어봐! 두 사람 취향이 만나는 작품으로 골라줄게.`"
+            placeholder="예) 가볍게 볼 만한 거 추천해줘"
+            :stream-fn="cowatchStream"
+          />
+        </div>
       </section>
 
       <!-- 친구의 시청작 -->
@@ -293,6 +308,17 @@ function poster(p) {
 }
 .compare__head {
   margin-bottom: 12px;
+}
+.compare__grid {
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  gap: 18px;
+  align-items: start;
+}
+@media (max-width: 820px) {
+  .compare__grid {
+    grid-template-columns: 1fr;
+  }
 }
 .compare__title {
   font-size: 16px;
