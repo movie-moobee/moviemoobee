@@ -2,9 +2,25 @@ import { api } from "./client";
 
 // 영화 API (F-MOV-01·02·03) → /api/movies/
 
-// 검색 (제목)
+// 검색 (제목) — 지도 등록 탭 등 단순 호출용
 export async function searchMovies(query) {
   const { data } = await api.get("/movies/", { params: { search: query } });
+  return data;
+}
+
+// 검색 페이지: 검색어 + 필터(genre·min_rating·decade·runtime·language). 빈 값은 제외.
+export async function browseMovies(params = {}) {
+  const clean = {};
+  for (const [k, v] of Object.entries(params)) {
+    if (v !== "" && v != null) clean[k] = v;
+  }
+  const { data } = await api.get("/movies/", { params: clean });
+  return data;
+}
+
+// 장르 드롭다운 옵션 (카탈로그에 영화 있는 장르명)
+export async function getGenres() {
+  const { data } = await api.get("/movies/genres/");
   return data;
 }
 
