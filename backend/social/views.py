@@ -185,6 +185,18 @@ class FriendDetailView(APIView):
         return Response(status=204)
 
 
+class FriendCompareView(APIView):
+    """GET /api/social/friends/<pk>/compare/ — 친구 취향 비교 지도 (F-FRD-05, 5.3).
+    친구 사이일 때만. 두 사람의 본 영화를 같은 앵커 공간에 겹쳐 비교(무게중심 비교 폐기, A-15)."""
+
+    def get(self, request, pk):
+        if not _accepted_between(request.user, pk):
+            return Response({"detail": "친구만 볼 수 있습니다."}, status=403)
+        friend = get_object_or_404(User, pk=pk)
+        from taste.services.taste_map import get_compare
+        return Response(get_compare(request.user, friend))
+
+
 class NotificationListView(APIView):
     """GET  /api/social/notifications/ — 내 알림 목록 (F-NTF-01, 최신순, 최대 5).
     POST /api/social/notifications/ — 모두 읽음 처리 (드롭다운 열람 시 배지 클리어)."""
