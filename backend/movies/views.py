@@ -1,5 +1,6 @@
 from django.core.cache import cache
 from django.db.models import Q
+from django.db.models.functions import Lower
 from rest_framework.generics import (
     ListAPIView,
     ListCreateAPIView,
@@ -9,7 +10,7 @@ from rest_framework.generics import (
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from movies.models import Movie, WatchRecord
+from movies.models import Genre, Movie, WatchRecord
 from movies.serializers import (
     MovieDetailSerializer,
     MovieListSerializer,
@@ -24,19 +25,78 @@ class MovieListView(ListAPIView):
     serializer_class = MovieListSerializer
 
     def get_queryset(self):
-        search = self.request.query_params.get("search", "").strip()
+        p = self.request.query_params
+        search = p.get("search", "").strip()
         qs = Movie.objects.all()
+
         if search:
             qs = qs.filter(Q(title__icontains=search) | Q(original_title__icontains=search))
-        elif self.request.query_params.get("sort") == "recent":
-            qs = qs.order_by("-created_at")   # 메인 '최근 추가된 영화' (F-MAIN, 김호준)
+
+        # 메인 '최근 추가된 영화'(F-MAIN, 김호준) — 검색 없을 때만, 기존 동작 유지
+        if not search and p.get("sort") == "recent":
+            qs = qs.order_by("-created_at")
+            limit = p.get("limit")
+            return qs[: int(limit)] if limit and limit.isdigit() else qs
+
+        # --- 검색 페이지 필터 (F-MOV-01, 다중 적용 가능) ---
+        genre = p.get("genre", "").strip()
+        if genre:
+            qs = qs.filter(genres__name=genre)
+
+        language = p.get("language", "").strip()
+        if language:
+            qs = qs.filter(original_language=language)
+
+        min_rating = p.get("min_rating")
+        if min_rating:
+            try:
+                qs = qs.filter(vote_average__gte=float(min_rating))
+            except ValueError:
+                pass
+
+        max_rating = p.get("max_rating")
+        if max_rating:
+            try:
+                qs = qs.filter(vote_average__lte=float(max_rating))
+            except ValueError:
+                pass
+
+        decade = p.get("decade")
+        if decade and decade.isdigit():
+            d = int(decade)
+            qs = qs.filter(release_year__gte=d, release_year__lt=d + 10)
+
+        runtime = p.get("runtime")
+        if runtime == "short":
+            qs = qs.filter(runtime__lt=90)
+        elif runtime == "medium":
+            qs = qs.filter(runtime__gte=90, runtime__lte=120)
+        elif runtime == "long":
+            qs = qs.filter(runtime__gt=120)
+
+        # 정렬: 검색은 제목순(시리즈가 아이언맨→2→3로 묶임), 그 외는 평점 높은순
+        if search:
+            qs = qs.order_by(Lower("title"))
         else:
-            qs = qs.order_by("-vote_count")
-        # ?limit=N (온보딩 인기 10편 등). 전체 카탈로그 통째 반환 방지.
-        limit = self.request.query_params.get("limit")
-        if limit and limit.isdigit():
-            qs = qs[: int(limit)]
-        return qs
+            qs = qs.order_by("-vote_average", "-vote_count")
+        qs = qs.distinct()
+
+        # 검색 페이지는 전체 반환(평점 높은순 스크롤). limit는 명시될 때만 적용.
+        limit = p.get("limit")
+        return qs[: int(limit)] if limit and limit.isdigit() else qs
+
+
+class GenreListView(APIView):
+    """검색 필터의 장르 드롭다운용 — 카탈로그에 실제 영화가 있는 장르명만 (F-MOV-01)."""
+
+    def get(self, request):
+        names = list(
+            Genre.objects.filter(movies__isnull=False)
+            .distinct()
+            .order_by("name")
+            .values_list("name", flat=True)
+        )
+        return Response(names)
 
 
 class MovieDetailView(RetrieveAPIView):
