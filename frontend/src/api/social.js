@@ -49,3 +49,24 @@ export async function getFriendProfile(id) {
 export async function unfriend(id) {
   await api.delete(`/social/friends/${id}/`);
 }
+
+// 알림 (F-NTF-01) — 친구 요청·수락 알림. 실시간 push 없이 REST 조회 + 안읽음 배지.
+
+// 내 알림 목록 (최신순) → [{ id, type, is_read, created_at, friendship_id, actor:{...} }]
+// type: friend_request | friend_accept
+export async function getNotifications() {
+  const { data } = await api.get("/social/notifications/");
+  return data;
+}
+
+// 헤더 🔔 배지용 안읽음 개수 (가벼운 폴링) → { count }
+export async function getUnreadCount() {
+  const { data } = await api.get("/social/notifications/unread/");
+  return data.count;
+}
+
+// 모두 읽음 처리 (드롭다운 열람 시 배지 클리어) → { updated }
+export async function markNotificationsRead() {
+  const { data } = await api.post("/social/notifications/");
+  return data;
+}

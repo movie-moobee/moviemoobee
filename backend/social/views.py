@@ -5,10 +5,11 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from accounts.models import User
-from .models import Friendship
+from .models import Friendship, Notification
 from .serializers import (
     FriendProfileSerializer,
     FriendSerializer,
+    NotificationSerializer,
     ReceivedRequestSerializer,
     UserCardSerializer,
 )
@@ -182,3 +183,33 @@ class FriendDetailView(APIView):
             return Response({"detail": "친구가 아닙니다."}, status=404)
         f.delete()
         return Response(status=204)
+
+
+class NotificationListView(APIView):
+    """GET  /api/social/notifications/ — 내 알림 목록 (F-NTF-01, 최신순, 최대 5).
+    POST /api/social/notifications/ — 모두 읽음 처리 (드롭다운 열람 시 배지 클리어)."""
+
+    def get(self, request):
+        qs = (
+            Notification.objects.filter(recipient=request.user)
+            .select_related("actor", "friendship")[:5]
+        )
+        return Response(
+            NotificationSerializer(qs, many=True, context={"request": request}).data
+        )
+
+    def post(self, request):
+        updated = Notification.objects.filter(
+            recipient=request.user, is_read=False
+        ).update(is_read=True)
+        return Response({"updated": updated})
+
+
+class NotificationUnreadView(APIView):
+    """GET /api/social/notifications/unread/ — 헤더 🔔 배지용 안읽음 개수 (가벼운 폴링)."""
+
+    def get(self, request):
+        count = Notification.objects.filter(
+            recipient=request.user, is_read=False
+        ).count()
+        return Response({"count": count})

@@ -2,6 +2,7 @@
 import { onMounted } from 'vue'
 import { RouterLink, RouterView } from 'vue-router'
 import { useCurrentUser } from '@/composables/useCurrentUser'
+import NotificationBell from '@/components/NotificationBell.vue'
 
 const navItems = [
   { name: 'home',    label: '홈' },
@@ -39,18 +40,21 @@ function initial(nickname) {
           {{ item.label }}
         </RouterLink>
       </nav>
-      <RouterLink
-        :to="{ name: 'profile' }"
-        class="avatar"
-      >
-        <img
-          v-if="user?.profile_image_url"
-          :src="user.profile_image_url"
-          alt="내 프로필"
-          class="avatar__img"
+      <div class="actions">
+        <NotificationBell />
+        <RouterLink
+          :to="{ name: 'profile' }"
+          class="avatar"
         >
-        <span v-else>{{ initial(user?.nickname) }}</span>
-      </RouterLink>
+          <img
+            v-if="user?.profile_image_url"
+            :src="user.profile_image_url"
+            alt="내 프로필"
+            class="avatar__img"
+          >
+          <span v-else>{{ initial(user?.nickname) }}</span>
+        </RouterLink>
+      </div>
     </header>
     <main class="content">
       <RouterView />
@@ -71,6 +75,7 @@ function initial(nickname) {
 .link { font-size: 14px; color: var(--text-muted); transition: color 0.15s; }
 .link:hover { color: var(--text); }
 .link.router-link-exact-active { color: var(--gold); }
+.actions { display: flex; align-items: center; gap: 12px; }
 .avatar {
   width: 28px; height: 28px; border-radius: 50%;
   background: #2A2F3C; color: var(--text);
