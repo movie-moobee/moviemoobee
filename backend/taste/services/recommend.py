@@ -33,20 +33,24 @@ def get_recommendations(user, safe_n=10, unexplored_n=10):
 
 
 def daily_pick(user):
-    """오늘의 추천: 안 본 영화 중 평점 ≥ DAILY_PICK_MIN_VOTE 에서 '하루 한 편' 랜덤.
-    날짜를 시드로 써서(유저+날짜) 같은 날엔 고정(새로고침해도 동일), 자정 지나면 바뀐다.
-    추천 엔진(KDE)과 무관한 단순 발견용 — 후보가 없으면 None."""
-    watched_ids = user.watch_records.values_list("movie_id", flat=True)
-    qs = (Movie.objects
-          .filter(vote_average__gte=DAILY_PICK_MIN_VOTE)
-          .exclude(id__in=watched_ids)
-          .order_by("id"))                 # 시드 인덱스가 일관되도록 안정 정렬
-    n = qs.count()
-    if not n:
+    """오늘의 추천: 안 본 영화 중 평점 ≥ DAILY_PICK_MIN_VOTE 에서 '하루 한 편'.
+    같은 날엔 고정(새로고침·영화 추가에도 불변), 자정 지나면 바뀐다.
+    추천 엔진(KDE)과 무관한 단순 발견용 — 후보가 없으면 None.
+
+    ※ 당첨작은 '추첨번호 최소' 영화 — 번호를 (날짜·유저·영화id)만으로 정해 후보 수·순서와
+      무관하게 한다. 위치 인덱스(randrange(n))로 뽑으면 영화를 1편 추가(=후보에서 제외)할 때마다
+      n과 인덱스가 밀려 당첨작이 바뀌는 버그가 있었다 — 모집단이 흔들려도 각 영화 번호는 불변이라
+      당첨작 자신을 보기 전까진 하루 종일 고정된다."""
+    day = timezone.localdate().isoformat()                  # 유저+날짜 → 하루 단위 고정
+    watched_ids = set(user.watch_records.values_list("movie_id", flat=True))
+    eligible = list(
+        Movie.objects.filter(vote_average__gte=DAILY_PICK_MIN_VOTE)
+        .exclude(id__in=watched_ids).values_list("id", flat=True)
+    )
+    if not eligible:
         return None
-    seed = f"{user.id}-{timezone.localdate().isoformat()}"   # 유저+날짜 → 하루 단위 고정
-    movie = qs[random.Random(seed).randrange(n)]
-    return MovieListSerializer(movie).data
+    pick_id = min(eligible, key=lambda mid: random.Random(f"{day}-{user.id}-{mid}").random())
+    return MovieListSerializer(Movie.objects.get(id=pick_id)).data
 
 
 def mmr_select(items, score_key, lam, n):

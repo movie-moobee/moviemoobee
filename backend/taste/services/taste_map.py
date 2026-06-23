@@ -10,12 +10,30 @@
     카탈로그 쏠림(인기수집 → 범죄·스릴러)이 누구에게나 반복돼 편향 → 추천 엔진과 같은
     KDE 미탐색을 장르로 역집계해 편향 제거(라벨=엔진 일관). KDE 실패 시 카탈로그 폴백.
 """
+import json
+from pathlib import Path
+
 from django.db.models import Count, FloatField, Q, Sum, Value
 from django.db.models.functions import Cast, Greatest
 
 from movies.models import Genre
 
 LIKE_NEUTRAL = 3.0   # 좋아요 기준점 — coords.py(사용자 좌표)와 동일. weight = max(rating-3, 0).
+
+# 앵커(장르 대륙) 위치 — build_coords가 생성·커밋(anchors.json). 지도가 대륙 라벨/배경을 그린다(A-14).
+_ANCHORS_PATH = Path(__file__).resolve().parents[1] / "artifacts" / "anchors.json"
+_anchors_cache = None
+
+
+def _load_anchors():
+    """앵커 [{name,x,y}] 로드(1회 캐시). 파일 없으면 [] — 좌표 미생성 시 지도는 대륙 없이 동작."""
+    global _anchors_cache
+    if _anchors_cache is None:
+        try:
+            _anchors_cache = json.loads(_ANCHORS_PATH.read_text(encoding="utf-8"))
+        except FileNotFoundError:
+            _anchors_cache = []
+    return _anchors_cache
 
 
 def genre_summary(user):
@@ -134,4 +152,5 @@ def get_map(user):
         "y": float(r[5]),
         "rating": float(r[6]),
     } for r in rows]
-    return {"enough": True, "watched": watched, "summary": genre_summary(user)}
+    return {"enough": True, "watched": watched, "summary": genre_summary(user),
+            "anchors": _load_anchors()}

@@ -12,6 +12,7 @@ const props = defineProps({
   height: { type: Number, default: 430 },
   highlightId: { type: Number, default: null }, // 지도 내 검색(3.4): 이 영화 마커 반짝
   mode: { type: String, default: "stars" },     // 'stars' | 'posters'
+  anchors: { type: Array, default: () => [] },  // [{name,x,y}] 장르 대륙(A-14). 있으면 고정 뷰포트.
 });
 const emit = defineEmits(["select"]);
 
@@ -38,31 +39,75 @@ function vis(rating) {
   };
 }
 
-// 본 영화 범위에 맞춰 UMAP→픽셀 변환. 좌표 전역 고정(불변식), viewport만 맞춤. 겹침 나선 분산.
-const markers = computed(() => {
-  if (!props.watched?.length) return [];
+// 장르 대륙 색(월드 모드). 마커는 가장 가까운 대륙 색을 입어 '어느 영토에 있나'가 한눈에.
+const GENRE_COLORS = {
+  공포: "#a55ec9", 스릴러: "#7d5fff", 범죄: "#b066c9", 미스터리: "#5b6ee0",
+  드라마: "#7fa8e8", 로맨스: "#fd79a8", 액션: "#ff7a6b", SF: "#19c6c0",
+  모험: "#1dd1a1", 전쟁: "#9bd14e", 역사: "#c2d14e", 가족: "#3fbf8e",
+  코미디: "#f0c050", 판타지: "#c56cf0", 애니메이션: "#4aa8e8", 음악: "#e0b84a",
+};
+function lighten(hex, m) {
+  const n = parseInt(hex.slice(1), 16);
+  const f = (c) => Math.round(c + (255 - c) * m);
+  return `rgb(${f((n >> 16) & 255)},${f((n >> 8) & 255)},${f(n & 255)})`;
+}
+function nearestColor(x, y) {
+  let best = "#9aa3bd", bd = Infinity;
+  for (const a of props.anchors || []) {
+    const d = (a.x - x) ** 2 + (a.y - y) ** 2;
+    if (d < bd) { bd = d; best = GENRE_COLORS[a.name] || best; }
+  }
+  return best;
+}
+
+// 좌표→픽셀 변환. 앵커(대륙) 있으면 '전역 고정 뷰포트'(원점 중심, 대륙이 항상 같은 자리=안정적
+// 랜드마크, A-14). 없으면 본 영화 범위 auto-fit(홈 프리뷰 등). 좌표 자체는 전역 고정(불변식).
+const transform = computed(() => {
+  if (props.anchors?.length) {
+    // 대륙 있으면 x·y 각각 캔버스에 맞춰 채운다(와이드 캔버스 활용). 좌표 원점 중심 고정.
+    let rx = 1, ry = 1;
+    for (const a of props.anchors) { rx = Math.max(rx, Math.abs(a.x)); ry = Math.max(ry, Math.abs(a.y)); }
+    rx *= 1.1; ry *= 1.12;   // 대륙 바깥 여백
+    return { cx: 0, cy: 0, sx: (W - 2 * PAD) / (2 * rx), sy: (H - 2 * PAD) / (2 * ry) };
+  }
   const xs = props.watched.map((w) => w.x);
   const ys = props.watched.map((w) => w.y);
   const minX = Math.min(...xs), maxX = Math.max(...xs);
   const minY = Math.min(...ys), maxY = Math.max(...ys);
-  const cx = (minX + maxX) / 2, cy = (minY + maxY) / 2;
-  const scale = Math.min(
-    (W - 2 * PAD) / Math.max(maxX - minX, 1),
-    (H - 2 * PAD) / Math.max(maxY - minY, 1),
-  );
+  const s = Math.min((W - 2 * PAD) / Math.max(maxX - minX, 1), (H - 2 * PAD) / Math.max(maxY - minY, 1));
+  return { cx: (minX + maxX) / 2, cy: (minY + maxY) / 2, sx: s, sy: s };
+});
+const project = (x, y, t) => [W / 2 + (x - t.cx) * t.sx, H / 2 - (y - t.cy) * t.sy];
+
+// 본 영화 마커. 겹침은 황금각 나선으로 분산.
+const markers = computed(() => {
+  if (!props.watched?.length) return [];
+  const t = transform.value;
   const placed = [];
   return props.watched.map((w) => {
     const v = vis(w.rating);
-    let px = W / 2 + (w.x - cx) * scale;
-    let py = H / 2 - (w.y - cy) * scale;   // 화면 y는 아래로 + → 부호 뒤집어 위로 +y
+    let [px, py] = project(w.x, w.y, t);   // 화면 y는 아래로 + → project가 부호 뒤집음
+    const [bx, by] = [px, py];
     const sep = v.r + 5;
     for (let k = 0; placed.some((p) => Math.hypot(p.px - px, p.py - py) < sep) && k < 16; k++) {
       const ang = k * 2.39996, rad = sep + k * 1.6;
-      px = (W / 2 + (w.x - cx) * scale) + Math.cos(ang) * rad;
-      py = (H / 2 - (w.y - cy) * scale) + Math.sin(ang) * rad;
+      px = bx + Math.cos(ang) * rad;
+      py = by + Math.sin(ang) * rad;
     }
     placed.push({ px, py });
-    return { ...w, px, py, thumb: w.poster_path ? THUMB + w.poster_path : "", ...v };
+    return {
+      ...w, px, py, thumb: w.poster_path ? THUMB + w.poster_path : "",
+      dotColor: nearestColor(w.x, w.y), ...v,
+    };
+  });
+});
+// 대륙(앵커) 라벨·영토 위치 — 마커와 같은 변환으로 투영.
+const anchorMarkers = computed(() => {
+  const t = transform.value;
+  return (props.anchors || []).map((a) => {
+    const [px, py] = project(a.x, a.y, t);
+    const c = GENRE_COLORS[a.name] || "#6b76a0";
+    return { name: a.name, px, py, color: c, colorSoft: lighten(c, 0.32) };
   });
 });
 // 포스터 모드: 겹칠 때 고평점이 위로 오도록 별점 오름차순.
@@ -132,6 +177,36 @@ function poster(p) {
             stop-opacity="0"
           />
         </radialGradient>
+        <radialGradient id="continent">
+          <stop
+            offset="0%"
+            stop-color="#3a4560"
+            stop-opacity="0.30"
+          />
+          <stop
+            offset="100%"
+            stop-color="#2a3550"
+            stop-opacity="0"
+          />
+        </radialGradient>
+        <filter
+          id="softTer"
+          x="-80%"
+          y="-80%"
+          width="260%"
+          height="260%"
+        >
+          <feGaussianBlur stdDeviation="22" />
+        </filter>
+        <filter
+          id="dotglow"
+          x="-150%"
+          y="-150%"
+          width="400%"
+          height="400%"
+        >
+          <feGaussianBlur stdDeviation="2.6" />
+        </filter>
       </defs>
 
       <rect
@@ -139,6 +214,37 @@ function poster(p) {
         :height="H"
         :fill="mode === 'posters' ? '#080a10' : '#0e1018'"
       />
+
+      <!-- 장르 대륙 글로우(배경 — 별 뒤). 월드 모드는 장르색 파스텔 영토. 라벨은 최상단(A-14). -->
+      <g
+        v-if="anchorMarkers.length"
+        class="continents"
+      >
+        <g
+          v-if="mode === 'clean'"
+          filter="url(#softTer)"
+          opacity="0.4"
+        >
+          <circle
+            v-for="a in anchorMarkers"
+            :key="`cg${a.name}`"
+            :cx="a.px"
+            :cy="a.py"
+            :r="Math.min(W, H) * 0.16"
+            :fill="a.colorSoft"
+          />
+        </g>
+        <template v-else>
+          <circle
+            v-for="a in anchorMarkers"
+            :key="`cg${a.name}`"
+            :cx="a.px"
+            :cy="a.py"
+            :r="Math.min(W, H) * 0.075"
+            fill="url(#continent)"
+          />
+        </template>
+      </g>
 
       <!-- ===== 별 모드 ===== -->
       <template v-if="mode === 'stars'">
@@ -185,7 +291,7 @@ function poster(p) {
       </template>
 
       <!-- ===== 포스터 모드 ===== -->
-      <template v-else>
+      <template v-else-if="mode === 'posters'">
         <!-- 섬: 조밀할수록 또렷한 블롭 -->
         <g>
           <circle
@@ -244,6 +350,56 @@ function poster(p) {
         </g>
       </template>
 
+      <!-- ===== 월드 모드: 깔끔한 점(흰 코어 + 대륙색 링), 크기=별점 ===== -->
+      <template v-else>
+        <g
+          v-for="m in markers"
+          :key="m.movie_id"
+          :class="{ 'thumb--live': interactive }"
+          @click="onSelect(m)"
+          @mouseenter="onHover(m, $event)"
+          @mousemove="onHover(m, $event)"
+          @mouseleave="hovered = null"
+        >
+          <circle
+            :cx="m.px"
+            :cy="m.py"
+            :r="m.r + 3"
+            :fill="m.dotColor"
+            fill-opacity="0.45"
+            filter="url(#dotglow)"
+          />
+          <circle
+            :cx="m.px"
+            :cy="m.py"
+            :r="m.r"
+            fill="#ffffff"
+          />
+          <circle
+            :cx="m.px"
+            :cy="m.py"
+            :r="m.r"
+            fill="none"
+            :stroke="m.dotColor"
+            stroke-width="2.4"
+          />
+        </g>
+      </template>
+
+      <!-- 대륙 라벨 — 별 위에 떠서 항상 읽히는 '지도 범례' 레이어 (A-14) -->
+      <g
+        v-if="anchorMarkers.length"
+        class="continents"
+      >
+        <text
+          v-for="a in anchorMarkers"
+          :key="`ct${a.name}`"
+          :x="a.px"
+          :y="a.py"
+          class="continent-label"
+        >{{ a.name }}</text>
+      </g>
+
       <!-- 선택 강조 링 -->
       <circle
         v-if="interactive && selected"
@@ -299,6 +455,21 @@ function poster(p) {
 .mapsvg {
   display: block;
   width: 100%;
+}
+.continents {
+  pointer-events: none;
+}
+.continent-label {
+  fill: #99a2cc;
+  font-size: 13px;
+  font-weight: 500;
+  text-anchor: middle;
+  dominant-baseline: middle;
+  letter-spacing: 0.04em;
+  paint-order: stroke;
+  stroke: #0e1018;
+  stroke-width: 4px;
+  stroke-linejoin: round;
 }
 .star--live {
   cursor: pointer;

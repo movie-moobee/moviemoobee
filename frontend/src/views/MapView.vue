@@ -29,7 +29,7 @@ function setTab(key) {
 
 // 마커 모드(별/포스터) — 홈과 공유(localStorage). /map에선 ?view= 와도 동기화.
 const markerMode = useMarkerMode();
-const VIEWS = ["stars", "posters"];
+const VIEWS = ["stars", "posters", "clean"];
 if (VIEWS.includes(route.query.view)) markerMode.value = route.query.view;
 function setView(v) {
   markerMode.value = v;
@@ -219,9 +219,18 @@ async function onRecordsChanged() {
             >
               포스터
             </button>
+            <button
+              type="button"
+              class="modetoggle__btn"
+              :class="{ 'modetoggle__btn--on': markerMode === 'clean' }"
+              @click="setView('clean')"
+            >
+              월드
+            </button>
           </div>
           <TasteMapCanvas
             :watched="data.watched"
+            :anchors="data.anchors"
             :width="980"
             :height="560"
             :highlight-id="highlightId"
