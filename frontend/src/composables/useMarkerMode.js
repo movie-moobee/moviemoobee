@@ -4,7 +4,7 @@ import { ref, watch } from "vue";
 // localStorage에 지속 → 새로고침에도 유지. /map에선 ?view= 와도 동기화(deep-link).
 const KEY = "mm_marker_mode";
 const stored = typeof localStorage !== "undefined" ? localStorage.getItem(KEY) : null;
-const markerMode = ref(stored === "posters" ? "posters" : "stars");
+const markerMode = ref(["posters", "clean"].includes(stored) ? stored : "stars");
 
 watch(markerMode, (v) => {
   try { localStorage.setItem(KEY, v); } catch { /* 무시 */ }
