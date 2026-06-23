@@ -2,7 +2,7 @@
 // 회원가입 4단계 위저드 (F-AUTH-01)
 import { ref, computed, watch, nextTick, onMounted } from "vue";
 import { useRouter } from "vue-router";
-import { register } from "@/api/auth";
+import { register, checkAvailability } from "@/api/auth";
 
 const router = useRouter();
 
@@ -15,6 +15,7 @@ const password1 = ref("");
 const password2 = ref("");
 const error = ref("");
 const submitting = ref(false);
+const checking = ref(false); // 1단계 중복검사 진행 중
 
 // 각 스텝의 첫 입력칸 — 스텝 전환 시 자동 포커스(칸 클릭 없이 바로 입력)
 const emailInput = ref(null);
@@ -35,11 +36,25 @@ const pwValid = computed(() =>
   /^(?=.*[A-Za-z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/.test(password1.value),
 );
 
-function next() {
+async function next() {
   error.value = "";
   if (step.value === 1) {
     if (!emailValid.value) return (error.value = "올바른 이메일 형식을 입력하세요.");
     if (!nickname.value.trim()) return (error.value = "닉네임을 입력하세요.");
+    // 비번까지 가기 전에, 1단계에서 이메일·닉네임 중복을 바로 확인 (F-AUTH-01)
+    checking.value = true;
+    try {
+      const { email_taken, nickname_taken } = await checkAvailability({
+        email: email.value,
+        nickname: nickname.value.trim(),
+      });
+      if (email_taken) return (error.value = "이미 가입된 이메일입니다.");
+      if (nickname_taken) return (error.value = "이미 사용 중인 닉네임입니다.");
+    } catch {
+      return (error.value = "중복 확인에 실패했습니다. 잠시 후 다시 시도해주세요.");
+    } finally {
+      checking.value = false;
+    }
   }
   if (step.value === 2) {
     if (!pwValid.value)
@@ -162,8 +177,9 @@ function start() {
         <button
           class="btn-dark"
           type="submit"
+          :disabled="checking"
         >
-          다음
+          {{ checking ? "확인 중…" : "다음" }}
         </button>
       </form>
 

@@ -35,8 +35,13 @@ router.beforeEach(async (to) => {
   if (!isAuthed) {
     return to.meta.public ? true : { name: 'login' }
   }
-  // 로그인됨: 온보딩·공개 라우트는 그대로 통과
-  if (to.name === 'onboarding' || to.meta.public) return true
+  // 온보딩 페이지는 '온보딩 미완' 유저만 — 이미 완료했으면 홈으로(URL 직접 진입 차단)
+  if (to.name === 'onboarding') {
+    const onboarded = await fetchOnboarded()
+    return onboarded ? { name: 'home' } : true
+  }
+  // 공개 라우트(로그인·회원가입)는 그대로 통과
+  if (to.meta.public) return true
   // 온보딩 미완이면 내부 진입 차단 → 온보딩으로 (onboarded는 1회 조회 후 캐시)
   const onboarded = await fetchOnboarded()
   if (!onboarded) return { name: 'onboarding' }

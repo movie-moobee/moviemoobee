@@ -40,6 +40,15 @@ export async function login(email, password) {
   return data;
 }
 
+// 이메일·닉네임 중복 확인 (회원가입 1단계 '다음' 시) → { email_taken?, nickname_taken? }
+export async function checkAvailability({ email, nickname }) {
+  const params = {};
+  if (email) params.email = email;
+  if (nickname) params.nickname = nickname;
+  const { data } = await api.get("/accounts/check-availability/", { params });
+  return data;
+}
+
 // 회원가입 → 가입 즉시 토큰 발급(로그인 상태로 전환). 신규 유저는 온보딩 미완.
 export async function register({ email, password1, password2, nickname }) {
   const { data } = await api.post("/auth/registration/", {

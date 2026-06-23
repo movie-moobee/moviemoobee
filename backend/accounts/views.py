@@ -1,7 +1,28 @@
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from accounts.models import User
+
 ONBOARDING_MIN = 5
+
+
+class AvailabilityCheckView(APIView):
+    """회원가입용 이메일·닉네임 중복 확인 (F-AUTH-01). 가입 흐름의 공개 엔드포인트
+    (비로그인에서 1단계 '다음' 시 즉시 검사 → 비번까지 안 가고 중복 안내).
+    이메일은 allauth와 동일하게 대소문자 무시, 닉네임은 DB unique(정확히 일치) 기준."""
+
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        out = {}
+        email = request.query_params.get("email", "").strip()
+        nickname = request.query_params.get("nickname", "").strip()
+        if email:
+            out["email_taken"] = User.objects.filter(email__iexact=email).exists()
+        if nickname:
+            out["nickname_taken"] = User.objects.filter(nickname=nickname).exists()
+        return Response(out)
 
 
 class OnboardingCompleteView(APIView):
