@@ -44,3 +44,29 @@ class WatchRecord(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     class Meta:
         constraints = [models.UniqueConstraint(fields=["user", "movie"], name="uniq_user_movie")]
+
+
+class ReviewReaction(models.Model):
+    # 리뷰(시청기록) 좋아요/싫어요 (F-REV). 유저당 리뷰 1반응, 좋아요↔싫어요 전환 가능.
+    class Value(models.IntegerChoices):
+        LIKE = 1, "like"
+        DISLIKE = -1, "dislike"
+
+    record = models.ForeignKey(WatchRecord, on_delete=models.CASCADE, related_name="reactions")
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="review_reactions")
+    value = models.SmallIntegerField(choices=Value.choices)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["record", "user"], name="uniq_review_reaction")]
+
+
+class ReviewComment(models.Model):
+    # 리뷰(시청기록)에 달리는 댓글 (F-REV). 평탄 구조(대댓글 없음), 작성자 본인만 삭제.
+    record = models.ForeignKey(WatchRecord, on_delete=models.CASCADE, related_name="comments")
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="review_comments")
+    body = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["created_at"]   # 오래된 댓글이 위(대화 흐름)

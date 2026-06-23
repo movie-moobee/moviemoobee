@@ -1,6 +1,7 @@
 from django.core.cache import cache
-from django.db.models import Q
+from django.db.models import Count, Q
 from django.db.models.functions import Lower
+from django.shortcuts import get_object_or_404
 from rest_framework.generics import (
     ListAPIView,
     ListCreateAPIView,
@@ -10,11 +11,12 @@ from rest_framework.generics import (
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from movies.models import Genre, Movie, WatchRecord
+from movies.models import Genre, Movie, ReviewComment, ReviewReaction, WatchRecord
 from movies.serializers import (
     MovieDetailSerializer,
     MovieListSerializer,
     MovieReviewSerializer,
+    ReviewCommentSerializer,
     WatchRecordSerializer,
 )
 from movies.services.tmdb import TMDBClient
@@ -128,7 +130,7 @@ class MovieExtrasView(APIView):
 
 class MovieReviewsView(ListAPIView):
     """이 영화에 달린 전 유저 리뷰(리뷰 있는 것만), 최신순. (F-MOV-04)
-    별점만 남기고 리뷰 없는 기록은 제외. 로그인 필수(전역 기본)."""
+    별점만 남기고 리뷰 없는 기록은 제외. 좋아요/싫어요 집계 포함(F-REV). 로그인 필수."""
     serializer_class = MovieReviewSerializer
 
     def get_queryset(self):
@@ -137,8 +139,86 @@ class MovieReviewsView(ListAPIView):
             .exclude(review__isnull=True)
             .exclude(review="")
             .select_related("user")
+            .annotate(
+                # 반응·댓글 JOIN이 행을 곱하므로 각 집계 distinct 보정
+                like_count=Count("reactions", filter=Q(reactions__value=1), distinct=True),
+                dislike_count=Count("reactions", filter=Q(reactions__value=-1), distinct=True),
+                comment_count=Count("comments", distinct=True),
+            )
             .order_by("-created_at")
         )
+
+    def get_serializer_context(self):
+        # 내가 이 영화 리뷰들에 한 반응을 1쿼리로 모아 주입 (record_id → value)
+        ctx = super().get_serializer_context()
+        pairs = ReviewReaction.objects.filter(
+            user=self.request.user, record__movie_id=self.kwargs["pk"]
+        ).values_list("record_id", "value")
+        ctx["my_reactions"] = dict(pairs)
+        return ctx
+
+
+class ReviewReactionView(APIView):
+    """리뷰(시청기록) 좋아요/싫어요 (F-REV). 로그인 필수.
+    PUT {value: 1|-1} 설정/교체(멱등) · DELETE 취소. 자기 리뷰엔 반응 불가."""
+
+    def _record(self, pk):
+        return get_object_or_404(
+            WatchRecord.objects.exclude(review__isnull=True).exclude(review=""), pk=pk
+        )
+
+    def _counts(self, record):
+        agg = record.reactions.aggregate(
+            like=Count("id", filter=Q(value=1)),
+            dislike=Count("id", filter=Q(value=-1)),
+        )
+        return {"like_count": agg["like"], "dislike_count": agg["dislike"]}
+
+    def put(self, request, pk):
+        record = self._record(pk)
+        if record.user_id == request.user.id:
+            return Response({"detail": "자기 리뷰에는 반응할 수 없습니다."}, status=403)
+        value = request.data.get("value")
+        if value not in (1, -1, "1", "-1"):
+            return Response({"detail": "value는 1(좋아요) 또는 -1(싫어요)이어야 합니다."}, status=400)
+        ReviewReaction.objects.update_or_create(
+            record=record, user=request.user, defaults={"value": int(value)}
+        )
+        return Response({**self._counts(record), "my_reaction": int(value)})
+
+    def delete(self, request, pk):
+        record = self._record(pk)
+        ReviewReaction.objects.filter(record=record, user=request.user).delete()
+        return Response({**self._counts(record), "my_reaction": None})
+
+
+class ReviewCommentsView(ListCreateAPIView):
+    """리뷰 댓글 목록(GET)·작성(POST) (F-REV, 평탄 구조). 오래된 순. 로그인 필수.
+    GET  /api/movies/reviews/<pk>/comments/
+    POST /api/movies/reviews/<pk>/comments/ {body}"""
+    serializer_class = ReviewCommentSerializer
+
+    def _record(self):
+        return get_object_or_404(
+            WatchRecord.objects.exclude(review__isnull=True).exclude(review=""),
+            pk=self.kwargs["pk"],
+        )
+
+    def get_queryset(self):
+        return ReviewComment.objects.filter(record_id=self.kwargs["pk"]).select_related("user")
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user, record=self._record())
+
+
+class ReviewCommentDeleteView(APIView):
+    """리뷰 댓글 삭제 (F-REV). 본인 댓글만.
+    DELETE /api/movies/comments/<pk>/"""
+
+    def delete(self, request, pk):
+        comment = get_object_or_404(ReviewComment, pk=pk, user=request.user)
+        comment.delete()
+        return Response(status=204)
 
 
 class WatchRecordListCreateView(ListCreateAPIView):
