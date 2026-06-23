@@ -28,3 +28,16 @@ class AccountDeleteView(APIView):
     def delete(self, request):
         request.user.delete()
         return Response(status=204)
+
+
+class AvatarDeleteView(APIView):
+    """프로필 사진 삭제 (F-AUTH-04). 미디어 파일 제거 + 필드 비움 → 기본 아바타로.
+    응답 키는 프로필 응답과 동일하게 profile_image_url(null)."""
+
+    def delete(self, request):
+        user = request.user
+        if user.profile_image:
+            user.profile_image.delete(save=False)  # 저장된 미디어 파일도 삭제
+            user.profile_image = None
+            user.save(update_fields=["profile_image"])
+        return Response({"profile_image_url": None})

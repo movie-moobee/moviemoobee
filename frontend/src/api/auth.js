@@ -78,6 +78,20 @@ export async function updateProfile({ nickname, imageFile }) {
   return data;
 }
 
+// 프로필 사진만 업로드 (F-AUTH-04) — 닉네임과 독립. multipart PATCH.
+export async function uploadAvatar(imageFile) {
+  const fd = new FormData();
+  fd.append("profile_image", imageFile);
+  const { data } = await api.patch("/auth/user/", fd);
+  return data;
+}
+
+// 프로필 사진 삭제 (F-AUTH-04) → { profile_image_url: null }
+export async function deleteAvatar() {
+  const { data } = await api.delete("/accounts/me/avatar/");
+  return data;
+}
+
 // 비밀번호 변경 (F-AUTH-04) — 현재 비밀번호 확인(OLD_PASSWORD_FIELD_ENABLED) 포함
 export async function changePassword({ old_password, new_password1, new_password2 }) {
   await api.post("/auth/password/change/", { old_password, new_password1, new_password2 });
