@@ -11,6 +11,7 @@ urlpatterns = [
     path("friendships/<int:pk>/", views.FriendRequestRejectView.as_view()),         # 거절(DELETE)
     path("friends/", views.FriendListView.as_view()),                 # 친구 목록 (5.2)
     path("friends/<int:pk>/", views.FriendDetailView.as_view()),      # 친구 프로필 / 끊기 (5.2)
+    path("friends/<int:pk>/compare/", views.FriendCompareView.as_view()),  # 취향 비교 지도 (5.3)
     path("notifications/", views.NotificationListView.as_view()),         # 알림 목록 / 모두읽음 (5.5)
     path("notifications/unread/", views.NotificationUnreadView.as_view()),  # 안읽음 배지 개수 (5.5)
 ]

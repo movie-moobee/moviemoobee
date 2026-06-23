@@ -50,6 +50,13 @@ export async function unfriend(id) {
   await api.delete(`/social/friends/${id}/`);
 }
 
+// 취향 비교 지도 (F-FRD-05, 5.3) — 두 사람 본 영화를 같은 앵커 공간에 겹쳐 비교.
+// → { anchors:[{name,x,y}], me:{watched:[...],main:[장르]}, friend:{nickname,watched,main}, shared_ids:[id] }
+export async function getFriendCompare(id) {
+  const { data } = await api.get(`/social/friends/${id}/compare/`);
+  return data;
+}
+
 // 알림 (F-NTF-01) — 친구 요청·수락 알림. 실시간 push 없이 REST 조회 + 안읽음 배지.
 
 // 내 알림 목록 (최신순) → [{ id, type, is_read, created_at, friendship_id, actor:{...} }]

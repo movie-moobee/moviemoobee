@@ -125,25 +125,16 @@ def _catalog_unexplored_genres(user, uq, n=2):
     return out
 
 
-def get_map(user):
-    """취향 지도 렌더 데이터. {enough, watched:[...]}.
-
-    enough=False(시청<MAP_MIN_WATCHED)면 watched 는 빈 리스트 — 프론트가 경고 오버레이를
-    띄운다(차단 403 아님). 별점(rating)은 별 밝기, 좌표(x,y)는 마커 위치.
-    """
-    from .areas import MAP_MIN_WATCHED  # 게이트 기준값(추천과 단일 출처)
-
-    rows = list(user.watch_records.filter(
+def _watched_coords(user):
+    """user 가 본 영화의 마커 데이터 [{movie_id,title,poster_path,release_year,x,y,rating}].
+    좌표 없는 영화는 제외(신규 미bake). 지도·비교가 같은 출처를 쓰도록 한 곳에 둔다."""
+    rows = user.watch_records.filter(
         movie__map_x__isnull=False, movie__map_y__isnull=False
     ).values_list(
         "movie_id", "movie__title", "movie__poster_path",
         "movie__release_year", "movie__map_x", "movie__map_y", "rating",
-    ))
-
-    if len(rows) < MAP_MIN_WATCHED:
-        return {"enough": False, "watched": []}
-
-    watched = [{
+    )
+    return [{
         "movie_id": r[0],
         "title": r[1],
         "poster_path": r[2] or "",
@@ -152,5 +143,40 @@ def get_map(user):
         "y": float(r[5]),
         "rating": float(r[6]),
     } for r in rows]
+
+
+def get_map(user):
+    """취향 지도 렌더 데이터. {enough, watched:[...]}.
+
+    enough=False(시청<MAP_MIN_WATCHED)면 watched 는 빈 리스트 — 프론트가 경고 오버레이를
+    띄운다(차단 403 아님). 별점(rating)은 별 밝기, 좌표(x,y)는 마커 위치.
+    """
+    from .areas import MAP_MIN_WATCHED  # 게이트 기준값(추천과 단일 출처)
+
+    watched = _watched_coords(user)
+    if len(watched) < MAP_MIN_WATCHED:
+        return {"enough": False, "watched": []}
     return {"enough": True, "watched": watched, "summary": genre_summary(user),
             "anchors": _load_anchors()}
+
+
+def get_compare(me, friend):
+    """친구 비교 지도 데이터 (F-FRD-05, 5.3) — 두 사람의 본 영화를 같은 앵커 공간에 겹쳐 비교.
+
+    무게중심(점 1개)으로 사람을 요약하는 비교는 폐기(A-15). 대신 두 사람의 본 영화 '집합'을
+    같은 전역 좌표에 올려, 공유 영화·취향 장르 겹침으로 비교한다. (좌표 원점은 임의값이라
+    '중심 두 개의 거리'는 취향 유사도를 뜻하지 않음 — A-06·A-08.)
+
+    응답: {anchors, me:{watched, main}, friend:{nickname, watched, main}, shared_ids}.
+    shared_ids = 둘 다 본 영화(교집합) — 프론트가 금색으로 강조. main = 별점가중 취향 장르 Top2.
+    """
+    me_watched = _watched_coords(me)
+    friend_watched = _watched_coords(friend)
+    shared = {w["movie_id"] for w in me_watched} & {w["movie_id"] for w in friend_watched}
+    return {
+        "anchors": _load_anchors(),
+        "me": {"watched": me_watched, "main": genre_summary(me)["main"]},
+        "friend": {"nickname": friend.nickname, "watched": friend_watched,
+                   "main": genre_summary(friend)["main"]},
+        "shared_ids": sorted(shared),
+    }

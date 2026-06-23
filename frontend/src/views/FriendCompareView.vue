@@ -1,16 +1,18 @@
 <script setup>
 // 친구 프로필 상세 (F-FRD-04, 와이어프레임 13 헤더) — 프로필·시청작·친구 삭제.
 // 취향 비교 지도(F-FRD-05)·같이 볼 영화 챗봇(5.4)은 추후 → placeholder.
-import { onMounted, ref, watch } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { getFriendProfile, unfriend } from "@/api/social";
+import { getFriendCompare, getFriendProfile, unfriend } from "@/api/social";
 import RatingStars from "@/components/base/RatingStars.vue";
 import ConfirmDialog from "@/components/ConfirmDialog.vue";
+import FriendCompareMap from "@/components/FriendCompareMap.vue";
 
 const route = useRoute();
 const router = useRouter();
 
 const profile = ref(null);
+const compare = ref(null);   // 취향 비교 지도 데이터(5.3) — 프로필과 별도 로드
 const loading = ref(true);
 const error = ref("");
 const confirming = ref(false);
@@ -18,11 +20,20 @@ const unfriending = ref(false);
 
 const IMG = "https://image.tmdb.org/t/p/w300";
 
+// 두 사람 취향 장르 교집합(겹치는 장르) — 비교 요약 한 줄.
+const commonGenres = computed(() => {
+  if (!compare.value) return [];
+  const f = new Set(compare.value.friend.main);
+  return compare.value.me.main.filter((g) => f.has(g));
+});
+
 async function load(id) {
   loading.value = true;
   error.value = "";
+  compare.value = null;
   try {
     profile.value = await getFriendProfile(id);
+    compare.value = await getFriendCompare(id);   // 프로필 성공 후(친구확인됨) 비교 지도
   } catch (e) {
     error.value =
       e?.response?.status === 403
@@ -90,7 +101,9 @@ function poster(p) {
             {{ profile.nickname }}
           </h1>
           <p class="meta">
-            본 영화 {{ profile.watch_count }}편
+            본 영화 {{ profile.watch_count }}편<template v-if="compare && compare.friend.main.length">
+              · 주취향 {{ compare.friend.main.join(" · ") }}
+            </template>
           </p>
         </div>
         <button
@@ -102,10 +115,36 @@ function poster(p) {
         </button>
       </header>
 
-      <!-- 취향 비교 지도 (5.3 예정) -->
-      <div class="compare-placeholder">
-        취향 비교 지도는 5.3에서 제공됩니다.
-      </div>
+      <!-- 취향 비교 지도 (5.3) -->
+      <section
+        v-if="compare"
+        class="compare"
+      >
+        <div class="compare__head">
+          <h2 class="compare__title">
+            취향 비교 지도 <span class="compare__vs">— 나 vs {{ profile.nickname }}</span>
+          </h2>
+          <p class="compare__sub">
+            같은 지도 위에 두 사람이 본 영화를 겹쳐 봤어요.
+            <template v-if="compare.shared_ids.length">
+              <b>둘 다 본 영화 {{ compare.shared_ids.length }}편</b>
+            </template>
+            <template v-else>
+              아직 둘 다 본 영화는 없네요
+            </template>
+            <template v-if="commonGenres.length">
+              · 공통 취향 <b>{{ commonGenres.join(" · ") }}</b>
+            </template>
+          </p>
+        </div>
+        <FriendCompareMap
+          :anchors="compare.anchors"
+          :mine="compare.me.watched"
+          :theirs="compare.friend.watched"
+          :shared-ids="compare.shared_ids"
+          :friend-name="profile.nickname"
+        />
+      </section>
 
       <!-- 친구의 시청작 -->
       <section class="watched">
@@ -248,15 +287,31 @@ function poster(p) {
   border-color: var(--danger);
 }
 
-/* 비교 지도 placeholder */
-.compare-placeholder {
-  border: 1px dashed var(--border);
-  border-radius: var(--radius);
-  padding: 36px 20px;
-  text-align: center;
-  color: var(--text-muted);
-  font-size: 13px;
+/* 비교 지도 (5.3) */
+.compare {
   margin-bottom: 26px;
+}
+.compare__head {
+  margin-bottom: 12px;
+}
+.compare__title {
+  font-size: 16px;
+  font-weight: 700;
+  margin: 0;
+}
+.compare__vs {
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--text-muted);
+}
+.compare__sub {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin: 6px 0 0;
+}
+.compare__sub b {
+  color: var(--text);
+  font-weight: 600;
 }
 
 /* 시청작 */
