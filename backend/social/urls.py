@@ -15,5 +15,6 @@ urlpatterns = [
     path("friends/<int:pk>/cowatch/", views.FriendCowatchView.as_view()),  # 같이 볼 영화 챗봇 (5.4)
     path("friends/<int:pk>/cowatch/candidates/", views.FriendCowatchCandidatesView.as_view()),  # 챗봇 추천 지도표시용 후보 (5.4)
     path("notifications/", views.NotificationListView.as_view()),         # 알림 목록 / 모두읽음 (5.5)
-    path("notifications/unread/", views.NotificationUnreadView.as_view()),  # 안읽음 배지 개수 (5.5)
+    path("notifications/unread/", views.NotificationUnreadView.as_view()),  # 안읽음 배지 개수(폴백) (5.5)
+    path("notifications/stream/", views.NotificationStreamView.as_view()),  # 안읽음 SSE 스트림 (5.5)
 ]

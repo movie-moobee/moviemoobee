@@ -2,11 +2,12 @@
 // 헤더 🔔 알림 드롭다운 (F-NTF-01, 와이어프레임 14).
 // 배지 = 안읽음 개수(폴링). 드롭다운 열람 시 모두 읽음 처리(배지 클리어).
 // 요청 알림은 수락/거절 버튼 포함 → 친구관계 성립/폐기.
-import { onMounted, onUnmounted, ref } from "vue";
+import { onMounted, onUnmounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import {
   getNotifications,
   getUnreadCount,
+  streamUnread,
   markNotificationsRead,
   acceptFriendRequest,
   rejectFriendRequest,
@@ -18,13 +19,36 @@ const unread = ref(0);
 const items = ref([]);
 const loading = ref(false);
 const respondingId = ref(null);
-let timer = null;
+const ringing = ref(false);   // 새 알림으로 안읽음 수가 늘면 종 흔들림(SSE 준실시간 "울림")
+let abort = null;
+let stopped = false;
 
-async function refreshBadge() {
-  try {
-    unread.value = await getUnreadCount();
-  } catch {
-    /* 비로그인·네트워크 오류는 조용히 무시 (배지만) */
+watch(unread, (n, old) => {
+  if (n > old) {
+    ringing.value = true;
+    setTimeout(() => { ringing.value = false; }, 800);
+  }
+});
+
+// 안읽음 배지 = SSE 스트림(준실시간). 끊기면 폴백 1회 조회 후 재연결(F-NTF-01).
+async function connectStream() {
+  while (!stopped) {
+    if (!localStorage.getItem("token")) {   // 비로그인: 연결 안 함(과한 재시도 방지)
+      await new Promise((r) => setTimeout(r, 5000));
+      continue;
+    }
+    abort = new AbortController();
+    try {
+      await streamUnread((msg) => {
+        if (typeof msg.unread === "number") unread.value = msg.unread;
+      }, abort.signal);
+      // 서버가 주기적으로 스트림을 닫음(스레드 재활용) → 바로 재연결
+    } catch {
+      if (stopped) break;
+      try { unread.value = await getUnreadCount(); } catch { /* 무시 */ }
+    }
+    if (stopped) break;
+    await new Promise((r) => setTimeout(r, 3000));   // 재연결 대기
   }
 }
 
@@ -104,17 +128,15 @@ function initial(nickname) {
   return (nickname || "?").trim().charAt(0).toUpperCase();
 }
 
-onMounted(() => {
-  refreshBadge();
-  timer = setInterval(refreshBadge, 45000); // 가벼운 폴링(45초) — 실시간 push 없음(F-NTF-01)
-});
-onUnmounted(() => clearInterval(timer));
+onMounted(connectStream);
+onUnmounted(() => { stopped = true; abort?.abort(); });
 </script>
 
 <template>
   <div class="bell-wrap">
     <button
       class="bell"
+      :class="{ 'bell--ring': ringing }"
       type="button"
       aria-label="알림"
       @click="toggle"
@@ -246,6 +268,18 @@ onUnmounted(() => clearInterval(timer));
   display: flex;
   align-items: center;
   justify-content: center;
+}
+.bell--ring {
+  animation: bell-ring 0.8s ease;
+  transform-origin: top center;
+}
+@keyframes bell-ring {
+  0%, 100% { transform: rotate(0); }
+  10%, 30%, 50% { transform: rotate(14deg); }
+  20%, 40%, 60% { transform: rotate(-14deg); }
+  70% { transform: rotate(8deg); }
+  80% { transform: rotate(-8deg); }
+  90% { transform: rotate(4deg); }
 }
 .badge {
   position: absolute;
