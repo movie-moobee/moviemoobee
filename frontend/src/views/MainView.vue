@@ -121,9 +121,10 @@ function goRegister() {
 
 <style scoped>
 .home {
-  max-width: 1100px;
+  width: 100%;
+  max-width: var(--page-max-wide);
   margin: 0 auto;
-  padding: 28px 24px 60px;
+  padding: 28px var(--page-pad) 60px;
 }
 .sec-divider {
   font-size: 15px;
@@ -157,6 +158,12 @@ function goRegister() {
   overflow: hidden;
   background: #0e1018;
   cursor: pointer;
+}
+/* 지도 프리뷰는 자연 비율로(레터박스 없음). 본 영화 분포를 중앙 정렬해 채운다. */
+.preview :deep(.mapsvg) {
+  width: 100%;
+  height: auto;
+  display: block;
 }
 .preview__hint {
   position: absolute;

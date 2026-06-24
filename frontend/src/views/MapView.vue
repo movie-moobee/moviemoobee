@@ -528,7 +528,7 @@ function onPickExploreMovie(m) {
               @pin-click="onPickExploreMovie"
             />
           </div>
-          <aside class="side">
+          <aside class="side side--explore">
             <!-- 서브탭: 미탐색 / 안전 -->
             <div class="subtab">
               <button
@@ -549,56 +549,59 @@ function onPickExploreMovie(m) {
               </button>
             </div>
 
-            <div
-              v-for="m in exploreList"
-              :key="m.id"
-              class="exitem"
-            >
-              <span
-                class="exitem__num"
-                :class="[`exitem__num--${exploreSub}`, { 'exitem__num--off': !pinned.has(m.id) }]"
-              >{{ m.num }}</span>
-              <button
-                class="exitem__poster"
-                type="button"
-                @click="onPickExploreMovie(m)"
+            <!-- 추천 1~10 목록: 지도 높이를 넘으면 이 영역만 스크롤 -->
+            <div class="exlist">
+              <div
+                v-for="m in exploreList"
+                :key="m.id"
+                class="exitem"
               >
-                <img
-                  v-if="poster(m.poster_path)"
-                  :src="poster(m.poster_path)"
-                  :alt="m.title"
-                >
-              </button>
-              <div class="exitem__body">
+                <span
+                  class="exitem__num"
+                  :class="[`exitem__num--${exploreSub}`, { 'exitem__num--off': !pinned.has(m.id) }]"
+                >{{ m.num }}</span>
                 <button
-                  class="exitem__title"
+                  class="exitem__poster"
                   type="button"
                   @click="onPickExploreMovie(m)"
                 >
-                  {{ m.title }}
+                  <img
+                    v-if="poster(m.poster_path)"
+                    :src="poster(m.poster_path)"
+                    :alt="m.title"
+                  >
                 </button>
-                <div
-                  class="exitem__label"
-                  :class="`exitem__label--${exploreSub}`"
-                >
-                  {{ exploreLabel(m) }}
+                <div class="exitem__body">
+                  <button
+                    class="exitem__title"
+                    type="button"
+                    @click="onPickExploreMovie(m)"
+                  >
+                    {{ m.title }}
+                  </button>
+                  <div
+                    class="exitem__label"
+                    :class="`exitem__label--${exploreSub}`"
+                  >
+                    {{ exploreLabel(m) }}
+                  </div>
+                  <button
+                    type="button"
+                    class="exitem__toggle"
+                    :class="[`exitem__toggle--${exploreSub}`, { 'exitem__toggle--on': pinned.has(m.id) }]"
+                    @click="togglePin(m.id)"
+                  >
+                    지도 <span class="exitem__sw"><span class="exitem__knob" /></span>
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  class="exitem__toggle"
-                  :class="[`exitem__toggle--${exploreSub}`, { 'exitem__toggle--on': pinned.has(m.id) }]"
-                  @click="togglePin(m.id)"
-                >
-                  지도 <span class="exitem__sw"><span class="exitem__knob" /></span>
-                </button>
               </div>
+              <p
+                v-if="!exploreList.length"
+                class="card__empty"
+              >
+                이 트랙의 추천이 아직 없어요.
+              </p>
             </div>
-            <p
-              v-if="!exploreList.length"
-              class="card__empty"
-            >
-              이 트랙의 추천이 아직 없어요.
-            </p>
           </aside>
         </div>
       </template>
@@ -617,9 +620,10 @@ function onPickExploreMovie(m) {
 
 <style scoped>
 .map-page {
-  max-width: 1320px;
+  width: 100%;
+  max-width: var(--page-max-wide);
   margin: 0 auto;
-  padding: 28px 24px 60px;
+  padding: 28px var(--page-pad) 60px;
 }
 
 /* tabs */
@@ -643,6 +647,16 @@ function onPickExploreMovie(m) {
 .tab--on {
   color: var(--text);
   border-bottom-color: var(--gold);
+}
+
+@media (max-width: 560px) {
+  .tabbar {
+    overflow-x: auto;
+  }
+  .tab {
+    flex: none;
+    padding-inline: 13px;
+  }
 }
 
 .msg {
@@ -690,15 +704,40 @@ function onPickExploreMovie(m) {
 /* layout */
 .map-layout {
   display: grid;
-  grid-template-columns: 1fr 268px;
+  grid-template-columns: minmax(0, 1fr) 268px;
   gap: 20px;
+  align-items: start;   /* 사이드가 지도 높이에 끌려 늘어나지 않게 */
 }
 .mapframe {
   position: relative;
   border: 1px solid #262a36;
   border-radius: 8px;
-  overflow: hidden;
+  overflow: hidden;     /* 비어 있는 아래쪽은 잘라낸다 */
   background: #0e1018;
+}
+/* 지도는 자연 비율로 전체 노출(레터박스도, 잘림도 없음). */
+.mapframe :deep(.mapsvg) {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+/* 좁은 화면: 지도 + 사이드를 세로로 쌓아 그리드 깨짐 방지 */
+@media (max-width: 820px) {
+  .map-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* explore 사이드: 보이는 만큼 자연스럽게 나열(강제 스크롤·여백 없음) */
+.side--explore {
+  display: flex;
+  flex-direction: column;
+}
+.exlist {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
 }
 .modetoggle {
   position: absolute;

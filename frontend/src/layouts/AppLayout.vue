@@ -65,14 +65,15 @@ function initial(nickname) {
 <style scoped>
 .shell { min-height: 100vh; display: flex; flex-direction: column; }
 .nav {
-  display: flex; align-items: center; gap: 18px;
-  padding: 12px 24px;
+  display: flex; align-items: center; gap: clamp(14px, 2vw, 28px);
+  /* 화면이 커질수록 살짝 더 두툼하게(작은 창에선 컴팩트) */
+  padding: clamp(12px, 1.1vw, 20px) var(--page-pad);
   background: var(--surface-2);
   border-bottom: 0.5px solid var(--border);
 }
-.brand { font-size: 16px; font-weight: 500; color: var(--gold); letter-spacing: 0.5px; }
-.links { display: flex; gap: 16px; flex: 1; }
-.link { font-size: 14px; color: var(--text-muted); transition: color 0.15s; }
+.brand { font-size: clamp(16px, 1.2vw, 19px); font-weight: 500; color: var(--gold); letter-spacing: 0.5px; }
+.links { display: flex; gap: clamp(14px, 1.4vw, 24px); flex: 1; }
+.link { font-size: clamp(14px, 1vw, 15.5px); color: var(--text-muted); transition: color 0.15s; }
 .link:hover { color: var(--text); }
 .link.router-link-exact-active { color: var(--gold); }
 .actions { display: flex; align-items: center; gap: 12px; }
