@@ -326,10 +326,11 @@ async function next() {
   min-height: 100vh;
   background: #f0eee9;
   color: #1a1a1a;
-  padding: 40px 24px 80px;
+  padding: 40px var(--page-pad) 80px;
 }
 .onb__inner {
-  max-width: 1180px;
+  width: 100%;
+  max-width: var(--page-max);
   margin: 0 auto;
 }
 /* 헤더 + 현황 */

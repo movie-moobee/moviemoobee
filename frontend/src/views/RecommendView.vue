@@ -221,9 +221,10 @@ function onCardClick(id) {
 
 <style scoped>
 .reco {
-  max-width: 1100px;
+  width: 100%;
+  max-width: var(--page-max-wide);
   margin: 0 auto;
-  padding: 28px 24px 60px;
+  padding: 28px var(--page-pad) 60px;
 }
 .msg {
   color: var(--text-muted);
@@ -428,5 +429,24 @@ function onCardClick(id) {
   font-size: 12px;
   color: var(--text-muted);
   margin-top: 2px;
+}
+
+@media (max-width: 720px) {
+  .hero {
+    flex-direction: column;
+  }
+  .hero__poster {
+    width: min(180px, 54vw);
+  }
+  .track__head {
+    flex-direction: column;
+    gap: 4px;
+  }
+}
+
+@media (max-width: 520px) {
+  .card {
+    width: 150px;
+  }
 }
 </style>

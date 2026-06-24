@@ -333,9 +333,10 @@ onMounted(async () => {
 
 <style scoped>
 .search-page {
-  max-width: 1100px;
+  width: 100%;
+  max-width: var(--page-max);
   margin: 0 auto;
-  padding: 28px 24px 60px;
+  padding: 28px var(--page-pad) 60px;
 }
 .bar {
   display: flex;

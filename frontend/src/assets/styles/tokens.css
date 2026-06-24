@@ -13,6 +13,11 @@
   --radius: 10px;
   --radius-sm: 6px;
   --font: 'Pretendard', system-ui, -apple-system, sans-serif;
+
+  /* 반응형 페이지 레이아웃 (창 크기에 따라 여백·폭 가변) */
+  --page-max: 1600px;          /* 넓은 콘텐츠(홈·추천·검색·친구·지도) 상한 */
+  --page-max-wide: 1760px;     /* 가로 레일이 많은 화면은 조금 더 넓게 */
+  --page-pad: clamp(16px, 3.5vw, 44px);  /* 좌우 패딩: 창이 좁아지면 자동 축소 */
 }
 * { box-sizing: border-box; }
 body {
@@ -21,6 +26,8 @@ body {
   color: var(--text);
   font-family: var(--font);
   -webkit-font-smoothing: antialiased;
+  /* 최소폭 가드: 이보다 좁아지면 레이아웃을 더 찌그러뜨리지 않고 가로 스크롤로 전환 */
+  min-width: 360px;
 }
 a { color: inherit; text-decoration: none; }
 

@@ -424,9 +424,10 @@ function initial(nickname) {
 
 <style scoped>
 .friends-page {
-  max-width: 1320px;
+  width: 100%;
+  max-width: var(--page-max);
   margin: 0 auto;
-  padding: 28px 24px 60px;
+  padding: 28px var(--page-pad) 60px;
 }
 
 /* tabs */
@@ -612,5 +613,26 @@ function initial(nickname) {
 }
 .msg--error {
   color: var(--danger);
+}
+
+@media (max-width: 760px) {
+  .cards {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 520px) {
+  .tabbar {
+    overflow-x: auto;
+  }
+  .tab {
+    flex: none;
+  }
+  .card {
+    align-items: flex-start;
+  }
+  .card__actions {
+    flex-direction: column;
+  }
 }
 </style>

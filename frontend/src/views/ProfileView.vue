@@ -246,7 +246,7 @@ async function onLogout() {
 }
 .grid {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
   gap: 14px;
 }
 .card {
@@ -282,10 +282,5 @@ async function onLogout() {
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
-}
-@media (max-width: 680px) {
-  .grid {
-    grid-template-columns: repeat(3, 1fr);
-  }
 }
 </style>

@@ -413,4 +413,14 @@ onUnmounted(() => clearInterval(timer));
   padding: 36px 0;
   margin: 0;
 }
+
+@media (max-width: 520px) {
+  .dropdown {
+    position: fixed;
+    top: 58px;
+    right: var(--page-pad);
+    left: var(--page-pad);
+    width: auto;
+  }
+}
 </style>

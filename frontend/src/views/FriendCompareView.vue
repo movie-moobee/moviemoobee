@@ -226,9 +226,10 @@ function poster(p) {
 
 <style scoped>
 .friend-profile {
-  max-width: 980px;
+  width: 100%;
+  max-width: var(--page-max);
   margin: 0 auto;
-  padding: 28px 24px 60px;
+  padding: 28px var(--page-pad) 60px;
 }
 .msg {
   color: var(--text-muted);
@@ -314,6 +315,8 @@ function poster(p) {
   grid-template-columns: 1fr 340px;
   gap: 18px;
   align-items: start;
+  /* 비교 지도는 640×430 디자인 — 지도 컬럼이 native 크기 근처에 머물도록 블록 폭 제한 */
+  max-width: 1500px;
 }
 @media (max-width: 820px) {
   .compare__grid {
@@ -355,7 +358,8 @@ function poster(p) {
 }
 .grid {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  /* 고정 5칸이면 컨테이너가 넓을 때 포스터가 과하게 커진다 → 칸 크기 고정, 칸 수 자동 */
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
   gap: 14px;
 }
 .card {
@@ -391,10 +395,5 @@ function poster(p) {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-@media (max-width: 680px) {
-  .grid {
-    grid-template-columns: repeat(3, 1fr);
-  }
 }
 </style>
