@@ -19,6 +19,11 @@ COWATCH_POOL = 20
 GENERAL_POOL = 20
 MIN_VOTE = 6.5
 MAX_HISTORY = 12   # 최근 N턴만 LLM에 전달(토큰 절약)
+DOMAIN_GUARD = (
+    "영화 추천·취향·같이 볼 영화 선택과 무관한 질문에는 답하지 마. "
+    "'나는 영화 추천만 도와줄 수 있어. 어떤 분위기의 영화를 찾는지 말해줘.'처럼 짧게 거절하고 "
+    "영화 추천 질문으로 유도해."
+)
 
 
 def _candidates_from_ids(ordered_ids):
@@ -115,13 +120,15 @@ def cowatch_messages(me, friend, history):
     cands = cowatch_candidates(me, friend)
     if not cands:
         sys = ("너는 무비무비 AI야. 한국어 반말로 친근하게 답해. 두 사람 중 한 명이 아직 평가한 "
-               "영화가 적어 같이 볼 후보를 만들지 못했어. 영화를 더 평가하면 추천해줄 수 있다고 안내해줘.")
+               "영화가 적어 같이 볼 후보를 만들지 못했어. 영화를 더 평가하면 추천해줄 수 있다고 안내해줘. "
+               f"{DOMAIN_GUARD}")
     else:
         my_main = " · ".join(genre_summary(me)["main"]) or "정보 부족"
         fr_main = " · ".join(genre_summary(friend)["main"]) or "정보 부족"
         sys = (
             f"너는 두 친구가 '같이 볼 영화'를 고르도록 돕는 무비무비 AI야. 한국어 반말로 친근하게 답해.\n"
             f"- 내 취향 장르: {my_main}\n- 친구({friend.nickname})의 취향 장르: {fr_main}\n"
+            f"{DOMAIN_GUARD}\n"
             f"아래 '후보' 목록 안에서만 골라 추천해(목록에 없는 영화는 절대 언급하지 마).\n"
             f"한 번에 한 편만 골라 제목과 2~3문장 이유를 써. 두 사람 취향이 만나는 지점을 짚어줘.\n"
             f"'더 가볍게' 같은 후속 요청엔 후보 안에서 다시 골라줘.\n\n[후보]\n{_fmt(cands)}"
@@ -133,12 +140,14 @@ def general_messages(user, history):
     cands = general_candidates(user)
     if not cands:
         sys = ("너는 무비무비 영화 추천 AI야. 한국어 반말로 친근하게 답해. 아직 평가한 영화가 적어 "
-               "추천 후보를 만들지 못했어. 영화를 더 평가하면 추천해줄 수 있다고 안내해줘.")
+               "추천 후보를 만들지 못했어. 영화를 더 평가하면 추천해줄 수 있다고 안내해줘. "
+               f"{DOMAIN_GUARD}")
     else:
         my_main = " · ".join(genre_summary(user)["main"]) or "정보 부족"
         sys = (
             f"너는 무비무비의 영화 추천 AI야. 한국어 반말로 친근하게 답해.\n"
             f"- 사용자의 취향 장르: {my_main}\n"
+            f"{DOMAIN_GUARD}\n"
             f"아래 '후보' 목록 안에서만 골라 추천해(목록에 없는 영화는 절대 언급하지 마).\n"
             f"한 번에 한 편만 골라 제목과 2~3문장 이유를 써. 후속 요청엔 후보 안에서 다시 골라줘.\n\n[후보]\n{_fmt(cands)}"
         )
