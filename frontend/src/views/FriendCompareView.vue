@@ -2,7 +2,7 @@
 // 친구 프로필 상세 (F-FRD-04, 와이어프레임 13) — 프로필·취향 비교 지도(5.3)·같이 볼 영화 챗봇(5.4)·시청작.
 import { computed, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { getFriendCompare, getFriendProfile, unfriend } from "@/api/social";
+import { getCowatchCandidates, getFriendCompare, getFriendProfile, unfriend } from "@/api/social";
 import { streamChat } from "@/api/chat";
 import RatingStars from "@/components/base/RatingStars.vue";
 import ConfirmDialog from "@/components/ConfirmDialog.vue";
@@ -14,6 +14,8 @@ const router = useRouter();
 
 const profile = ref(null);
 const compare = ref(null);   // 취향 비교 지도 데이터(5.3) — 프로필과 별도 로드
+const cowatchCands = ref([]);    // 챗봇 추천 매칭용 후보(좌표 포함, 5.4)
+const mappedRecs = ref([]);      // 챗봇이 추천 → '지도에 표시'한 영화들 (비교 지도에 오버레이)
 const loading = ref(true);
 const error = ref("");
 const confirming = ref(false);
@@ -33,13 +35,33 @@ function cowatchStream(history, onDelta) {
   return streamChat(`/social/friends/${route.params.id}/cowatch/`, history, onDelta);
 }
 
+// 봇 답변 텍스트에서 추천작 '여러 편' 찾기 — 후보(grounding 목록) 제목이 들어있는 영화 전부.
+// 후보 안에서만 추천하므로 신뢰 가능. 다른 매칭 제목의 부분집합인 제목은 제거
+// (예: '프레데터' ⊂ '프레데터: 죽음의 땅' → 짧은 쪽 버림).
+function resolveRecommendation(text) {
+  if (!text) return [];
+  const hits = cowatchCands.value.filter((c) => c.title && text.includes(c.title));
+  return hits.filter((c) => !hits.some((o) => o !== c && o.title.includes(c.title)));
+}
+// [지도에 표시하기] 클릭 → 토글(다시 누르면 지도에서 내림)
+function showOnMap(m) {
+  const has = mappedRecs.value.some((x) => x.id === m.id);
+  mappedRecs.value = has
+    ? mappedRecs.value.filter((x) => x.id !== m.id)
+    : [...mappedRecs.value, m];
+}
+const mappedIds = computed(() => mappedRecs.value.map((x) => x.id));
+
 async function load(id) {
   loading.value = true;
   error.value = "";
   compare.value = null;
+  cowatchCands.value = [];
+  mappedRecs.value = [];
   try {
     profile.value = await getFriendProfile(id);
     compare.value = await getFriendCompare(id);   // 프로필 성공 후(친구확인됨) 비교 지도
+    getCowatchCandidates(id).then((c) => { cowatchCands.value = c; }).catch(() => {});  // 챗봇 추천 매칭용(실패 무시)
   } catch (e) {
     error.value =
       e?.response?.status === 403
@@ -150,6 +172,7 @@ function poster(p) {
             :theirs="compare.friend.watched"
             :shared-ids="compare.shared_ids"
             :friend-name="profile.nickname"
+            :recommended="mappedRecs"
           />
           <ChatPanel
             title="같이 볼 영화 AI"
@@ -157,6 +180,9 @@ function poster(p) {
             :intro="`${profile.nickname}님과 같이 볼 영화가 궁금하면 물어봐! 두 사람 취향이 만나는 작품으로 골라줄게.`"
             placeholder="예) 가볍게 볼 만한 거 추천해줘"
             :stream-fn="cowatchStream"
+            :resolve-fn="resolveRecommendation"
+            :mapped-ids="mappedIds"
+            @show-on-map="showOnMap"
           />
         </div>
       </section>

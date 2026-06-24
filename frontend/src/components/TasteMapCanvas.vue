@@ -22,45 +22,83 @@ const emit = defineEmits(["select", "pin-click"]);
 const W = props.width;
 const H = props.height;
 const PAD = 56;
-const ISLE_R = Math.min(W, H) * 0.18;   // 포스터 모드 섬 블롭 반경
 const THUMB = "https://image.tmdb.org/t/p/w92";
 const IMG = "https://image.tmdb.org/t/p/w185";
 
 const selectedId = ref(null);
 const hovered = ref(null);             // { marker, x, y } 커서 옆 툴팁
 
+// ── 확대/축소 (item 1) — 마우스 휠로 커서 지점 기준 확대·축소, 확대 상태에선 드래그로 팬.
+//    데이터 레이어 전체를 한 그룹(viewTransform)으로 변환. 우하단 미니맵으로 현재 영역 표시. ──
+const svgEl = ref(null);
+const zoom = ref(1);                     // 1~4배
+const pan = ref({ x: 0, y: 0 });         // viewBox 단위 이동
+const viewTransform = computed(() => {
+  const z = zoom.value, cx = W / 2, cy = H / 2;
+  return `translate(${pan.value.x},${pan.value.y}) translate(${cx},${cy}) scale(${z}) translate(${-cx},${-cy})`;
+});
+function clientToVB(e) {                  // 화면 좌표 → viewBox 좌표
+  const r = svgEl.value.getBoundingClientRect();
+  return { x: ((e.clientX - r.left) / r.width) * W, y: ((e.clientY - r.top) / r.height) * H };
+}
+// nz 배율로 바꾸되 anchor(화면점) 아래 지점이 그대로 머물게 pan 보정 → 커서 기준 확대
+function applyZoom(nz, anchor) {
+  const cx = W / 2, cy = H / 2, z = zoom.value;
+  const a = { x: cx + (anchor.x - pan.value.x - cx) / z, y: cy + (anchor.y - pan.value.y - cy) / z };
+  nz = Math.max(1, Math.min(4, nz));
+  if (nz === 1) { zoom.value = 1; pan.value = { x: 0, y: 0 }; return; }
+  zoom.value = nz;
+  pan.value = { x: anchor.x - cx - nz * (a.x - cx), y: anchor.y - cy - nz * (a.y - cy) };
+}
+function onWheel(e) {
+  if (!props.interactive) return;
+  e.preventDefault();
+  applyZoom(zoom.value * (e.deltaY < 0 ? 1.18 : 1 / 1.18), clientToVB(e));
+}
+// 확대 상태에서 드래그 팬
+let dragStart = null;
+const panMoved = ref(false);             // 드래그였으면 클릭(선택) 무시
+function onPointerDown(e) {
+  if (!props.interactive || zoom.value <= 1) return;
+  dragStart = { x: e.clientX, y: e.clientY, px: pan.value.x, py: pan.value.y };
+  panMoved.value = false;
+}
+function onPointerMove(e) {
+  if (!dragStart) return;
+  const k = W / svgEl.value.getBoundingClientRect().width;   // 화면 px → viewBox 단위
+  const dx = (e.clientX - dragStart.x) * k, dy = (e.clientY - dragStart.y) * k;
+  if (Math.hypot(dx, dy) > 3) panMoved.value = true;
+  pan.value = { x: dragStart.px + dx, y: dragStart.py + dy };
+}
+function onPointerUp() { dragStart = null; }
+
+// 미니맵(확대 시 우하단): 전체 지도 + 현재 보는 영역 박스 (item 1)
+const MINI_W = 150;
+const miniScale = MINI_W / W;
+const miniH = H * (MINI_W / W);
+const miniView = computed(() => {        // 화면(0..W,0..H)에 해당하는 콘텐츠 범위를 미니맵 좌표로
+  const z = zoom.value, cx = W / 2, cy = H / 2, s = miniScale;
+  const x0 = cx + (-pan.value.x - cx) / z, x1 = cx + (W - pan.value.x - cx) / z;
+  const y0 = cy + (-pan.value.y - cy) / z, y1 = cy + (H - pan.value.y - cy) / z;
+  return { x: x0 * s, y: y0 * s, w: (x1 - x0) * s, h: (y1 - y0) * s };
+});
+const miniDots = computed(() =>          // 컨텍스트용 별 점(축소)
+  markers.value.map((m) => ({ x: m.px * miniScale, y: m.py * miniScale, r: Math.max(0.6, m.r * miniScale) })));
+
 // 별점(0.5~5.0) → 별/포스터 시각값.
 function vis(rating) {
   const t = Math.max(0, Math.min(1, (rating - 0.5) / 4.5));
+  // 별 크기: 하한 6.5px(=원래 5/10점 크기 — 저평점도 충분히 보임) + 고평점일수록 가속(t^1.8)
+  //         → 8·9·10점 크기 차이가 뚜렷, 1·2점도 안 사라짐 (item 2)
+  const ts = Math.pow(t, 1.8);
   const a = [150, 164, 196], b = [255, 240, 205];   // 흐린 회청 → 밝은 크림(별)
   const c = a.map((v, i) => Math.round(v + (b[i] - v) * t));
   const ph = 26 + t * 16, pw = ph * 0.67;            // 포스터 크기
   return {
     color: `rgb(${c[0]},${c[1]},${c[2]})`,
-    r: 3 + t * 8, op: 0.32 + t * 0.68, bright: rating >= 4.5,   // 별
+    r: 6 + ts * 9.5, op: 0.32 + t * 0.68, bright: rating >= 4.5,   // 별
     pw, ph, barW: pw * (rating / 5),                            // 포스터
   };
-}
-
-// 장르 대륙 색(월드 모드). 마커는 가장 가까운 대륙 색을 입어 '어느 영토에 있나'가 한눈에.
-const GENRE_COLORS = {
-  공포: "#a55ec9", 스릴러: "#7d5fff", 범죄: "#b066c9", 미스터리: "#5b6ee0",
-  드라마: "#7fa8e8", 로맨스: "#fd79a8", 액션: "#ff7a6b", SF: "#19c6c0",
-  모험: "#1dd1a1", 전쟁: "#9bd14e", 역사: "#c2d14e", 가족: "#3fbf8e",
-  코미디: "#f0c050", 판타지: "#c56cf0", 애니메이션: "#4aa8e8", 음악: "#e0b84a",
-};
-function lighten(hex, m) {
-  const n = parseInt(hex.slice(1), 16);
-  const f = (c) => Math.round(c + (255 - c) * m);
-  return `rgb(${f((n >> 16) & 255)},${f((n >> 8) & 255)},${f(n & 255)})`;
-}
-function nearestColor(x, y) {
-  let best = "#9aa3bd", bd = Infinity;
-  for (const a of props.anchors || []) {
-    const d = (a.x - x) ** 2 + (a.y - y) ** 2;
-    if (d < bd) { bd = d; best = GENRE_COLORS[a.name] || best; }
-  }
-  return best;
 }
 
 // 좌표→픽셀 변환. 앵커(대륙) 있으면 '전역 고정 뷰포트'(원점 중심, 대륙이 항상 같은 자리=안정적
@@ -71,7 +109,9 @@ const transform = computed(() => {
     let rx = 1, ry = 1;
     for (const a of props.anchors) { rx = Math.max(rx, Math.abs(a.x)); ry = Math.max(ry, Math.abs(a.y)); }
     rx *= 1.1; ry *= 1.12;   // 대륙 바깥 여백
-    return { cx: 0, cy: 0, sx: (W - 2 * PAD) / (2 * rx), sy: (H - 2 * PAD) / (2 * ry) };
+    // 균일 스케일(x·y 동일) — 좌표 모양 보존. 비균일이면 와이드 캔버스(프리뷰)에서 세로로 찌그러짐.
+    const s = Math.min((W - 2 * PAD) / (2 * rx), (H - 2 * PAD) / (2 * ry));
+    return { cx: 0, cy: 0, sx: s, sy: s };
   }
   const xs = props.watched.map((w) => w.x);
   const ys = props.watched.map((w) => w.y);
@@ -91,7 +131,8 @@ const markers = computed(() => {
     const v = vis(w.rating);
     let [px, py] = project(w.x, w.y, t);   // 화면 y는 아래로 + → project가 부호 뒤집음
     const [bx, by] = [px, py];
-    const sep = v.r + 5;
+    // 겹침 분산 간격: 포스터 모드는 썸네일 크기 기준(별 반경보다 훨씬 큼 — item 9b)
+    const sep = props.mode === "posters" ? Math.max(v.pw, v.ph) * 0.62 + 4 : v.r + 5;
     for (let k = 0; placed.some((p) => Math.hypot(p.px - px, p.py - py) < sep) && k < 16; k++) {
       const ang = k * 2.39996, rad = sep + k * 1.6;
       px = bx + Math.cos(ang) * rad;
@@ -99,8 +140,7 @@ const markers = computed(() => {
     }
     placed.push({ px, py });
     return {
-      ...w, px, py, thumb: w.poster_path ? THUMB + w.poster_path : "",
-      dotColor: nearestColor(w.x, w.y), ...v,
+      ...w, px, py, thumb: w.poster_path ? THUMB + w.poster_path : "", ...v,
     };
   });
 });
@@ -109,8 +149,7 @@ const anchorMarkers = computed(() => {
   const t = transform.value;
   return (props.anchors || []).map((a) => {
     const [px, py] = project(a.x, a.y, t);
-    const c = GENRE_COLORS[a.name] || "#6b76a0";
-    return { name: a.name, px, py, color: c, colorSoft: lighten(c, 0.32) };
+    return { name: a.name, px, py };
   });
 });
 // 지도 탐색(4.4) 추천 핀 — 마커와 같은 변환으로 투영. 겹치면 황금각 나선 분산 + 원위치 연결선.
@@ -143,7 +182,7 @@ function ringR(m) {
   return props.mode === "posters" ? m.ph / 2 + 8 : m.r + 9;
 }
 function onSelect(m) {
-  if (!props.interactive) return;
+  if (!props.interactive || panMoved.value) return;   // 드래그 팬이었으면 선택 무시
   if (selectedId.value === m.movie_id) {   // 같은 별 재클릭 → 선택 해제(패널·링 사라짐)
     selectedId.value = null;
     emit("select", null);
@@ -158,6 +197,10 @@ function onHover(m, e) {
 }
 function onPinHover(m, e) {
   hovered.value = { marker: m, x: e.clientX, y: e.clientY, pin: true };   // 핀=추천(평점 10점)
+}
+function onPinClick(m) {
+  if (panMoved.value) return;   // 드래그-줌이었으면 핀 클릭(상세 이동) 무시
+  emit("pin-click", m);
 }
 function poster(p) {
   return p ? IMG + p : "";
@@ -187,9 +230,16 @@ const nebulae = computed(() => [
 <template>
   <div class="canvas-wrap">
     <svg
+      ref="svgEl"
       :viewBox="`0 0 ${W} ${H}`"
       class="mapsvg"
+      :class="{ 'mapsvg--grab': interactive && zoom > 1 }"
       @mouseleave="hovered = null"
+      @wheel="onWheel"
+      @pointerdown="onPointerDown"
+      @pointermove="onPointerMove"
+      @pointerup="onPointerUp"
+      @pointerleave="onPointerUp"
     >
       <defs>
         <filter
@@ -207,23 +257,6 @@ const nebulae = computed(() => [
             <feMergeNode in="b" /><feMergeNode in="SourceGraphic" />
           </feMerge>
         </filter>
-        <radialGradient id="isle">
-          <stop
-            offset="0%"
-            stop-color="#2b6f6a"
-            stop-opacity="0.28"
-          />
-          <stop
-            offset="60%"
-            stop-color="#1f534f"
-            stop-opacity="0.08"
-          />
-          <stop
-            offset="100%"
-            stop-color="#1f534f"
-            stop-opacity="0"
-          />
-        </radialGradient>
         <radialGradient id="continent">
           <stop
             offset="0%"
@@ -236,24 +269,6 @@ const nebulae = computed(() => [
             stop-opacity="0"
           />
         </radialGradient>
-        <filter
-          id="softTer"
-          x="-80%"
-          y="-80%"
-          width="260%"
-          height="260%"
-        >
-          <feGaussianBlur stdDeviation="22" />
-        </filter>
-        <filter
-          id="dotglow"
-          x="-150%"
-          y="-150%"
-          width="400%"
-          height="400%"
-        >
-          <feGaussianBlur stdDeviation="2.6" />
-        </filter>
         <radialGradient id="nebula">
           <stop
             offset="0%"
@@ -276,76 +291,61 @@ const nebulae = computed(() => [
       <rect
         :width="W"
         :height="H"
-        :fill="mode === 'posters' ? '#080a10' : '#090b13'"
+        fill="#090b13"
       />
 
-      <!-- 장르 대륙 글로우(배경 — 별 뒤). 월드 모드는 장르색 파스텔 영토. 라벨은 최상단(A-14). -->
+      <!-- 확대/축소·팬 대상: 배경 rect를 뺀 모든 데이터/장식 레이어를 한 그룹으로 변환 (item 1) -->
+      <g :transform="viewTransform">
+      <!-- 공통 배경(별·포스터 모드 통일, item 9): 성운 + 옅은 격자 -->
+      <g class="continents">
+        <circle
+          v-for="(n, i) in nebulae"
+          :key="`neb${i}`"
+          :cx="n.cx"
+          :cy="n.cy"
+          :r="n.r"
+          fill="url(#nebula)"
+        />
+      </g>
+      <g
+        stroke="#1b1f2e"
+        stroke-width="1"
+        stroke-dasharray="2 6"
+      >
+        <line
+          v-for="i in 4"
+          :key="`h${i}`"
+          x1="0"
+          :y1="(H / 5) * i"
+          :x2="W"
+          :y2="(H / 5) * i"
+        />
+        <line
+          v-for="i in 7"
+          :key="`v${i}`"
+          :x1="(W / 8) * i"
+          y1="0"
+          :x2="(W / 8) * i"
+          :y2="H"
+        />
+      </g>
+      <!-- 장르 대륙 글로우(별 뒤). 라벨은 최상단(A-14). -->
       <g
         v-if="anchorMarkers.length"
         class="continents"
       >
-        <g
-          v-if="mode === 'clean'"
-          filter="url(#softTer)"
-          opacity="0.4"
-        >
-          <circle
-            v-for="a in anchorMarkers"
-            :key="`cg${a.name}`"
-            :cx="a.px"
-            :cy="a.py"
-            :r="Math.min(W, H) * 0.16"
-            :fill="a.colorSoft"
-          />
-        </g>
-        <template v-else>
-          <circle
-            v-for="a in anchorMarkers"
-            :key="`cg${a.name}`"
-            :cx="a.px"
-            :cy="a.py"
-            :r="Math.min(W, H) * 0.075"
-            fill="url(#continent)"
-          />
-        </template>
+        <circle
+          v-for="a in anchorMarkers"
+          :key="`cg${a.name}`"
+          :cx="a.px"
+          :cy="a.py"
+          :r="Math.min(W, H) * 0.075"
+          fill="url(#continent)"
+        />
       </g>
 
       <!-- ===== 별 모드 ===== -->
       <template v-if="mode === 'stars'">
-        <!-- 성운(가스 구름) 배경 -->
-        <g class="continents">
-          <circle
-            v-for="(n, i) in nebulae"
-            :key="`neb${i}`"
-            :cx="n.cx"
-            :cy="n.cy"
-            :r="n.r"
-            fill="url(#nebula)"
-          />
-        </g>
-        <!-- 옅은 점선 격자 -->
-        <g
-          stroke="#1b1f2e"
-          stroke-width="1"
-          stroke-dasharray="2 6"
-        >
-          <line
-            v-for="i in 4"
-            :key="`h${i}`"
-            x1="0"
-            :y1="(H / 5) * i"
-            :x2="W"
-            :y2="(H / 5) * i"
-          />
-          <line
-            v-for="i in 7"
-            :key="`v${i}`"
-            :x1="(W / 8) * i"
-            y1="0"
-            :x2="(W / 8) * i"
-            :y2="H"
-          />
-        </g>
         <!-- 본 영화 = 빛나는 별 (별점 = 크기·밝기). 별 모양 path. -->
         <g filter="url(#glow)">
           <path
@@ -364,19 +364,8 @@ const nebulae = computed(() => [
         </g>
       </template>
 
-      <!-- ===== 포스터 모드 ===== -->
+      <!-- ===== 포스터 모드 (배경은 별 모드와 공통) ===== -->
       <template v-else-if="mode === 'posters'">
-        <!-- 섬: 조밀할수록 또렷한 블롭 -->
-        <g>
-          <circle
-            v-for="m in markers"
-            :key="`i${m.movie_id}`"
-            :cx="m.px"
-            :cy="m.py"
-            :r="ISLE_R"
-            fill="url(#isle)"
-          />
-        </g>
         <!-- 포스터 썸네일 (별점 = 크기 + 하단 금색 바) -->
         <g
           v-for="m in drawOrder"
@@ -424,42 +413,6 @@ const nebulae = computed(() => [
         </g>
       </template>
 
-      <!-- ===== 월드 모드: 깔끔한 점(흰 코어 + 대륙색 링), 크기=별점 ===== -->
-      <template v-else>
-        <g
-          v-for="m in markers"
-          :key="m.movie_id"
-          :class="{ 'thumb--live': interactive }"
-          @click="onSelect(m)"
-          @mouseenter="onHover(m, $event)"
-          @mousemove="onHover(m, $event)"
-          @mouseleave="hovered = null"
-        >
-          <circle
-            :cx="m.px"
-            :cy="m.py"
-            :r="m.r + 3"
-            :fill="m.dotColor"
-            fill-opacity="0.45"
-            filter="url(#dotglow)"
-          />
-          <circle
-            :cx="m.px"
-            :cy="m.py"
-            :r="m.r"
-            fill="#ffffff"
-          />
-          <circle
-            :cx="m.px"
-            :cy="m.py"
-            :r="m.r"
-            fill="none"
-            :stroke="m.dotColor"
-            stroke-width="2.4"
-          />
-        </g>
-      </template>
-
       <!-- 대륙 라벨 — 별 위에 떠서 항상 읽히는 '지도 범례' 레이어 (A-14) -->
       <g
         v-if="anchorMarkers.length"
@@ -479,7 +432,7 @@ const nebulae = computed(() => [
         v-for="m in pinMarkers"
         :key="`pin${m.id}`"
         class="pinmk"
-        @click="emit('pin-click', m)"
+        @click="onPinClick(m)"
         @mouseenter="onPinHover(m, $event)"
         @mousemove="onPinHover(m, $event)"
         @mouseleave="hovered = null"
@@ -520,17 +473,20 @@ const nebulae = computed(() => [
         >{{ m.num }}</text>
       </g>
 
-      <!-- 선택 강조 링 -->
-      <circle
-        v-if="interactive && selected"
-        :cx="selected.px"
-        :cy="selected.py"
-        :r="ringR(selected)"
-        fill="none"
-        stroke="#aee1ff"
-        stroke-width="1.6"
-        opacity="0.9"
-      />
+      <!-- 선택 표시는 별 자체에 (star--sel) — 색변경 + 커짐 + 발광. 포스터 모드는 테두리 강조. -->
+      <!-- 선택한 별은 장르 라벨 위에 한 번 더 그려 '앞으로' 보낸다(겹쳐 가려도 클릭 시 보이게).
+           pointer-events:none → 밑의 원본 별이 그대로 클릭(재클릭=해제)을 받는다. -->
+      <g
+        v-if="interactive && mode === 'stars' && selected"
+        filter="url(#glow)"
+        style="pointer-events: none"
+      >
+        <path
+          :d="starPath(selected.px, selected.py, selected.r)"
+          fill="#ffe6a8"
+          class="star star--sel"
+        />
+      </g>
       <!-- 지도 내 검색: 매칭 마커 반짝 (3.4) -->
       <circle
         v-if="highlighted"
@@ -541,6 +497,42 @@ const nebulae = computed(() => [
         stroke="#aee1ff"
         stroke-width="2.5"
         class="blink"
+      />
+      </g>
+    </svg>
+
+    <!-- 미니맵: 확대 중일 때 우하단에 현재 보는 영역 표시 (item 1) -->
+    <svg
+      v-if="interactive && zoom > 1"
+      class="minimap"
+      :viewBox="`0 0 ${MINI_W} ${miniH}`"
+      :width="MINI_W"
+      :height="miniH"
+    >
+      <rect
+        :width="MINI_W"
+        :height="miniH"
+        fill="#0b0e18"
+        stroke="#2c3142"
+      />
+      <circle
+        v-for="(d, i) in miniDots"
+        :key="`md${i}`"
+        :cx="d.x"
+        :cy="d.y"
+        :r="d.r"
+        fill="#9fb4e6"
+        fill-opacity="0.7"
+      />
+      <rect
+        :x="miniView.x"
+        :y="miniView.y"
+        :width="miniView.w"
+        :height="miniView.h"
+        fill="#ffd479"
+        fill-opacity="0.12"
+        stroke="#ffd479"
+        stroke-width="1.2"
       />
     </svg>
 
@@ -575,6 +567,21 @@ const nebulae = computed(() => [
 .mapsvg {
   display: block;
   width: 100%;
+  touch-action: none;
+}
+.mapsvg--grab {
+  cursor: grab;        /* 확대 상태: 드래그로 이동 */
+}
+.mapsvg--grab:active {
+  cursor: grabbing;
+}
+.minimap {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  border-radius: 6px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5);
+  pointer-events: none;
 }
 .continents {
   pointer-events: none;
@@ -595,9 +602,24 @@ const nebulae = computed(() => [
   cursor: pointer;
   transition: fill-opacity 0.15s;
 }
-.star--live:hover,
-.star--sel {
+.star--live:hover {
   fill-opacity: 1 !important;
+}
+/* 선택된 별: 금빛으로 변하고 커지면서 발광 + 테두리 (item 4).
+   .star.star--sel = 우선순위를 .star--bright(twinkle)보다 높여 고평점(9·10점) 별도 선택 시 펄스 적용 */
+.star.star--sel {
+  fill: #ffe6a8 !important;
+  fill-opacity: 1 !important;
+  stroke: #fff7e0;
+  stroke-width: 0.7;
+  paint-order: stroke;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: starsel 1.5s ease-in-out infinite;
+}
+@keyframes starsel {
+  0%, 100% { transform: scale(1.25); }
+  50% { transform: scale(1.5); }
 }
 .star--bright {
   animation: twinkle 2.6s ease-in-out infinite;

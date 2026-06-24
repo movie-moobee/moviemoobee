@@ -61,6 +61,23 @@ def cowatch_candidates(me, friend, n=COWATCH_POOL):
     return _candidates_from_ids(top)
 
 
+def cowatch_map_candidates(me, friend):
+    """'같이 볼 영화' 후보를 좌표·포스터와 함께 — [{id,title,poster_path,x,y}] (5.4).
+    챗봇이 추천한 제목을 프론트에서 매칭해 '지도에 표시'할 때 쓴다(추천 후보 안에서만 고르므로 신뢰 가능)."""
+    ids = [c["id"] for c in cowatch_candidates(me, friend)]
+    if not ids:
+        return []
+    mv = {m["id"]: m for m in Movie.objects.filter(id__in=ids)
+          .values("id", "title", "poster_path", "map_x", "map_y")}
+    out = []
+    for i in ids:
+        m = mv.get(i)
+        if m and m["map_x"] is not None:
+            out.append({"id": i, "title": m["title"], "poster_path": m["poster_path"],
+                        "x": m["map_x"], "y": m["map_y"]})
+    return out
+
+
 def general_candidates(user, n=GENERAL_POOL):
     """내가 안 본 영화 중 내 취향 집합에 가까운 순 Top n."""
     me_ids, me_pts = _watched(user)

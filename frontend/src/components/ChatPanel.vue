@@ -9,7 +9,11 @@ const props = defineProps({
   intro: { type: String, default: "" },        // 첫 안내 말풍선(서버 이력엔 미포함)
   placeholder: { type: String, default: "메시지 입력…" },
   streamFn: { type: Function, required: true }, // (history:[{role,content}], onDelta) => Promise
+  // 봇 답변 텍스트에서 추천작을 찾아 {id,title,...}|null 반환 → 있으면 [지도에 표시하기] 노출(5.4)
+  resolveFn: { type: Function, default: null },
+  mappedIds: { type: Array, default: () => [] },   // 현재 지도에 표시된 추천작 id(버튼 on/off 표시)
 });
+const emit = defineEmits(["show-on-map"]);
 
 const messages = ref(props.intro ? [{ role: "assistant", content: props.intro, intro: true }] : []);
 const input = ref("");
@@ -39,6 +43,8 @@ async function send() {
       .map((m) => ({ role: m.role, content: m.content }));
     await props.streamFn(history, (d) => { assistant.content += d; scrollDown(); });
     if (!assistant.content) assistant.content = "(빈 응답)";
+    // 답변 완성 후 추천작 매칭(여러 편 가능) → 말풍선 아래 영화별 [지도에 표시] 칩 노출
+    if (props.resolveFn) assistant.movies = props.resolveFn(assistant.content);
   } catch {
     error.value = "응답을 받지 못했어요. 잠시 후 다시 시도해줘.";
     if (!assistant.content) messages.value.pop();   // 빈 응답 말풍선 제거
@@ -75,13 +81,34 @@ async function send() {
       <div
         v-for="(m, i) in messages"
         :key="i"
-        class="bubble"
-        :class="m.role === 'user' ? 'bubble--me' : 'bubble--bot'"
+        class="row"
+        :class="m.role === 'user' ? 'row--me' : 'row--bot'"
       >
-        {{ m.content }}<span
-          v-if="m.role === 'assistant' && busy && i === messages.length - 1 && !m.content"
-          class="dots"
-        >…</span>
+        <div
+          class="bubble"
+          :class="m.role === 'user' ? 'bubble--me' : 'bubble--bot'"
+        >
+          {{ m.content }}<span
+            v-if="m.role === 'assistant' && busy && i === messages.length - 1 && !m.content"
+            class="dots"
+          >…</span>
+        </div>
+        <div
+          v-if="m.movies && m.movies.length"
+          class="mapbtns"
+        >
+          <span class="mapbtns__label">지도에 표시</span>
+          <button
+            v-for="mv in m.movies"
+            :key="mv.id"
+            class="mapbtn"
+            :class="{ 'mapbtn--on': mappedIds.includes(mv.id) }"
+            type="button"
+            @click="emit('show-on-map', mv)"
+          >
+            <span class="mapbtn__pin">{{ mappedIds.includes(mv.id) ? "✓" : "📍" }}</span> {{ mv.title }}
+          </button>
+        </div>
       </div>
       <p
         v-if="error"
@@ -157,6 +184,17 @@ async function send() {
   flex-direction: column;
   gap: 10px;
 }
+.row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.row--me {
+  align-items: flex-end;
+}
+.row--bot {
+  align-items: flex-start;
+}
 .bubble {
   max-width: 88%;
   padding: 9px 11px;
@@ -164,6 +202,53 @@ async function send() {
   line-height: 1.55;
   white-space: pre-wrap;
   word-break: break-word;
+}
+.mapbtns {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  max-width: 88%;
+}
+.mapbtns__label {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-right: 1px;
+}
+.mapbtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 11px;
+  font-family: var(--font);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--gold, #e8c252);
+  background: rgba(232, 194, 82, 0.1);
+  border: 1px solid rgba(232, 194, 82, 0.45);
+  border-radius: 999px;
+  cursor: pointer;
+}
+.mapbtn:hover {
+  background: rgba(232, 194, 82, 0.18);
+}
+.mapbtn__pin {
+  font-size: 11px;
+}
+/* 표시된 상태: 마커 색(보라)과 맞춰 채움 + 켜질 때 팝 애니메이션 */
+.mapbtn--on {
+  color: #cbb6ff;
+  background: rgba(168, 132, 255, 0.16);
+  border-color: rgba(168, 132, 255, 0.55);
+  animation: mapbtn-pop 0.32s ease;
+}
+.mapbtn--on:hover {
+  background: rgba(168, 132, 255, 0.24);
+}
+@keyframes mapbtn-pop {
+  0% { transform: scale(0.9); }
+  60% { transform: scale(1.07); }
+  100% { transform: scale(1); }
 }
 .bubble--bot {
   align-self: flex-start;

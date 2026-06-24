@@ -215,6 +215,18 @@ class FriendCowatchView(APIView):
         return resp
 
 
+class FriendCowatchCandidatesView(APIView):
+    """GET /api/social/friends/<pk>/cowatch/candidates/ — '같이 볼 영화' 후보(좌표 포함, 5.4).
+    챗봇 추천작을 '지도에 표시'할 때 제목 매칭·좌표용. 친구 사이일 때만."""
+
+    def get(self, request, pk):
+        if not _accepted_between(request.user, pk):
+            return Response({"detail": "친구만 볼 수 있습니다."}, status=403)
+        friend = get_object_or_404(User, pk=pk)
+        from taste.services.chat import cowatch_map_candidates
+        return Response(cowatch_map_candidates(request.user, friend))
+
+
 class NotificationListView(APIView):
     """GET  /api/social/notifications/ — 내 알림 목록 (F-NTF-01, 최신순, 최대 5).
     POST /api/social/notifications/ — 모두 읽음 처리 (드롭다운 열람 시 배지 클리어)."""

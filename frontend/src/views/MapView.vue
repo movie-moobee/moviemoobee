@@ -5,7 +5,7 @@
 import { computed, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { getMyMap, getExplore } from "@/api/taste";
-import { searchMovies, getMovie } from "@/api/movies";
+import { searchMovies, browseMovies, getMovie } from "@/api/movies";
 import { useMarkerMode } from "@/composables/useMarkerMode";
 import TasteMapCanvas from "@/components/TasteMapCanvas.vue";
 import WatchRecordModal from "@/components/WatchRecordModal.vue";
@@ -29,8 +29,9 @@ function setTab(key) {
 
 // 마커 모드(별/포스터) — 홈과 공유(localStorage). /map에선 ?view= 와도 동기화.
 const markerMode = useMarkerMode();
-const VIEWS = ["stars", "posters", "clean"];
+const VIEWS = ["stars", "posters"];
 if (VIEWS.includes(route.query.view)) markerMode.value = route.query.view;
+if (!VIEWS.includes(markerMode.value)) markerMode.value = "stars"; // 폐기된 '월드' 잔재 방어
 function setView(v) {
   markerMode.value = v;
   router.replace({ query: { ...route.query, view: v } });
@@ -103,12 +104,14 @@ function onFindEnter() {
   if (findMatches.value.length) onPickFind(findMatches.value[0]);   // 첫 매칭 선택
 }
 
+// 검색·등록 탭: 검색어 없으면 전체 목록(평점순)을, 있으면 제목 검색을 보여준다.
+// → 영화 검색 페이지처럼 검색하지 않아도 전체 영화를 스크롤하며 등록 가능 (item 3).
 async function onSearch() {
-  if (!searchQuery.value.trim()) return;
   searching.value = true;
   searchError.value = "";
   try {
-    searchResults.value = await searchMovies(searchQuery.value.trim());
+    const q = searchQuery.value.trim();
+    searchResults.value = q ? await searchMovies(q) : await browseMovies({});
     searched.value = true;
   } catch {
     searchError.value = "검색에 실패했습니다.";
@@ -116,6 +119,13 @@ async function onSearch() {
     searching.value = false;
   }
 }
+// 탭을 처음 열 때 전체 목록을 1회 미리 로드(검색 없이 바로 보이게).
+const searchLoaded = ref(false);
+watch(activeTab, async (tab) => {
+  if (tab !== "search" || searchLoaded.value) return;
+  searchLoaded.value = true;
+  await onSearch();
+}, { immediate: true });
 
 // 검색 결과 클릭 → 상세를 조회해 내 시청기록(my_record)을 받고 모달을 연다.
 // 이미 본 영화면 수정 모달(기존 별점·리뷰 채움), 안 본 영화면 등록 모달.
@@ -258,14 +268,6 @@ function onPickExploreMovie(m) {
               @click="setView('posters')"
             >
               포스터
-            </button>
-            <button
-              type="button"
-              class="modetoggle__btn"
-              :class="{ 'modetoggle__btn--on': markerMode === 'clean' }"
-              @click="setView('clean')"
-            >
-              월드
             </button>
           </div>
           <TasteMapCanvas
@@ -461,7 +463,7 @@ function onPickExploreMovie(m) {
             {{ m.title }}
           </div>
           <div class="rcard__meta">
-            {{ m.release_year || "" }} · ＋ 등록
+            {{ m.release_year || "" }}<span v-if="m.vote_average"> · ⭐ {{ m.vote_average }}</span>
           </div>
         </button>
       </div>
@@ -514,7 +516,7 @@ function onPickExploreMovie(m) {
       <template v-else>
         <div class="explore-head">
           {{ exploreSub === "safe" ? "안전 추천" : "미탐색 추천" }}
-          <span class="explore-head__hint">— {{ exploreSub === "safe" ? "내 취향 근처(좌표 거리 Top N)" : "내 지도의 빈 곳(KDE) 도전 추천" }}</span>
+          <!-- <span class="explore-head__hint">— {{ exploreSub === "safe" ? "내 취향 근처(좌표 거리 Top N)" : "내 지도의 빈 곳(KDE) 도전 추천" }}</span> -->
         </div>
         <div class="map-layout">
           <div class="mapframe">
@@ -1114,6 +1116,12 @@ function onPickExploreMovie(m) {
 .subtab__btn--on {
   color: var(--text);
   border-bottom-color: var(--gold);
+}
+/* 추천 리스트: 지도 높이에 맞춰 스크롤 — 10+10편이 지도 아래로 길게 늘어져 휑해지지 않게 (item 8) */
+.exlist {
+  max-height: 520px;
+  overflow-y: auto;
+  padding-right: 4px;
 }
 .exitem {
   display: flex;
