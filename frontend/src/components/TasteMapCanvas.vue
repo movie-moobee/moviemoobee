@@ -96,7 +96,7 @@ function vis(rating) {
   const ph = 26 + t * 16, pw = ph * 0.67;            // 포스터 크기
   return {
     color: `rgb(${c[0]},${c[1]},${c[2]})`,
-    r: 6 + ts * 9.5, op: 0.32 + t * 0.68, bright: rating >= 4.5,   // 별
+    r: 6 + ts * 7, op: 0.32 + t * 0.68, bright: rating >= 4.5,   // 별
     pw, ph, barW: pw * (rating / 5),                            // 포스터
   };
 }
