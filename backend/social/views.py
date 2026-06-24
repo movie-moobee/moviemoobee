@@ -1,3 +1,7 @@
+import json
+import time
+
+from django.db import close_old_connections
 from django.db.models import Count, Q
 from django.http import StreamingHttpResponse
 from django.shortcuts import get_object_or_404
@@ -248,10 +252,50 @@ class NotificationListView(APIView):
 
 
 class NotificationUnreadView(APIView):
-    """GET /api/social/notifications/unread/ — 헤더 🔔 배지용 안읽음 개수 (가벼운 폴링)."""
+    """GET /api/social/notifications/unread/ — 헤더 🔔 배지용 안읽음 개수 (가벼운 폴링 폴백)."""
 
     def get(self, request):
         count = Notification.objects.filter(
             recipient=request.user, is_read=False
         ).count()
         return Response({"count": count})
+
+
+class NotificationStreamView(APIView):
+    """GET /api/social/notifications/stream/ — 안읽음 개수 SSE 스트림 (F-NTF-01).
+
+    단방향(서버→클라)이라 WebSocket 불필요. 챗봇과 같은 StreamingHttpResponse 패턴.
+    서버가 주기적으로 DB를 확인해 변화 시에만 push → 클라는 연결 1개로 준실시간(약 4초) 수신.
+    (진짜 이벤트 푸시는 Redis pub/sub가 필요 — 데모 범위 밖이라 서버측 폴링으로 대체.)
+    EventSource는 헤더를 못 보내므로 프론트는 fetch+토큰 헤더로 소비한다.
+    """
+
+    POLL_SEC = 4
+    MAX_SEC = 600   # 10분마다 스트림 종료 → 클라가 재연결(스레드·DB 커넥션 재활용)
+
+    def get(self, request):
+        user = request.user
+
+        def stream():
+            last = -1
+            elapsed = 0
+            try:
+                while elapsed < self.MAX_SEC:
+                    count = Notification.objects.filter(
+                        recipient=user, is_read=False
+                    ).count()
+                    if count != last:
+                        last = count
+                        yield f"data: {json.dumps({'unread': count})}\n\n"
+                    else:
+                        yield ": ping\n\n"   # 하트비트(연결 유지·끊김 감지)
+                    close_old_connections()   # 유휴 DB 커넥션 정리
+                    time.sleep(self.POLL_SEC)
+                    elapsed += self.POLL_SEC
+            except GeneratorExit:   # 클라 연결 종료
+                pass
+
+        resp = StreamingHttpResponse(stream(), content_type="text/event-stream")
+        resp["Cache-Control"] = "no-cache"
+        resp["X-Accel-Buffering"] = "no"   # nginx 등 버퍼링 끄기(즉시 전송)
+        return resp

@@ -73,10 +73,42 @@ export async function getNotifications() {
   return data;
 }
 
-// 헤더 🔔 배지용 안읽음 개수 (가벼운 폴링) → { count }
+// 헤더 🔔 배지용 안읽음 개수 (SSE 끊겼을 때 폴백) → { count }
 export async function getUnreadCount() {
   const { data } = await api.get("/social/notifications/unread/");
   return data.count;
+}
+
+// 안읽음 개수 SSE 스트림 — 준실시간 배지(F-NTF-01). EventSource는 헤더를 못 보내므로
+// chat 스트림처럼 fetch + ReadableStream + 토큰 헤더로 SSE를 직접 파싱한다.
+// onMessage({ unread }) 로 갱신. signal(AbortController)로 종료. 연결 끊기면 throw → 호출측 재연결.
+export async function streamUnread(onMessage, signal) {
+  const token = localStorage.getItem("token");
+  const res = await fetch("/api/social/notifications/stream/", {
+    headers: { ...(token ? { Authorization: `Token ${token}` } : {}) },
+    signal,
+  });
+  if (!res.ok || !res.body) throw new Error(`notif-stream ${res.status}`);
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buf = "";
+  for (;;) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buf += decoder.decode(value, { stream: true });
+    let i;
+    while ((i = buf.indexOf("\n\n")) >= 0) {     // SSE 이벤트 경계
+      const ev = buf.slice(0, i).trim();
+      buf = buf.slice(i + 2);
+      if (!ev.startsWith("data:")) continue;     // ': ping' 하트비트 무시
+      try {
+        onMessage(JSON.parse(ev.slice(5).trim()));
+      } catch {
+        /* 깨진 청크 무시 */
+      }
+    }
+  }
 }
 
 // 모두 읽음 처리 (드롭다운 열람 시 배지 클리어) → { updated }
