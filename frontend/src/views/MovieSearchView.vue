@@ -1,13 +1,19 @@
 <script setup>
 // 영화 검색 (F-MOV-01). 제목 검색 + 필터(장르·평점·개봉년도·러닝타임·언어) → 그리드 → 상세.
 // 진입 시 평점 높은순 기본 목록. 상세 갔다 와도 검색어·필터·결과 유지(useMovieSearch).
+// 단, 네비바로 다른 탭(홈·지도 등)으로 이탈하면 초기화 — 상세는 검색 흐름의 연장이라 유지.
 import { ref, computed, onMounted } from "vue";
-import { useRouter } from "vue-router";
+import { useRouter, onBeforeRouteLeave } from "vue-router";
 import { browseMovies, getGenres } from "@/api/movies";
 import { useMovieSearch } from "@/composables/useMovieSearch";
 
 const router = useRouter();
-const { query, filters, results, searched, loaded, resetFilters } = useMovieSearch();
+const { query, filters, results, searched, loaded, resetFilters, resetSearch } = useMovieSearch();
+
+// 검색 화면을 떠날 때: 상세(movie-detail)로 가면 검색 보존, 그 외 이탈은 초기화.
+onBeforeRouteLeave((to) => {
+  if (to.name !== "movie-detail") resetSearch();
+});
 const loading = ref(false);
 const error = ref("");
 const IMG = "https://image.tmdb.org/t/p/w300";
@@ -150,7 +156,7 @@ onMounted(async () => {
       <input
         v-model="query"
         class="bar__input"
-        placeholder="검색어 입력… (TMDB 영화 검색)"
+        placeholder="검색어 입력…"
         @keyup.enter="onSearch"
       >
       <button

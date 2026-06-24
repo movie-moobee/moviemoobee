@@ -1,4 +1,5 @@
 import { api } from "./client";
+import { resetSearch } from "@/composables/useMovieSearch";
 
 // 인증 API · 토큰 헬퍼 (F-AUTH-01·02·03)
 const TOKEN_KEY = "token";
@@ -111,6 +112,7 @@ export async function deleteAccount() {
   await api.delete("/accounts/me/");
   clearToken();
   onboardedCache = null;
+  resetSearch();
 }
 
 // 로그아웃 = 서버 토큰 폐기 + 클라이언트 토큰 삭제 + 캐시 초기화
@@ -120,5 +122,6 @@ export async function logout() {
   } finally {
     clearToken();
     onboardedCache = null;
+    resetSearch();
   }
 }

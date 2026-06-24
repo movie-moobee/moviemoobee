@@ -12,6 +12,15 @@ function resetFilters() {
   filters.value = { genre: "", min_rating: "", max_rating: "", decade: "", runtime: "" };
 }
 
+// 검색 상태 전체 초기화 — 로그아웃/계정삭제 시 호출해 다음 계정에 안 새도록.
+export function resetSearch() {
+  query.value = "";
+  resetFilters();
+  results.value = [];
+  searched.value = false;
+  loaded.value = false;
+}
+
 export function useMovieSearch() {
-  return { query, filters, results, searched, loaded, resetFilters };
+  return { query, filters, results, searched, loaded, resetFilters, resetSearch };
 }
