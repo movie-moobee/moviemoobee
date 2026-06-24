@@ -12,6 +12,7 @@ const props = defineProps({
   theirs: { type: Array, required: true },        // 친구 본 영화 (같은 형식)
   sharedIds: { type: Array, default: () => [] },  // 둘 다 본 영화 id
   friendName: { type: String, default: "친구" },
+  recommended: { type: Array, default: () => [] }, // AI '지도에 표시' 추천작 [{id,title,poster_path,x,y}] (5.4)
 });
 
 const W = 640, H = 430, PAD = 56;
@@ -20,6 +21,10 @@ const IMG = "https://image.tmdb.org/t/p/w185";
 const COLORS = { mine: "#ff9ecb", theirs: "#7fe0d6", shared: "#ffd21e" };
 
 const hovered = ref(null);   // { marker, x, y }
+const selectedId = ref(null);   // 클릭 선택한 별(취향 지도와 동일: 커지고 발광 + 라벨 앞으로)
+function onSelect(m) {
+  selectedId.value = selectedId.value === m.movie_id ? null : m.movie_id;
+}
 
 // 좌표→픽셀: 앵커 있으면 원점 중심 고정 뷰포트(대륙이 늘 같은 자리). TasteMapCanvas 와 동일 규칙.
 const transform = computed(() => {
@@ -82,6 +87,25 @@ const markers = computed(() => {
       const p = pos.get(m.movie_id);
       return { ...m, px: p.px, py: p.py, r: p.r, op: p.op, bright: p.bright, color: COLORS[m.owner] };
     });
+});
+
+const selected = computed(() => markers.value.find((m) => m.movie_id === selectedId.value) || null);
+
+// AI 추천작(지도에 표시) — 본 영화 별과 겹치지 않게 동일한 겹침 로직(황금각 나선) 적용.
+// 본 영화 별을 먼저 깔고(markers) 추천을 그 빈자리로 밀어낸다. REC_R=링 반경(14) 기준.
+const REC_R = 14;
+const recMarkers = computed(() => {
+  const placed = markers.value.map((m) => ({ px: m.px, py: m.py, r: m.r }));
+  return (props.recommended || []).map((m) => {
+    const [bx, by] = project(m.x, m.y);
+    let px = bx, py = by;
+    for (let k = 1; placed.some((p) => Math.hypot(p.px - px, p.py - py) < p.r + REC_R + SEP_GAP) && k < 64; k++) {
+      const ang = k * 2.39996, rad = (REC_R + SEP_GAP) + k * 2.2;
+      px = bx + Math.cos(ang) * rad; py = by + Math.sin(ang) * rad;
+    }
+    placed.push({ px, py, r: REC_R });
+    return { ...m, px, py };
+  });
 });
 
 // 성운(별 모드 배경) — 캔버스 비율 고정. TasteMapCanvas 와 동일 4덩이.
@@ -213,7 +237,8 @@ function poster(p) { return p ? IMG + p : ""; }
           :fill="m.color"
           :fill-opacity="m.op"
           class="cmp-star"
-          :class="{ 'cmp-star--bright': m.bright }"
+          :class="{ 'cmp-star--bright': m.bright, 'cmp-star--sel': selectedId === m.movie_id }"
+          @click="onSelect(m)"
           @mouseenter="onHover(m, $event)"
           @mousemove="onHover(m, $event)"
           @mouseleave="hovered = null"
@@ -229,6 +254,43 @@ function poster(p) { return p ? IMG + p : ""; }
           :y="a.py"
           class="cmp-label"
         >{{ a.name }}</text>
+      </g>
+
+      <!-- 선택한 별을 라벨 위에 한 번 더 그려 '앞으로' 보낸다(겹쳐 가려도 클릭 시 보이게) -->
+      <g
+        v-if="selected"
+        filter="url(#cmpGlow)"
+        style="pointer-events: none"
+      >
+        <path
+          :d="starPath(selected.px, selected.py, selected.r)"
+          :fill="selected.color"
+          class="cmp-star cmp-star--sel"
+        />
+      </g>
+
+      <!-- AI 추천작(지도에 표시) — 금빛 별 + 링, 라벨 위. 호버 시 정보 -->
+      <g
+        v-for="m in recMarkers"
+        :key="`rec${m.id}`"
+        class="cmp-rec"
+        filter="url(#cmpGlow)"
+        @mouseenter="onHover({ ...m, owner: 'rec' }, $event)"
+        @mousemove="onHover({ ...m, owner: 'rec' }, $event)"
+        @mouseleave="hovered = null"
+      >
+        <circle
+          :cx="m.px"
+          :cy="m.py"
+          r="14"
+          fill="none"
+          stroke="#a884ff"
+          stroke-width="2"
+        />
+        <path
+          :d="starPath(m.px, m.py, 9)"
+          fill="#cbb6ff"
+        />
       </g>
     </svg>
 
@@ -249,7 +311,10 @@ function poster(p) { return p ? IMG + p : ""; }
           {{ hovered.marker.title }}
         </div>
         <div class="cmp-tip__sub">
-          <template v-if="hovered.marker.owner === 'shared'">
+          <template v-if="hovered.marker.owner === 'rec'">
+            <b style="color: #cbb6ff">AI 추천</b> · 같이 볼 영화
+          </template>
+          <template v-else-if="hovered.marker.owner === 'shared'">
             둘 다 봄 · 나 ★{{ hovered.marker.myRating * 2 }} / {{ friendName }} ★{{ hovered.marker.friendRating * 2 }} / 10
           </template>
           <template v-else-if="hovered.marker.owner === 'mine'">
@@ -308,6 +373,31 @@ function poster(p) { return p ? IMG + p : ""; }
 @keyframes cmp-twinkle {
   0%, 100% { fill-opacity: 1; }
   50% { fill-opacity: 0.62; }
+}
+/* 선택된 별: 커지면서 발광 + 흰 테두리 (취향 지도와 동일 효과, 주인색 유지).
+   .cmp-star.cmp-star--sel = 우선순위를 bright(twinkle)보다 높여 고평점 별도 펄스 적용 */
+.cmp-star.cmp-star--sel {
+  fill-opacity: 1 !important;
+  stroke: #fff7e0;
+  stroke-width: 0.7;
+  paint-order: stroke;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: cmp-sel 1.5s ease-in-out infinite;
+}
+@keyframes cmp-sel {
+  0%, 100% { transform: scale(1.25); }
+  50% { transform: scale(1.5); }
+}
+.cmp-rec {
+  cursor: default;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: cmp-recpulse 1.8s ease-in-out infinite;
+}
+@keyframes cmp-recpulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
 }
 .cmp-legend {
   display: flex;
