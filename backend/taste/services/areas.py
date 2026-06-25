@@ -240,6 +240,27 @@ def unexplored_by_continent(user, n=10, per_continent=UNEXPLORED_PER_CONTINENT):
                              "density": float(density[j]),
                              "coord": (float(uw_coords[j][0]), float(uw_coords[j][1])),
                              "continent": anchor_names[ai]})
+    # If fewer than n items were selected because there are not enough
+    # candidate continents, relax the per-continent cap in round-robin order.
+    # The first pass keeps diversity; this pass fills the rail.
+    extra_rank = per_continent
+    while len(selected) < n:
+        added = False
+        for ai in cand:
+            if len(selected) >= n:
+                break
+            if len(by_cont[ai]) <= extra_rank:
+                continue
+            j = by_cont[ai][extra_rank]
+            gi = unwatched[j]
+            selected.append({"movie_id": ids[gi], "title": _titles[gi],
+                             "density": float(density[j]),
+                             "coord": (float(uw_coords[j][0]), float(uw_coords[j][1])),
+                             "continent": anchor_names[ai]})
+            added = True
+        if not added:
+            break
+        extra_rank += 1
     return selected[:n]
 
 
