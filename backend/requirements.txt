@@ -7,3 +7,7 @@ psycopg[binary]==3.3.4
 python-dotenv==1.2.2
 requests==2.34.2
 Pillow==12.2.0
+
+# 런타임 계산 — 추천(집합 최근접)·탐색 KDE(areas.py)에서 사용. 서버 구동에 필요.
+numpy==2.4.6
+scipy==1.17.1
