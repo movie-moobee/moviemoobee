@@ -1,0 +1,323 @@
+[
+  {
+    "model": "social.friendship",
+    "pk": 950001,
+    "fields": {
+      "requester": 9101,
+      "addressee": 9100,
+      "status": "accepted",
+      "created_at": "2026-06-02T10:00:00Z",
+      "responded_at": "2026-06-02T10:30:00Z"
+    }
+  },
+  {
+    "model": "social.friendship",
+    "pk": 950002,
+    "fields": {
+      "requester": 9102,
+      "addressee": 9100,
+      "status": "accepted",
+      "created_at": "2026-06-03T10:00:00Z",
+      "responded_at": "2026-06-03T10:30:00Z"
+    }
+  },
+  {
+    "model": "social.friendship",
+    "pk": 950003,
+    "fields": {
+      "requester": 9103,
+      "addressee": 9100,
+      "status": "accepted",
+      "created_at": "2026-06-04T10:00:00Z",
+      "responded_at": "2026-06-04T10:30:00Z"
+    }
+  },
+  {
+    "model": "social.friendship",
+    "pk": 950004,
+    "fields": {
+      "requester": 9104,
+      "addressee": 9100,
+      "status": "accepted",
+      "created_at": "2026-06-05T10:00:00Z",
+      "responded_at": "2026-06-05T10:30:00Z"
+    }
+  },
+  {
+    "model": "social.friendship",
+    "pk": 950005,
+    "fields": {
+      "requester": 9105,
+      "addressee": 9100,
+      "status": "accepted",
+      "created_at": "2026-06-06T10:00:00Z",
+      "responded_at": "2026-06-06T10:30:00Z"
+    }
+  },
+  {
+    "model": "social.friendship",
+    "pk": 950006,
+    "fields": {
+      "requester": 9106,
+      "addressee": 9100,
+      "status": "accepted",
+      "created_at": "2026-06-07T10:00:00Z",
+      "responded_at": "2026-06-07T10:30:00Z"
+    }
+  },
+  {
+    "model": "social.friendship",
+    "pk": 950007,
+    "fields": {
+      "requester": 9107,
+      "addressee": 9100,
+      "status": "pending",
+      "created_at": "2026-06-08T10:00:00Z",
+      "responded_at": null
+    }
+  },
+  {
+    "model": "social.friendship",
+    "pk": 950008,
+    "fields": {
+      "requester": 9108,
+      "addressee": 9100,
+      "status": "pending",
+      "created_at": "2026-06-09T10:00:00Z",
+      "responded_at": null
+    }
+  },
+  {
+    "model": "social.friendship",
+    "pk": 950009,
+    "fields": {
+      "requester": 9101,
+      "addressee": 9102,
+      "status": "accepted",
+      "created_at": "2026-06-10T10:00:00Z",
+      "responded_at": "2026-06-10T10:30:00Z"
+    }
+  },
+  {
+    "model": "social.friendship",
+    "pk": 950010,
+    "fields": {
+      "requester": 9101,
+      "addressee": 9104,
+      "status": "accepted",
+      "created_at": "2026-06-11T10:00:00Z",
+      "responded_at": "2026-06-11T10:30:00Z"
+    }
+  },
+  {
+    "model": "social.friendship",
+    "pk": 950011,
+    "fields": {
+      "requester": 9102,
+      "addressee": 9105,
+      "status": "accepted",
+      "created_at": "2026-06-12T10:00:00Z",
+      "responded_at": "2026-06-12T10:30:00Z"
+    }
+  },
+  {
+    "model": "social.friendship",
+    "pk": 950012,
+    "fields": {
+      "requester": 9103,
+      "addressee": 9106,
+      "status": "accepted",
+      "created_at": "2026-06-13T10:00:00Z",
+      "responded_at": "2026-06-13T10:30:00Z"
+    }
+  },
+  {
+    "model": "social.friendship",
+    "pk": 950013,
+    "fields": {
+      "requester": 9104,
+      "addressee": 9106,
+      "status": "accepted",
+      "created_at": "2026-06-14T10:00:00Z",
+      "responded_at": "2026-06-14T10:30:00Z"
+    }
+  },
+  {
+    "model": "social.friendship",
+    "pk": 950014,
+    "fields": {
+      "requester": 9105,
+      "addressee": 9107,
+      "status": "accepted",
+      "created_at": "2026-06-15T10:00:00Z",
+      "responded_at": "2026-06-15T10:30:00Z"
+    }
+  },
+  {
+    "model": "social.friendship",
+    "pk": 950015,
+    "fields": {
+      "requester": 9106,
+      "addressee": 9108,
+      "status": "accepted",
+      "created_at": "2026-06-16T10:00:00Z",
+      "responded_at": "2026-06-16T10:30:00Z"
+    }
+  },
+  {
+    "model": "social.notification",
+    "pk": 960001,
+    "fields": {
+      "recipient": 9101,
+      "actor": 9100,
+      "type": "friend_accept",
+      "friendship": 950001,
+      "is_read": true,
+      "created_at": "2026-06-02T11:00:00Z"
+    }
+  },
+  {
+    "model": "social.notification",
+    "pk": 960002,
+    "fields": {
+      "recipient": 9102,
+      "actor": 9100,
+      "type": "friend_accept",
+      "friendship": 950002,
+      "is_read": true,
+      "created_at": "2026-06-03T11:00:00Z"
+    }
+  },
+  {
+    "model": "social.notification",
+    "pk": 960003,
+    "fields": {
+      "recipient": 9103,
+      "actor": 9100,
+      "type": "friend_accept",
+      "friendship": 950003,
+      "is_read": false,
+      "created_at": "2026-06-04T11:00:00Z"
+    }
+  },
+  {
+    "model": "social.notification",
+    "pk": 960004,
+    "fields": {
+      "recipient": 9104,
+      "actor": 9100,
+      "type": "friend_accept",
+      "friendship": 950004,
+      "is_read": true,
+      "created_at": "2026-06-05T11:00:00Z"
+    }
+  },
+  {
+    "model": "social.notification",
+    "pk": 960005,
+    "fields": {
+      "recipient": 9105,
+      "actor": 9100,
+      "type": "friend_accept",
+      "friendship": 950005,
+      "is_read": true,
+      "created_at": "2026-06-06T11:00:00Z"
+    }
+  },
+  {
+    "model": "social.notification",
+    "pk": 960006,
+    "fields": {
+      "recipient": 9106,
+      "actor": 9100,
+      "type": "friend_accept",
+      "friendship": 950006,
+      "is_read": false,
+      "created_at": "2026-06-07T11:00:00Z"
+    }
+  },
+  {
+    "model": "social.notification",
+    "pk": 960007,
+    "fields": {
+      "recipient": 9101,
+      "actor": 9102,
+      "type": "friend_accept",
+      "friendship": 950009,
+      "is_read": true,
+      "created_at": "2026-06-08T11:00:00Z"
+    }
+  },
+  {
+    "model": "social.notification",
+    "pk": 960008,
+    "fields": {
+      "recipient": 9101,
+      "actor": 9104,
+      "type": "friend_accept",
+      "friendship": 950010,
+      "is_read": true,
+      "created_at": "2026-06-09T11:00:00Z"
+    }
+  },
+  {
+    "model": "social.notification",
+    "pk": 960009,
+    "fields": {
+      "recipient": 9102,
+      "actor": 9105,
+      "type": "friend_accept",
+      "friendship": 950011,
+      "is_read": true,
+      "created_at": "2026-06-10T11:00:00Z"
+    }
+  },
+  {
+    "model": "social.notification",
+    "pk": 960010,
+    "fields": {
+      "recipient": 9103,
+      "actor": 9106,
+      "type": "friend_accept",
+      "friendship": 950012,
+      "is_read": false,
+      "created_at": "2026-06-11T11:00:00Z"
+    }
+  },
+  {
+    "model": "social.notification",
+    "pk": 960011,
+    "fields": {
+      "recipient": 9104,
+      "actor": 9106,
+      "type": "friend_accept",
+      "friendship": 950013,
+      "is_read": true,
+      "created_at": "2026-06-12T11:00:00Z"
+    }
+  },
+  {
+    "model": "social.notification",
+    "pk": 960012,
+    "fields": {
+      "recipient": 9105,
+      "actor": 9107,
+      "type": "friend_accept",
+      "friendship": 950014,
+      "is_read": true,
+      "created_at": "2026-06-13T11:00:00Z"
+    }
+  },
+  {
+    "model": "social.notification",
+    "pk": 960013,
+    "fields": {
+      "recipient": 9106,
+      "actor": 9108,
+      "type": "friend_accept",
+      "friendship": 950015,
+      "is_read": false,
+      "created_at": "2026-06-14T11:00:00Z"
+    }
+  }
+]
