@@ -204,6 +204,79 @@ const starLinks = computed(() => {
   return out;
 });
 // 대륙(앵커) 라벨·영토 위치 — 마커와 같은 변환으로 투영.
+function labelWidth(title) {
+  return String(title || "").split("").reduce((sum, ch) => {
+    const code = ch.charCodeAt(0);
+    return sum + (code > 255 ? 12 : 7);
+  }, 0) + 4;
+}
+function labelPriority(a, b) {
+  const ratingDiff = Number(b.rating || 0) - Number(a.rating || 0);
+  if (ratingDiff) return ratingDiff;
+  const dateA = Date.parse(a.watched_on || a.created_at || "") || 0;
+  const dateB = Date.parse(b.watched_on || b.created_at || "") || 0;
+  if (dateA !== dateB) return dateB - dateA;
+  return String(a.title || "").localeCompare(String(b.title || ""), "ko", { numeric: true });
+}
+function intersects(a, b) {
+  return !(a.x2 < b.x1 || b.x2 < a.x1 || a.y2 < b.y1 || b.y2 < a.y1);
+}
+function circleIntersectsBox(c, box) {
+  const x = Math.max(box.x1, Math.min(c.x, box.x2));
+  const y = Math.max(box.y1, Math.min(c.y, box.y2));
+  return (c.x - x) ** 2 + (c.y - y) ** 2 < c.r ** 2;
+}
+const starLabels = computed(() => {
+  const candidates = [...markers.value]
+    .filter((m) => props.colorBy === "owner" ? m.owner === "shared" : m.bright)
+    .sort(labelPriority);
+  const placed = [];
+  const out = [];
+  const gap = 18;
+  const h = 15;
+  const pad = 2;
+  const starBounds = markers.value.map((m) => ({
+    id: m.movie_id,
+    x: m.px,
+    y: m.py,
+    r: Math.max(m.r + 8, 11),
+  }));
+
+  for (const m of candidates) {
+    const w = labelWidth(m.title);
+    const cx = m.px;
+    const cy = m.py;
+    const positions = [
+      { x: cx + m.r + gap, y: cy + 4, anchor: "start", rank: 0 },
+      { x: cx - m.r - gap, y: cy + 4, anchor: "end", rank: 1 },
+      { x: cx, y: cy - m.r - gap, anchor: "middle", rank: 2 },
+      { x: cx, y: cy + m.r + gap + h, anchor: "middle", rank: 3 },
+      { x: cx + m.r + gap, y: cy - m.r - gap, anchor: "start", rank: 4 },
+      { x: cx - m.r - gap, y: cy - m.r - gap, anchor: "end", rank: 5 },
+      { x: cx + m.r + gap, y: cy + m.r + gap + h, anchor: "start", rank: 6 },
+      { x: cx - m.r - gap, y: cy + m.r + gap + h, anchor: "end", rank: 7 },
+    ];
+    const choices = positions.map((p) => {
+      const box = p.anchor === "start"
+        ? { x1: p.x - pad, x2: p.x + w + pad, y1: p.y - h + pad, y2: p.y + pad }
+        : p.anchor === "end"
+          ? { x1: p.x - w - pad, x2: p.x + pad, y1: p.y - h + pad, y2: p.y + pad }
+          : { x1: p.x - w / 2 - pad, x2: p.x + w / 2 + pad, y1: p.y - h + pad, y2: p.y + pad };
+      if (box.x1 < 0 || box.x2 > W || box.y1 < 0 || box.y2 > H) return false;
+      if (placed.some((b) => intersects(box, b))) return false;
+      const overlaps = starBounds
+        .filter((s) => s.id !== m.movie_id && circleIntersectsBox(s, box))
+        .length;
+      return { ...p, box, score: overlaps * 20 + p.rank };
+    }).filter(Boolean).sort((a, b) => a.score - b.score);
+    const hit = choices[0];
+    if (hit) {
+      placed.push(hit.box);
+      out.push({ ...m, labelX: hit.x, labelY: hit.y, labelAnchor: hit.anchor });
+    }
+  }
+  return out;
+});
 const anchorMarkers = computed(() => {
   const t = transform.value;
   return (props.anchors || []).map((a) => {
@@ -660,11 +733,11 @@ onBeforeUnmount(() => {
         </g>
         <!-- 제목 라벨 — 평점 모드: 고평점 별 / owner(친구 비교) 모드: 공통 시청작만(너무 많지 않게) -->
         <text
-          v-for="m in markers"
-          v-show="colorBy === 'owner' ? m.owner === 'shared' : m.bright"
+          v-for="m in starLabels"
           :key="`lbl${m.movie_id}`"
-          :x="m.px + m.r + 16"
-          :y="m.py + 4"
+          :x="m.labelX"
+          :y="m.labelY"
+          :text-anchor="m.labelAnchor"
           class="starlabel"
         >{{ m.title }}</text>
 
