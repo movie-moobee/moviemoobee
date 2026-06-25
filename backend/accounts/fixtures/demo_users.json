@@ -1,0 +1,281 @@
+[
+  {
+    "model": "accounts.user",
+    "pk": 9100,
+    "fields": {
+      "password": "pbkdf2_sha256$1000000$moviemooBeeDemo2026v2$1T4LrQ/9TJlFA5cteFTFOTKpN6Q50VrgRCfll4f/0Po=",
+      "last_login": null,
+      "is_superuser": false,
+      "username": "ssafy0",
+      "first_name": "",
+      "last_name": "",
+      "email": "ssafy0@ssafy.com",
+      "is_staff": false,
+      "is_active": true,
+      "date_joined": "2026-06-25T00:00:00Z",
+      "groups": [],
+      "user_permissions": [],
+      "nickname": "뭅뭅",
+      "profile_image": "",
+      "onboarded": true
+    }
+  },
+  {
+    "model": "accounts.user",
+    "pk": 9101,
+    "fields": {
+      "password": "pbkdf2_sha256$1000000$moviemooBeeDemo2026v2$1T4LrQ/9TJlFA5cteFTFOTKpN6Q50VrgRCfll4f/0Po=",
+      "last_login": null,
+      "is_superuser": false,
+      "username": "ssafy1",
+      "first_name": "",
+      "last_name": "",
+      "email": "ssafy1@ssafy.com",
+      "is_staff": false,
+      "is_active": true,
+      "date_joined": "2026-06-25T00:00:00Z",
+      "groups": [],
+      "user_permissions": [],
+      "nickname": "영화매니아",
+      "profile_image": "",
+      "onboarded": true
+    }
+  },
+  {
+    "model": "accounts.user",
+    "pk": 9102,
+    "fields": {
+      "password": "pbkdf2_sha256$1000000$moviemooBeeDemo2026v2$1T4LrQ/9TJlFA5cteFTFOTKpN6Q50VrgRCfll4f/0Po=",
+      "last_login": null,
+      "is_superuser": false,
+      "username": "ssafy2",
+      "first_name": "",
+      "last_name": "",
+      "email": "ssafy2@ssafy.com",
+      "is_staff": false,
+      "is_active": true,
+      "date_joined": "2026-06-25T00:00:00Z",
+      "groups": [],
+      "user_permissions": [],
+      "nickname": "액션외길",
+      "profile_image": "",
+      "onboarded": true
+    }
+  },
+  {
+    "model": "accounts.user",
+    "pk": 9103,
+    "fields": {
+      "password": "pbkdf2_sha256$1000000$moviemooBeeDemo2026v2$1T4LrQ/9TJlFA5cteFTFOTKpN6Q50VrgRCfll4f/0Po=",
+      "last_login": null,
+      "is_superuser": false,
+      "username": "ssafy3",
+      "first_name": "",
+      "last_name": "",
+      "email": "ssafy3@ssafy.com",
+      "is_staff": false,
+      "is_active": true,
+      "date_joined": "2026-06-25T00:00:00Z",
+      "groups": [],
+      "user_permissions": [],
+      "nickname": "영화잘몰라요",
+      "profile_image": "",
+      "onboarded": true
+    }
+  },
+  {
+    "model": "accounts.user",
+    "pk": 9104,
+    "fields": {
+      "password": "pbkdf2_sha256$1000000$moviemooBeeDemo2026v2$1T4LrQ/9TJlFA5cteFTFOTKpN6Q50VrgRCfll4f/0Po=",
+      "last_login": null,
+      "is_superuser": false,
+      "username": "ssafy4",
+      "first_name": "",
+      "last_name": "",
+      "email": "ssafy4@ssafy.com",
+      "is_staff": false,
+      "is_active": true,
+      "date_joined": "2026-06-25T00:00:00Z",
+      "groups": [],
+      "user_permissions": [],
+      "nickname": "별점천사",
+      "profile_image": "",
+      "onboarded": true
+    }
+  },
+  {
+    "model": "accounts.user",
+    "pk": 9105,
+    "fields": {
+      "password": "pbkdf2_sha256$1000000$moviemooBeeDemo2026v2$1T4LrQ/9TJlFA5cteFTFOTKpN6Q50VrgRCfll4f/0Po=",
+      "last_login": null,
+      "is_superuser": false,
+      "username": "ssafy5",
+      "first_name": "",
+      "last_name": "",
+      "email": "ssafy5@ssafy.com",
+      "is_staff": false,
+      "is_active": true,
+      "date_joined": "2026-06-25T00:00:00Z",
+      "groups": [],
+      "user_permissions": [],
+      "nickname": "깐깐평론가",
+      "profile_image": "",
+      "onboarded": true
+    }
+  },
+  {
+    "model": "accounts.user",
+    "pk": 9106,
+    "fields": {
+      "password": "pbkdf2_sha256$1000000$moviemooBeeDemo2026v2$1T4LrQ/9TJlFA5cteFTFOTKpN6Q50VrgRCfll4f/0Po=",
+      "last_login": null,
+      "is_superuser": false,
+      "username": "ssafy6",
+      "first_name": "",
+      "last_name": "",
+      "email": "ssafy6@ssafy.com",
+      "is_staff": false,
+      "is_active": true,
+      "date_joined": "2026-06-25T00:00:00Z",
+      "groups": [],
+      "user_permissions": [],
+      "nickname": "보통관객",
+      "profile_image": "",
+      "onboarded": true
+    }
+  },
+  {
+    "model": "accounts.user",
+    "pk": 9107,
+    "fields": {
+      "password": "pbkdf2_sha256$1000000$moviemooBeeDemo2026v2$1T4LrQ/9TJlFA5cteFTFOTKpN6Q50VrgRCfll4f/0Po=",
+      "last_login": null,
+      "is_superuser": false,
+      "username": "ssafy7",
+      "first_name": "",
+      "last_name": "",
+      "email": "ssafy7@ssafy.com",
+      "is_staff": false,
+      "is_active": true,
+      "date_joined": "2026-06-25T00:00:00Z",
+      "groups": [],
+      "user_permissions": [],
+      "nickname": "심야상영",
+      "profile_image": "",
+      "onboarded": true
+    }
+  },
+  {
+    "model": "accounts.user",
+    "pk": 9108,
+    "fields": {
+      "password": "pbkdf2_sha256$1000000$moviemooBeeDemo2026v2$1T4LrQ/9TJlFA5cteFTFOTKpN6Q50VrgRCfll4f/0Po=",
+      "last_login": null,
+      "is_superuser": false,
+      "username": "ssafy8",
+      "first_name": "",
+      "last_name": "",
+      "email": "ssafy8@ssafy.com",
+      "is_staff": false,
+      "is_active": true,
+      "date_joined": "2026-06-25T00:00:00Z",
+      "groups": [],
+      "user_permissions": [],
+      "nickname": "장면수집가",
+      "profile_image": "",
+      "onboarded": true
+    }
+  },
+  {
+    "model": "account.emailaddress",
+    "pk": 9100,
+    "fields": {
+      "user": 9100,
+      "email": "ssafy0@ssafy.com",
+      "verified": true,
+      "primary": true
+    }
+  },
+  {
+    "model": "account.emailaddress",
+    "pk": 9101,
+    "fields": {
+      "user": 9101,
+      "email": "ssafy1@ssafy.com",
+      "verified": true,
+      "primary": true
+    }
+  },
+  {
+    "model": "account.emailaddress",
+    "pk": 9102,
+    "fields": {
+      "user": 9102,
+      "email": "ssafy2@ssafy.com",
+      "verified": true,
+      "primary": true
+    }
+  },
+  {
+    "model": "account.emailaddress",
+    "pk": 9103,
+    "fields": {
+      "user": 9103,
+      "email": "ssafy3@ssafy.com",
+      "verified": true,
+      "primary": true
+    }
+  },
+  {
+    "model": "account.emailaddress",
+    "pk": 9104,
+    "fields": {
+      "user": 9104,
+      "email": "ssafy4@ssafy.com",
+      "verified": true,
+      "primary": true
+    }
+  },
+  {
+    "model": "account.emailaddress",
+    "pk": 9105,
+    "fields": {
+      "user": 9105,
+      "email": "ssafy5@ssafy.com",
+      "verified": true,
+      "primary": true
+    }
+  },
+  {
+    "model": "account.emailaddress",
+    "pk": 9106,
+    "fields": {
+      "user": 9106,
+      "email": "ssafy6@ssafy.com",
+      "verified": true,
+      "primary": true
+    }
+  },
+  {
+    "model": "account.emailaddress",
+    "pk": 9107,
+    "fields": {
+      "user": 9107,
+      "email": "ssafy7@ssafy.com",
+      "verified": true,
+      "primary": true
+    }
+  },
+  {
+    "model": "account.emailaddress",
+    "pk": 9108,
+    "fields": {
+      "user": 9108,
+      "email": "ssafy8@ssafy.com",
+      "verified": true,
+      "primary": true
+    }
+  }
+]
