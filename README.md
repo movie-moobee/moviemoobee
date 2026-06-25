@@ -1,170 +1,282 @@
+<div align="center">
+
+![무비무비 Header](https://capsule-render.vercel.app/api?type=waving&height=260&color=0:E6B566,45:5DCAA5,100:0C0C0F&text=%EB%AC%B4%EB%B9%84%EB%AC%B4%EB%B9%84&fontColor=FFFFFF&fontSize=74&fontAlign=50&fontAlignY=38&desc=MovieMoobee%20%C2%B7%20%EB%B3%84%EC%9E%90%EB%A6%AC%EB%A1%9C%20%EA%B7%B8%EB%A6%AC%EB%8A%94%20%EC%98%81%ED%99%94%20%EC%B7%A8%ED%96%A5%20%EC%A7%80%EB%8F%84%EC%99%80%20%EC%B6%94%EC%B2%9C&descSize=18&descAlign=50&descAlignY=58&animation=fadeIn)
+
+### 좋아하는 영화가 아니라, *좋아하게 될* 영화를 추천하는 취향 지도 커뮤니티
+
+![Vue](https://img.shields.io/badge/Vue%203-42B883?style=for-the-badge&logo=vuedotjs&logoColor=white)
+![Django](https://img.shields.io/badge/Django%205-092E20?style=for-the-badge&logo=django&logoColor=white)
+![DRF](https://img.shields.io/badge/DRF-BA2121?style=for-the-badge&logo=django&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?style=for-the-badge&logo=postgresql&logoColor=white)
+![AI](https://img.shields.io/badge/GMS%20GPT--5%20nano-8D73FF?style=for-the-badge)
+
+</div>
+
 # 무비무비 (MovieMoobee)
 
-무비무비는 사용자가 본 영화와 별점을 바탕으로 취향 지도를 만들고, 다음에 볼 만한 영화를 추천하는 영화 추천 커뮤니티 서비스입니다. 단순히 "좋아했던 영화와 비슷한 작품"만 보여주는 대신, 안전 추천과 미탐색 추천을 함께 제공해 익숙한 취향과 새로운 취향을 모두 탐색할 수 있게 합니다.
+무비무비는 사용자가 본 영화와 별점을 **별자리 같은 "취향 지도"** 위에 펼치고, 그 지도를 바탕으로 영화를 추천·탐색하고 친구와 취향을 비교하는 웹 서비스입니다.
 
-## 1. 팀원 정보 및 업무 분담
+핵심 가치는 단순합니다. **"좋아하는 영화와 비슷한 작품"만 보여주는 필터 버블을 깨는 것.** 익숙한 취향을 강화하는 *가까운 취향* 추천과, 아직 가보지 않은 영역을 권하는 *새로운 취향* 추천을 함께 제공해, 사용자가 *앞으로 좋아하게 될* 영화를 발견하도록 돕습니다.
 
-| 역할 | 담당 영역 | 주요 구현 |
-|---|---|---|
-| 김호준 | 지도·추천·데이터 | TMDB 데이터 수집, 영화 좌표 생성, 취향 지도, 안전/미탐색 추천, AI 추천 챗봇 |
-| 제하얀 | 인증·콘텐츠·소셜 | 회원가입/로그인, 온보딩, 영화 검색·상세, 시청기록·리뷰, 친구·알림 |
-| 공통 | 공통 구조·문서 | ERD, 라우팅, 공통 API 구조, 협업 규칙, 제출 문서 |
+## 목차
 
-## 2. 목표 서비스 및 실제 구현 정도
+- [팀원 정보 및 업무 분담](#팀원-정보-및-업무-분담)
+- [목표 서비스 및 실제 구현 정도](#목표-서비스-및-실제-구현-정도)
+- [핵심 흐름](#핵심-흐름)
+- [주요 기능](#주요-기능)
+- [생성형 AI 활용](#생성형-ai-활용)
+- [추천 알고리즘](#추천-알고리즘)
+- [기술 스택](#기술-스택)
+- [프로젝트 구조](#프로젝트-구조)
+- [주요 화면 라우팅](#주요-화면-라우팅)
+- [ERD](#erd)
+- [API 요약](#api-요약)
+- [서비스 URL](#서비스-url)
+- [실행 방법](#실행-방법)
+- [검증 명령어](#검증-명령어)
+- [Git / 협업 방식](#git--협업-방식)
+- [향후 개선 방향](#향후-개선-방향)
+- [한 줄 요약](#한-줄-요약)
+- [회고 — 배운 점과 어려웠던 점](#회고--배운-점과-어려웠던-점)
+- [느낀 점](#느낀-점)
+- [실행 화면 캡처](#실행-화면-캡처)
 
-목표는 데이터를 기반으로 개인화된 영화 추천과 커뮤니티 기능을 제공하는 Vue SPA + Django REST Framework 서비스입니다.
+## 팀원 정보 및 업무 분담
 
-구현된 주요 범위는 다음과 같습니다.
+| 담당 | 영역 | 주요 구현 |
+| --- | --- | --- |
+| 김호준 | 지도 · 추천 · 데이터 | TMDB 데이터 수집·정제, 전역 영화 좌표 생성, 취향 지도(SVG) 렌더러, 가까운/새로운 취향 추천, KDE 탐색, GMS 추천·같이 볼 영화 챗봇 |
+| 제하얀 | 인증 · 콘텐츠 · 소셜 | 회원가입/로그인/온보딩, 영화 검색·상세·OTT·예고편, 시청기록·별점·리뷰, 친구·알림(SSE) |
+| 공통 | 구조 · 문서 | ERD, 라우팅, 공통 API/인증 구조, 협업 규칙, 제출 문서 |
 
-- 회원가입, 로그인, 로그아웃, 프로필 수정, 계정 삭제
-- 온보딩 시 영화 5편 이상 등록
-- 영화 검색, 영화 상세, OTT 제공 정보, 예고편 정보
-- 시청 기록 등록/수정/삭제, 별점, 감상평
-- 리뷰 반응, 댓글
-- 친구 검색, 친구 요청/수락/거절/삭제
-- 친구 취향 비교 지도, 같이 볼 영화 추천 챗봇
-- 알림 목록, 안 읽은 알림, SSE 기반 알림 갱신
-- 취향 지도, 지도 탐색, 안전 추천, 미탐색 추천, 오늘의 추천
-- GMS 기반 영화 추천 AI 챗봇
+## 목표 서비스 및 실제 구현 정도
 
-배포는 최종 범위에서 제외했고, 로컬 시연을 기준으로 구성했습니다.
+| 목표 기능 | 구현 정도 | 구현 내용 |
+| --- | --- | --- |
+| 회원가입 / 로그인 / 인증 | 완료 | DRF 토큰 인증(dj-rest-auth + allauth), 이메일 로그인, 프로필 수정, 계정 삭제 |
+| 온보딩 | 완료 | 인기작/검색으로 영화 5편 이상 등록해야 진입 |
+| 취향 지도 | 완료 | 본 영화를 별(평점=크기·밝기·색)로 표시, 장르 대륙, 확대/팬·미니맵, 검색 반짝 |
+| 영화 추천 | 완료 | 가까운 취향 · 새로운 취향 · 오늘의 추천 · 지도 탐색(공전 애니메이션) |
+| 영화 검색 / 상세 | 완료 | 검색·등록, 상세, OTT 제공처, 예고편, 리뷰/댓글 |
+| 시청 기록 / 리뷰 | 완료 | 별점(0.5단위)·감상평 등록/수정/삭제, 리뷰 반응·댓글 |
+| 커뮤니티(소셜) | 완료 | 친구 요청/수락/거절/삭제, 친구 취향 비교 지도, 같이 볼 영화 챗봇, 알림 |
+| 알림 | 완료 | 알림 목록·안읽음 배지·SSE 실시간 갱신 |
+| 생성형 AI | 완료 | GMS `gpt-5-nano` 기반 추천/같이 볼 영화 챗봇(후보 grounding), 일일 사용량 제한 |
+| Carbon UI | 완료 | Tailwind 기반 다크 테마 디자인 시스템 |
+| 배포 | 진행 중 | 명세상 로컬 데모 범위였으며, 별도 배포는 준비 단계 |
 
-## 3. 기술 스택 및 라이브러리
+## 핵심 흐름
 
-| 영역 | 사용 기술 |
-|---|---|
-| Frontend | Vue 3, Vue Router, Vite, Axios, CSS |
-| Backend | Python 3.11, Django 5.2, Django REST Framework |
-| DB | PostgreSQL, Docker Compose |
-| Auth | dj-rest-auth, django-allauth, DRF Token Authentication |
-| Data/API | TMDB API, requests, python-dotenv |
-| Recommendation/ML | numpy, scipy, scikit-learn, pandas |
-| AI | SSAFY GMS API, SSE streaming |
-
-명세서의 Bootstrap 5.3 항목은 검토했으나, 최종 UI는 Bootstrap 컴포넌트 대신 Vue 컴포넌트와 자체 CSS 토큰으로 구현했습니다.
-
-## 4. 데이터베이스 모델링 (ERD)
-
-ERD 산출물은 `docs/02_erd.png`, `docs/02_erd.svg`, `docs/02_erd.dbml`에 정리했습니다.
-
-핵심 모델은 다음과 같습니다.
-
-- `accounts.User`: 사용자, 닉네임, 프로필 이미지, 온보딩 완료 여부
-- `movies.Movie`: 영화 기본 정보, TMDB ID, 장르/키워드, 출연진, 예고편, 취향 지도 좌표
-- `movies.Genre`, `movies.Keyword`: 영화 분류 정보
-- `movies.WatchRecord`: 사용자별 시청 영화, 별점, 감상평
-- `movies.ReviewReaction`, `movies.ReviewComment`: 리뷰 반응과 댓글
-- `social.Friendship`: 친구 요청/수락 상태
-- `social.Notification`: 친구 요청/수락 알림
-
-## 5. 데이터 구축
-
-영화 데이터는 TMDB API를 기반으로 수집하고, 서비스에서 바로 로드할 수 있도록 Django fixture로 포함했습니다.
-
-- fixture 경로: `backend/movies/fixtures/movies.json`
-- 영화 수: 3,744편
-- 장르 수: 19개
-- 키워드 수: 14,472개
-- 포함 정보: 제목, 원제, 줄거리, 개봉일/연도, 러닝타임, 평점, 투표 수, 언어, 포스터, 감독, 출연진, 장르, 키워드, 예고편 키, 취향 지도 좌표
-
-빠른 시작 시 다음 명령으로 동일한 영화 데이터를 로드할 수 있습니다.
-
-```bash
-cd backend
-python manage.py loaddata movies
+```text
+회원가입/로그인
+  → 온보딩(영화 5편 이상 등록)
+  → 취향 지도 생성 (본 영화 = 별, 장르 = 대륙)
+  → 가까운 취향 / 새로운 취향 추천 · 지도 탐색
+  → 영화 검색 / 상세 / 예고편 / 리뷰
+  → 친구 추가 → 취향 비교 지도 → 같이 볼 영화 AI
+  → 마이페이지에서 시청 기록·프로필 관리
 ```
 
-## 6. 추천 알고리즘 설명
+## 주요 기능
 
-무비무비의 추천은 전역 영화 좌표와 사용자 시청 기록을 기반으로 동작합니다.
+### 1. 취향 지도
 
-- 전역 영화 좌표: 영화의 장르, 키워드 등 특징을 기반으로 2D 취향 지도 좌표를 생성하고 fixture에 저장합니다.
-- 안전 추천: 사용자가 높게 평가한 영화 집합과 가까운 미시청 영화를 추천합니다.
-- 미탐색 추천: 사용자의 시청 분포가 낮은 영역에서 대륙별 다양성을 고려해 새로운 영화를 추천합니다.
-- 지도 탐색 추천: 취향 지도 위에서 안전 추천과 미탐색 추천을 함께 보여줍니다.
-- 친구 추천: 두 사용자의 시청 영화 집합 모두와 가까운 영화를 같이 볼 영화 후보로 제공합니다.
-- AI 챗봇 추천: 서버가 만든 후보 목록 안에서만 GMS가 자연어 추천 이유를 생성하도록 제한해 환각을 줄입니다.
+- 본 영화가 좌표 위 **빛나는 별**로 표시됩니다. 별점이 높을수록 크고 밝게 빛납니다.
+- 영화 좌표는 **모든 사용자에게 동일·고정**(전역 좌표)이며, 장르가 "대륙"처럼 배치됩니다.
+- 마우스 휠 확대/드래그 팬, 우하단 미니맵, 제목 검색 시 해당 별 반짝, 빈 곳 클릭으로 선택 해제.
 
-세부 결정과 실험 기록은 `docs/08_journal/`에 작업 단위로 정리했습니다.
+### 2. 영화 추천
 
-## 7. 핵심 기능
+- **가까운 취향**: 내가 좋아한 영화 *각각*과 가까운 미시청 영화(취향 강화).
+- **새로운 취향**: 내 시청 밀도가 낮은 영역의 영화(필터 버블 밖).
+- **오늘의 추천 · 지도 탐색**: 지도 위에서 두 추천을 함께 확인. 가까운 취향 핀은 가까운 별 주위를 공전하다 호버하면 제자리로 모입니다.
 
-### 인증 및 온보딩
+### 3. 영화 검색 / 상세
 
-사용자는 회원가입 후 영화 5편 이상을 등록해야 서비스 내부로 진입할 수 있습니다. 온보딩 완료 여부는 사용자 모델에 저장됩니다.
+- 제목 검색·등록, 전체 탐색, 영화 상세(개요·포스터·평점·연도).
+- TMDB watch providers 기반 **OTT 제공처**(서버 캐싱), **예고편** 재생.
 
-### 영화 검색 및 상세
+### 4. 시청 기록 / 리뷰
 
-영화 검색, 상세 정보, OTT 제공 정보, 예고편, 리뷰와 댓글을 제공합니다. OTT 정보는 TMDB watch providers를 서버에서 조회하고 캐싱합니다.
+- 본 영화에 **별점(0.5 단위)** 필수 + 감상평(선택). 별점은 추천·지도에 반영됩니다.
+- 리뷰 반응·댓글.
 
-### 시청 기록과 리뷰
+### 5. 커뮤니티
 
-사용자는 본 영화에 별점과 감상평을 남길 수 있습니다. 별점은 추천과 취향 지도에 활용됩니다.
+- 친구 검색·요청·수락/거절·삭제(상호 수락 기반).
+- **친구 취향 비교 지도**: 두 사람의 별을 한 지도에 겹쳐 보고, 내/친구/공통 시청작을 강조 토글.
+- **같이 볼 영화 AI**: 두 취향이 만나는 후보를 AI가 추천(지도에 표시 가능).
+- 알림 목록·안읽음 배지·SSE 실시간 갱신.
 
-### 취향 지도
+### 6. 마이페이지 / 프로필
 
-사용자가 본 영화는 지도 위의 별 또는 포스터로 표시됩니다. 영화 좌표는 모든 사용자에게 동일하고, 사용자의 시청 기록에 따라 지도 경험이 달라집니다.
+- 닉네임·프로필 이미지·온보딩 상태, 내 시청 기록 관리.
 
-### 추천
+### 7. UI/UX
 
-안전 추천, 미탐색 추천, 오늘의 추천, 지도 탐색 추천을 제공합니다. 추천 후보는 사용자가 아직 보지 않은 영화 중에서 구성됩니다.
+- Vue 3 SPA, **Tailwind 기반 Carbon 다크 테마** 디자인 시스템.
+- 취향 지도는 컴포넌트 라이브러리 없이 **SVG로 직접** 렌더링.
 
-### 커뮤니티
+## 생성형 AI 활용
 
-친구 요청, 친구 목록, 친구 취향 비교, 같이 볼 영화 추천, 알림, 리뷰 반응과 댓글을 제공합니다.
+같이 볼 영화 / 추천 챗봇에 **SSAFY GMS의 `gpt-5-nano`**(OpenAI 호환)를 사용합니다. LLM이 카탈로그 밖 영화를 지어내는 **환각을 막기 위해**, 서버가 좌표 기반으로 추천 후보를 추려 프롬프트에 넣고 *"이 목록 안에서만 골라라"* 로 grounding 합니다.
 
-### 생성형 AI 활용
+### AI 적용 흐름
 
-GMS API를 사용해 영화 추천 챗봇과 같이 볼 영화 챗봇을 구현했습니다. AI는 후보 목록 밖의 영화를 추천하지 않도록 서버 프롬프트에서 제한합니다.
+```text
+사용자 질문(자연어)
+  → 서버가 취향 집합 기반으로 추천 후보 Top N 선정 (같이 볼 영화 = 두 사람 취향에 모두 가까운 영화)
+  → 후보 목록 + 취향 장르를 시스템 프롬프트로 구성
+  → GMS gpt-5-nano 호출, 응답을 SSE로 스트리밍
+  → 프론트가 토큰 단위로 출력, 추천작은 '지도에 표시' 칩으로 연결
+  → 계정당 하루 사용량 제한(토큰 낭비 방지)
+```
 
-## 8. REST API 구조
+### 후보 grounding 프롬프트 (같이 볼 영화)
 
-주요 API는 다음과 같이 구성했습니다.
+핵심은 *"후보 목록 안에서만 추천"*, *"한 번에 한 편 + 이유"*, *"두 취향이 만나는 지점 짚기"* 입니다.
 
-- `/api/auth/`, `/api/auth/registration/`: 인증
-- `/api/accounts/`: 계정, 온보딩, 프로필
-- `/api/movies/`: 영화 목록, 상세, 장르, 리뷰, OTT/예고편
-- `/api/watch-records/`: 시청 기록
-- `/api/social/`: 친구, 알림, 같이 볼 영화
-- `/api/taste/`: 취향 지도, 추천, 지도 탐색, 챗봇
+<details>
+<summary>실제 시스템 프롬프트 구성 보기</summary>
 
-HTTP Method와 상태 코드는 DRF의 generic view/APIView를 기반으로 기능별 의미에 맞게 사용했습니다.
+```python
+sys = (
+    f"너는 두 친구가 '같이 볼 영화'를 고르도록 돕는 무비무비 AI야. 한국어 반말로 친근하게 답해.\n"
+    f"- 내 취향 장르: {my_main}\n- 친구({friend.nickname})의 취향 장르: {fr_main}\n"
+    f"{DOMAIN_GUARD}\n"
+    f"아래 '후보' 목록 안에서만 골라 추천해(목록에 없는 영화는 절대 언급하지 마).\n"
+    f"한 번에 한 편만 골라 제목과 2~3문장 이유를 써. 두 사람 취향이 만나는 지점을 짚어줘.\n"
+    f"'더 가볍게' 같은 후속 요청엔 후보 안에서 다시 골라줘.\n\n[후보]\n{_fmt(cands)}"
+)
+```
 
-## 9. 로컬 실행 방법
+`cands`(후보)는 두 사용자가 모두 안 본 영화 중 **두 취향 집합 모두에 가까운**(겹침 영역) 순으로 서버가 좌표 거리로 계산합니다 — 무게중심(점 1개)이 아니라 *집합 최근접* 기반입니다.
 
-### 9.1 환경변수
+</details>
+
+## 추천 알고리즘
+
+무비무비의 추천·지도·친구 비교는 **사용자의 "시청 영화 집합"과 그 밀도**를 기준으로 동작합니다. (사용자를 한 점으로 요약하는 "센트로이드"는 의도적으로 폐기 — [회고](#회고--배운-점과-어려웠던-점) 참고)
+
+- **전역 영화 좌표**: 장르·키워드 특징으로 2D 취향 좌표를 *오프라인에서* 생성해 저장합니다. 모든 사용자에게 동일·고정이며 재학습하지 않습니다.
+- **가까운 취향**: 내가 좋아한 영화 *각각*의 고차원 최근접 미시청작을 **라운드로빈**으로 모아, 한 장르로 쏠리지 않게 합니다.
+- **새로운 취향**: KDE로 추정한 저밀도(덜 본) 영역에서 장르 대륙별로 분산해 추천합니다.
+- **친구 / 같이 볼 영화**: 두 사람이 모두 안 본 영화 중 *두 취향 집합 모두에 가까운* 영화를 후보로 제공합니다.
+
+세부 결정·실험 기록은 `docs/08_journal/`(A-01 ~ A-15)에 있습니다.
+
+## 기술 스택
+
+| 영역 | 기술 |
+| --- | --- |
+| Frontend | Vue 3 (Composition API), Vite, Vue Router, Axios, Tailwind CSS |
+| Backend | Python 3.11, Django 5, Django REST Framework |
+| Database | PostgreSQL (Docker Compose) |
+| Auth | dj-rest-auth, django-allauth, DRF Token Authentication |
+| Data / API | TMDB API, requests, python-dotenv |
+| Recommendation | numpy, scipy(KDE) / scikit-learn(좌표 생성, 오프라인) |
+| AI | SSAFY GMS `gpt-5-nano` (OpenAI 호환), SSE 스트리밍 |
+
+> 상태 관리는 별도 스토어 없이 Vue 컴포저블(`use*`)로 구성했고, 인증은 JWT가 아닌 **DRF 토큰** 방식입니다.
+
+## 프로젝트 구조
+
+```text
+13-pjt/
+├─ backend/
+│  ├─ config/          # Django 설정, 루트 URL, WSGI
+│  ├─ accounts/        # 커스텀 User, 인증, 프로필, 온보딩
+│  ├─ movies/          # 영화·장르·키워드, 시청기록, 리뷰 반응·댓글, OTT/예고편
+│  ├─ social/          # 친구, 알림, 취향 비교, 같이 볼 영화 챗봇, 사용량
+│  ├─ taste/           # 취향 지도·추천·탐색·챗봇
+│  │  ├─ services/     # taste_map·recommend·areas(KDE)·chat·gms
+│  │  └─ management/commands/   # import_movies·build_coords 등 오프라인 파이프라인
+│  ├─ requirements.txt / requirements-ml.txt
+│  └─ README.md        # 백엔드 상세
+├─ frontend/
+│  ├─ src/
+│  │  ├─ api/          # Axios 클라이언트 + SSE(chat)
+│  │  ├─ components/   # TasteMapCanvas(SVG)·ChatPanel(SSE) 등
+│  │  ├─ composables/  # useCurrentUser·useMovieSearch·useTasteMap
+│  │  ├─ router/ · layouts/ · views/ · assets/styles/
+│  └─ README.md        # 프론트엔드 상세
+├─ docs/               # 명세·ERD·와이어프레임·개발일지·기술노트
+├─ docker-compose.yml  # 로컬 PostgreSQL
+├─ .env.example
+└─ README.md
+```
+
+하위 상세 문서: [`backend/README.md`](backend/README.md) · [`frontend/README.md`](frontend/README.md)
+
+## 주요 화면 라우팅
+
+| 경로 | 화면 |
+| --- | --- |
+| `/login`, `/signup` | 로그인 / 회원가입 |
+| `/onboarding` | 온보딩(영화 5편 등록) |
+| `/` | 홈(취향 지도 프리뷰 · 최근 영화) |
+| `/map` | 취향 지도 · 시청 목록 · 검색·등록 · 지도 탐색 |
+| `/movies`, `/movies/:id` | 영화 검색 / 상세 |
+| `/recommend` | 추천(가까운 취향 · 새로운 취향 · 오늘의 추천) |
+| `/records` | 내 시청 기록 |
+| `/friends`, `/friends/:id` | 친구 목록 / 친구 취향 비교 |
+| `/me`, `/me/edit` | 마이페이지 / 프로필 수정 |
+
+## ERD
+
+ERD 산출물은 `docs/02_erd.png`, `docs/02_erd.svg`, `docs/02_erd.dbml`에 있습니다.
+
+핵심 모델: `accounts.User`(닉네임·프로필·온보딩) · `movies.Movie`(TMDB·장르/키워드·좌표) · `movies.WatchRecord`(별점·감상평) · `movies.ReviewReaction`/`ReviewComment` · `social.Friendship` · `social.Notification` · `social.CowatchUsage`(챗봇 일일 사용량).
+
+## API 요약
+
+기본 prefix는 `/api/` 입니다. 인증은 `Authorization: Token <key>`.
+
+| 영역 | 대표 엔드포인트 |
+| --- | --- |
+| 인증 | `/api/auth/`(로그인·로그아웃·유저·비번), `/api/auth/registration/`(회원가입) |
+| 계정 | `/api/accounts/` (온보딩·프로필) |
+| 영화 | `/api/movies/`(목록·검색), `/api/movies/:id/`(상세·OTT·예고편) |
+| 시청기록 | `/api/watch-records/` (CRUD) |
+| 소셜 | `/api/social/friends/…`, `/api/social/friends/:id/compare/`, `/api/social/friends/:id/cowatch/`(SSE), `/api/social/cowatch/usage/`, `/api/social/notifications/…`(목록·unread·SSE stream) |
+| 취향 | `/api/taste/me/map`, `/api/taste/recommendations`, `/api/taste/explore` |
+
+## 서비스 URL
+
+현재 로컬 실행 기준입니다. (배포는 준비 단계 — 완료 시 갱신 예정)
+
+- Frontend: `http://localhost:5173/`
+- Backend: `http://localhost:8000/`
+
+## 실행 방법
+
+### 1. 환경 변수
 
 ```bash
 cp .env.example .env
 ```
 
-`.env`에 다음 값을 채웁니다.
+`.env`에 DB·`DJANGO_SECRET_KEY`·`TMDB_API_KEY`·`GMS_KEY`를 채웁니다. `.env`는 커밋하지 않습니다(`.gitignore`).
 
-- `TMDB_API_KEY`
-- `GMS_KEY`
-- 필요 시 `DJANGO_SECRET_KEY`
-
-`.env`는 `.gitignore`에 포함되어 있으며 커밋하지 않습니다.
-
-### 9.2 DB 실행
+### 2. DB (PostgreSQL)
 
 ```bash
 docker compose up -d
 ```
 
-### 9.3 백엔드 실행
+### 3. 백엔드
 
 ```bash
 cd backend
 python -m venv .venv
-.venv\Scripts\Activate.ps1
+.venv\Scripts\Activate.ps1          # bash: source .venv/Scripts/activate
 pip install -r requirements.txt
 python manage.py migrate
-python manage.py loaddata movies
-python manage.py runserver
+python manage.py loaddata movies     # 영화 데이터(좌표 포함) 적재
+python manage.py runserver           # http://localhost:8000
 ```
 
-추천 데이터 파이프라인을 직접 재생성하려면 ML 의존성을 추가로 설치합니다.
+좌표를 직접 재생성하려면(선택):
 
 ```bash
 pip install -r requirements-ml.txt
@@ -172,51 +284,43 @@ python manage.py import_movies --count 2000
 python manage.py build_coords
 ```
 
-### 9.4 프론트엔드 실행
+### 4. 프론트엔드
 
 ```bash
 cd frontend
 npm install
-npm run dev
+npm run dev                          # http://localhost:5173
 ```
 
-기본 접속 주소는 `http://localhost:5173`입니다.
+## 검증 명령어
 
-## 10. 문서 산출물
+```bash
+# 백엔드
+cd backend && python manage.py check
 
-| 문서 | 위치 |
-|---|---|
-| 기능 명세서 | `docs/01_functional_spec.docx` |
-| ERD | `docs/02_erd.png`, `docs/02_erd.svg`, `docs/02_erd.dbml` |
-| 와이어프레임 | `docs/03_wireframe.html` |
-| 일정/WBS | `docs/04_schedule.xlsx`, `docs/04_gantt.png` |
-| 협업 규칙 | `docs/05_collaboration_rules.docx`, `docs/notion/collaboration_rules.md` |
-| GitHub Flow 다이어그램 | `docs/06_github_flow.png` |
-| Docker/PostgreSQL 가이드 | `docs/07_docker_postgres_guide.md` |
-| 개발 일지 | `docs/08_journal/` |
-| 기술 노트 | `docs/09_tech_notes.docx` |
-| 프로젝트 구조 | `docs/10_project_structure.md` |
-| 로컬 세팅 | `docs/11_local_setup.md` |
+# 프론트엔드
+cd frontend && npx eslint src && npm run build
+```
 
-## 11. 협업 방식
+## Git / 협업 방식
 
-협업 규칙은 GitHub Flow 기반으로 정리했습니다.
+GitHub Flow(GitLab) 기반입니다.
 
-- `master` 직접 push 금지
-- 기능별 브랜치 생성
-- Conventional Commits 사용
-- MR 작성 및 상대 1명 승인 후 머지
-- `.gitlab/merge_request_templates/Default.md` 템플릿 사용
-- `.env`, API Key 등 시크릿 커밋 금지
+- `master` 직접 push 금지 → 기능별 브랜치 → MR → 동료 1명 승인 → Squash & Merge
+- Conventional Commits (`type(featureID) subject`)
+- `.gitlab/merge_request_templates/Default.md` MR 템플릿 사용
+- `.env`·API Key 등 시크릿 커밋 금지
 
-상세 내용은 `docs/notion/collaboration_rules.md`와 `docs/05_collaboration_rules.docx`를 참고합니다.
+상세: `docs/05_collaboration_rules.docx`, `docs/notion/collaboration_rules.md`.
 
-## 12. 서비스 URL
+## 향후 개선 방향
 
-현재 프로젝트는 로컬 시연 범위로 진행했습니다.
+- 좌표·추천 선계산 결과를 활용한 **클라우드 배포**(Vercel + Render + Supabase)
+- 챗봇 사용량/캐싱 고도화, 추천에 커뮤니티 반응 반영
+- 시청 기록 시계열 기반 추천 가중치
+- 업로드 이미지 외부 스토리지 전환
 
-- Frontend: `http://localhost:5173`
-- Backend: `http://localhost:8000`
+## 한 줄 요약
 
 별도 배포 URL은 없습니다.
 
