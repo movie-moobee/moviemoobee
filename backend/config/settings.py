@@ -124,6 +124,8 @@ ACCOUNT_LOGIN_METHODS = {"email"}
 ACCOUNT_SIGNUP_FIELDS = ["email*", "password1*", "password2*"]
 ACCOUNT_EMAIL_VERIFICATION = "none"  # 로컬 시연: 메일 인증 생략
 ACCOUNT_UNIQUE_EMAIL = True
+# 가입 시 nickname 을 User INSERT 시점에 채워 unique('') 충돌 방지
+ACCOUNT_ADAPTER = "accounts.serializers.AccountAdapter"
 REST_AUTH = {
     "USE_JWT": False,  # DRF 토큰 방식 (09_tech_notes)
     "SESSION_LOGIN": False,
@@ -150,3 +152,14 @@ TMDB_API_KEY = os.environ.get("TMDB_API_KEY", "")
 GMS_KEY = os.environ.get("GMS_KEY", "")
 GMS_BASE_URL = os.environ.get("GMS_BASE_URL", "https://gms.ssafy.io/gmsapi/api.openai.com/v1")
 GMS_MODEL = os.environ.get("GMS_MODEL", "gpt-5-nano")
+
+# DEBUG=0 에서도 서버 500 트레이스백이 콘솔(=배포 로그)에 보이도록.
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "handlers": {"console": {"class": "logging.StreamHandler"}},
+    "root": {"handlers": ["console"], "level": "WARNING"},
+    "loggers": {
+        "django.request": {"handlers": ["console"], "level": "ERROR", "propagate": False},
+    },
+}

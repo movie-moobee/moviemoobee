@@ -1,3 +1,4 @@
+from allauth.account.adapter import DefaultAccountAdapter
 from django.contrib.auth import get_user_model
 from django.db.models import Q
 from dj_rest_auth.registration.serializers import RegisterSerializer
@@ -6,6 +7,22 @@ from rest_framework import serializers
 from social.models import Friendship
 
 User = get_user_model()
+
+
+class AccountAdapter(DefaultAccountAdapter):
+    """회원가입 시 nickname을 User INSERT 시점에 바로 채운다.
+
+    기본 흐름은 allauth가 nickname='' 로 먼저 INSERT한 뒤 custom_signup이 UPDATE하는데,
+    nickname 이 unique 라 '' 를 가진 사용자(예: nickname 없이 만든 superuser)가 있으면
+    임시 '' INSERT 가 중복 제약에 걸려 500. INSERT 단계에서 실제 값을 넣어 '' 자체를 없앤다.
+    """
+
+    def save_user(self, request, user, form, commit=True):
+        user = super().save_user(request, user, form, commit=False)
+        user.nickname = form.cleaned_data.get("nickname", "")
+        if commit:
+            user.save()
+        return user
 
 
 def build_image_url(image, context):
