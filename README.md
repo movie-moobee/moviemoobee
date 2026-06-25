@@ -223,7 +223,7 @@ sys = (
 
 ## ERD
 
-![alt text](image.png)
+<img src="docs/02_erd.png" width="600">
 
 핵심 모델: `accounts.User`(닉네임·프로필·온보딩) · `movies.Movie`(TMDB·장르/키워드·좌표) · `movies.WatchRecord`(별점·감상평) · `movies.ReviewReaction`/`ReviewComment` · `social.Friendship` · `social.Notification` · `social.CowatchUsage`(챗봇 일일 사용량).
 
@@ -241,9 +241,6 @@ sys = (
 | 취향 | `/api/taste/me/map`, `/api/taste/recommendations`, `/api/taste/explore` |
 
 ## 서비스 URL
-
-현재 로컬 실행 기준입니다. (배포는 준비 단계 — 완료 시 갱신 예정)
-
 - `https://moviemoobee.vercel.app/`
 
 ## 실행 방법
@@ -271,6 +268,7 @@ python -m venv .venv
 pip install -r requirements.txt
 python manage.py migrate
 python manage.py loaddata movies     # 영화 데이터(좌표 포함) 적재
+python manage.py loaddata demo_users demo_community demo_social   # 유저데이터 적재
 python manage.py runserver           # http://localhost:8000
 ```
 
@@ -318,9 +316,12 @@ GitHub Flow(GitLab) 기반입니다.
 - 시청 기록 시계열 기반 추천 가중치
 - 업로드 이미지 외부 스토리지 전환
 
-## 한 줄 요약
+## 배포
+- FE : vercel
+- BE : render
+- DB(PostgreSQL) : supabase
 
-별도 배포 URL은 없습니다.
+배포 URL : https://moviemoobee.vercel.app
 
 > 하위 문서: 백엔드 상세는 [`backend/README.md`](backend/README.md), 프론트엔드 상세는 [`frontend/README.md`](frontend/README.md)를 참고하세요.
 
