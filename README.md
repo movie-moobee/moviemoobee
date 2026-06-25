@@ -223,7 +223,7 @@ sys = (
 
 ## ERD
 
-ERD 산출물은 `docs/02_erd.png`, `docs/02_erd.svg`, `docs/02_erd.dbml`에 있습니다.
+![alt text](image.png)
 
 핵심 모델: `accounts.User`(닉네임·프로필·온보딩) · `movies.Movie`(TMDB·장르/키워드·좌표) · `movies.WatchRecord`(별점·감상평) · `movies.ReviewReaction`/`ReviewComment` · `social.Friendship` · `social.Notification` · `social.CowatchUsage`(챗봇 일일 사용량).
 
