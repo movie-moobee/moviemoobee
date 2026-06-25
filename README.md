@@ -1,90 +1,221 @@
 # 무비무비 (MovieMoobee)
 
-"좋아하는 영화"가 아니라 **"좋아하게 될 영화"** 를 추천하는 웹앱. 취향 지도에서 안 가본 영역(미탐색)을 찾아 필터 버블을 벗어나게 한다.
+무비무비는 사용자가 본 영화와 별점을 바탕으로 취향 지도를 만들고, 다음에 볼 만한 영화를 추천하는 영화 추천 커뮤니티 서비스입니다. 단순히 "좋아했던 영화와 비슷한 작품"만 보여주는 대신, 안전 추천과 미탐색 추천을 함께 제공해 익숙한 취향과 새로운 취향을 모두 탐색할 수 있게 합니다.
 
-- **스택:** Vue 3 (Composition API) · Django REST Framework · PostgreSQL
-- **범위:** 로컬 시연
-- 작업 규칙은 `CLAUDE.md`, 협업 규칙은 별도 문서, 화면/기능은 기능명세서(F-ID) 기준.
+## 1. 팀원 정보 및 업무 분담
 
-## 폴더 구조
-```
-13-pjt/
-├─ CLAUDE.md                      # 바이브 코딩 가이드(도메인 불변식 포함)
-├─ docker-compose.yml             # 로컬 PostgreSQL
-├─ .env.example                   # 환경변수 예시 (.env 는 커밋 금지)
-├─ .gitignore
-├─ .gitlab-ci.yml                 # lint/test/build 파이프라인
-├─ .gitlab/merge_request_templates/Default.md
-├─ backend/                       # Django REST Framework
-│  ├─ manage.py
-│  ├─ requirements.txt            # 웹앱 의존성
-│  ├─ requirements-ml.txt         # 데이터·추천(개발자 A): numpy/sklearn/umap...
-│  ├─ config/                     # settings·urls·wsgi·asgi
-│  ├─ accounts/                   # User·인증·프로필         (개발자 B)
-│  ├─ movies/                     # Movie·Genre·Keyword·WatchRecord (개발자 B)
-│  ├─ social/                     # Friendship              (개발자 B)
-│  └─ taste/                      # 좌표·영역·추천·지도 데이터 (개발자 A)
-│     ├─ services/  coords.py · areas.py · recommend.py
-│     └─ management/commands/  import_movies.py · build_coords.py · seed_demo.py
-└─ frontend/                      # Vue 3 + Vite (Composition API)
-   ├─ package.json · vite.config.js · .eslintrc.cjs · index.html
-   └─ src/
-      ├─ main.js · App.vue
-      ├─ router/index.js          # 화면 01~13 라우팅
-      ├─ api/client.js            # axios (/api 프록시)
-      ├─ views/                   # 페이지(화면별)
-      ├─ components/
-      └─ composables/  useTasteMap.js   (개발자 A)
-```
+| 역할 | 담당 영역 | 주요 구현 |
+|---|---|---|
+| 김호준 | 지도·추천·데이터 | TMDB 데이터 수집, 영화 좌표 생성, 취향 지도, 안전/미탐색 추천, AI 추천 챗봇 |
+| 제하얀 | 인증·콘텐츠·소셜 | 회원가입/로그인, 온보딩, 영화 검색·상세, 시청기록·리뷰, 친구·알림 |
+| 공통 | 공통 구조·문서 | ERD, 라우팅, 공통 API 구조, 협업 규칙, 제출 문서 |
 
-## 담당 (수직 분담)
-- **개발자 A — 지도·추천·데이터:** `backend/taste/`, 데이터 파이프라인(`management/commands`), `frontend/src/views/MapView·RecommendView`, `composables/useTasteMap`
-- **개발자 B — 인증·콘텐츠·소셜:** `backend/accounts·movies·social/`, 그 외 프론트 화면
-- **공통:** `config/`, 공통 셸·라우팅, 모델 변경 → MR + 상대 승인
+## 2. 목표 서비스 및 실제 구현 정도
 
-## 처음 시작 (pull 받은 페어 포함)
+목표는 데이터를 기반으로 개인화된 영화 추천과 커뮤니티 기능을 제공하는 Vue SPA + Django REST Framework 서비스입니다.
+
+구현된 주요 범위는 다음과 같습니다.
+
+- 회원가입, 로그인, 로그아웃, 프로필 수정, 계정 삭제
+- 온보딩 시 영화 5편 이상 등록
+- 영화 검색, 영화 상세, OTT 제공 정보, 예고편 정보
+- 시청 기록 등록/수정/삭제, 별점, 감상평
+- 리뷰 반응, 댓글
+- 친구 검색, 친구 요청/수락/거절/삭제
+- 친구 취향 비교 지도, 같이 볼 영화 추천 챗봇
+- 알림 목록, 안 읽은 알림, SSE 기반 알림 갱신
+- 취향 지도, 지도 탐색, 안전 추천, 미탐색 추천, 오늘의 추천
+- GMS 기반 영화 추천 AI 챗봇
+
+배포는 최종 범위에서 제외했고, 로컬 시연을 기준으로 구성했습니다.
+
+## 3. 기술 스택 및 라이브러리
+
+| 영역 | 사용 기술 |
+|---|---|
+| Frontend | Vue 3, Vue Router, Vite, Axios, CSS |
+| Backend | Python 3.11, Django 5.2, Django REST Framework |
+| DB | PostgreSQL, Docker Compose |
+| Auth | dj-rest-auth, django-allauth, DRF Token Authentication |
+| Data/API | TMDB API, requests, python-dotenv |
+| Recommendation/ML | numpy, scipy, scikit-learn, pandas |
+| AI | SSAFY GMS API, SSE streaming |
+
+명세서의 Bootstrap 5.3 항목은 검토했으나, 최종 UI는 Bootstrap 컴포넌트 대신 Vue 컴포넌트와 자체 CSS 토큰으로 구현했습니다.
+
+## 4. 데이터베이스 모델링 (ERD)
+
+ERD 산출물은 `docs/02_erd.png`, `docs/02_erd.svg`, `docs/02_erd.dbml`에 정리했습니다.
+
+핵심 모델은 다음과 같습니다.
+
+- `accounts.User`: 사용자, 닉네임, 프로필 이미지, 온보딩 완료 여부
+- `movies.Movie`: 영화 기본 정보, TMDB ID, 장르/키워드, 출연진, 예고편, 취향 지도 좌표
+- `movies.Genre`, `movies.Keyword`: 영화 분류 정보
+- `movies.WatchRecord`: 사용자별 시청 영화, 별점, 감상평
+- `movies.ReviewReaction`, `movies.ReviewComment`: 리뷰 반응과 댓글
+- `social.Friendship`: 친구 요청/수락 상태
+- `social.Notification`: 친구 요청/수락 알림
+
+## 5. 데이터 구축
+
+영화 데이터는 TMDB API를 기반으로 수집하고, 서비스에서 바로 로드할 수 있도록 Django fixture로 포함했습니다.
+
+- fixture 경로: `backend/movies/fixtures/movies.json`
+- 영화 수: 3,744편
+- 장르 수: 19개
+- 키워드 수: 14,472개
+- 포함 정보: 제목, 원제, 줄거리, 개봉일/연도, 러닝타임, 평점, 투표 수, 언어, 포스터, 감독, 출연진, 장르, 키워드, 예고편 키, 취향 지도 좌표
+
+빠른 시작 시 다음 명령으로 동일한 영화 데이터를 로드할 수 있습니다.
+
 ```bash
-# 0) 루트에서 환경변수
-cp .env.example .env            # TMDB_API_KEY 채우기
-
-# 1) DB 띄우기
-docker compose up -d            # docker compose ps 로 healthy 확인
-
-# 2) 백엔드
 cd backend
-python -m venv .venv && source .venv/bin/activate   # (윈도우: .venv\Scripts\activate)
+python manage.py loaddata movies
+```
+
+## 6. 추천 알고리즘 설명
+
+무비무비의 추천은 전역 영화 좌표와 사용자 시청 기록을 기반으로 동작합니다.
+
+- 전역 영화 좌표: 영화의 장르, 키워드 등 특징을 기반으로 2D 취향 지도 좌표를 생성하고 fixture에 저장합니다.
+- 안전 추천: 사용자가 높게 평가한 영화 집합과 가까운 미시청 영화를 추천합니다.
+- 미탐색 추천: 사용자의 시청 분포가 낮은 영역에서 대륙별 다양성을 고려해 새로운 영화를 추천합니다.
+- 지도 탐색 추천: 취향 지도 위에서 안전 추천과 미탐색 추천을 함께 보여줍니다.
+- 친구 추천: 두 사용자의 시청 영화 집합 모두와 가까운 영화를 같이 볼 영화 후보로 제공합니다.
+- AI 챗봇 추천: 서버가 만든 후보 목록 안에서만 GMS가 자연어 추천 이유를 생성하도록 제한해 환각을 줄입니다.
+
+세부 결정과 실험 기록은 `docs/08_journal/`에 작업 단위로 정리했습니다.
+
+## 7. 핵심 기능
+
+### 인증 및 온보딩
+
+사용자는 회원가입 후 영화 5편 이상을 등록해야 서비스 내부로 진입할 수 있습니다. 온보딩 완료 여부는 사용자 모델에 저장됩니다.
+
+### 영화 검색 및 상세
+
+영화 검색, 상세 정보, OTT 제공 정보, 예고편, 리뷰와 댓글을 제공합니다. OTT 정보는 TMDB watch providers를 서버에서 조회하고 캐싱합니다.
+
+### 시청 기록과 리뷰
+
+사용자는 본 영화에 별점과 감상평을 남길 수 있습니다. 별점은 추천과 취향 지도에 활용됩니다.
+
+### 취향 지도
+
+사용자가 본 영화는 지도 위의 별 또는 포스터로 표시됩니다. 영화 좌표는 모든 사용자에게 동일하고, 사용자의 시청 기록에 따라 지도 경험이 달라집니다.
+
+### 추천
+
+안전 추천, 미탐색 추천, 오늘의 추천, 지도 탐색 추천을 제공합니다. 추천 후보는 사용자가 아직 보지 않은 영화 중에서 구성됩니다.
+
+### 커뮤니티
+
+친구 요청, 친구 목록, 친구 취향 비교, 같이 볼 영화 추천, 알림, 리뷰 반응과 댓글을 제공합니다.
+
+### 생성형 AI 활용
+
+GMS API를 사용해 영화 추천 챗봇과 같이 볼 영화 챗봇을 구현했습니다. AI는 후보 목록 밖의 영화를 추천하지 않도록 서버 프롬프트에서 제한합니다.
+
+## 8. REST API 구조
+
+주요 API는 다음과 같이 구성했습니다.
+
+- `/api/auth/`, `/api/auth/registration/`: 인증
+- `/api/accounts/`: 계정, 온보딩, 프로필
+- `/api/movies/`: 영화 목록, 상세, 장르, 리뷰, OTT/예고편
+- `/api/watch-records/`: 시청 기록
+- `/api/social/`: 친구, 알림, 같이 볼 영화
+- `/api/taste/`: 취향 지도, 추천, 지도 탐색, 챗봇
+
+HTTP Method와 상태 코드는 DRF의 generic view/APIView를 기반으로 기능별 의미에 맞게 사용했습니다.
+
+## 9. 로컬 실행 방법
+
+### 9.1 환경변수
+
+```bash
+cp .env.example .env
+```
+
+`.env`에 다음 값을 채웁니다.
+
+- `TMDB_API_KEY`
+- `GMS_KEY`
+- 필요 시 `DJANGO_SECRET_KEY`
+
+`.env`는 `.gitignore`에 포함되어 있으며 커밋하지 않습니다.
+
+### 9.2 DB 실행
+
+```bash
+docker compose up -d
+```
+
+### 9.3 백엔드 실행
+
+```bash
+cd backend
+python -m venv .venv
+.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 python manage.py migrate
-python manage.py runserver       # http://localhost:8000
+python manage.py loaddata movies
+python manage.py runserver
+```
 
-# 3) 프론트 (새 터미널)
-cd frontend
-npm install
-npm run dev                      # http://localhost:5173
+추천 데이터 파이프라인을 직접 재생성하려면 ML 의존성을 추가로 설치합니다.
 
-# 4) 데이터
-#  (A) 빠른 시작 — 영화+좌표 픽스처 로드 (TMDB 키·ML 스택 불필요, 권장)
-cd backend
-python manage.py loaddata movies        # 영화 4,958편 + 전역 좌표(umap_x/y)
-
-#  (B) 직접 생성/갱신 (개발자 A · 데이터 파이프라인, ML 스택 필요)
+```bash
 pip install -r requirements-ml.txt
 python manage.py import_movies --count 2000
 python manage.py build_coords
-python manage.py seed_demo               # 데모 유저·시청기록·친구 (시연용)
 ```
 
-자세한 DB 세팅·트러블슈팅은 Docker 가이드 문서 참고.
+### 9.4 프론트엔드 실행
 
-## 추천 동작 확인 (김호준)
-
-`loaddata movies`(또는 `build_coords`)로 영화·좌표가 있는 상태에서:
-
-```powershell
-python manage.py seed_genre_demos         # 장르별 단일 취향 데모 8명 생성(공포·로맨스·액션…)
-python manage.py show_areas genre_horror  # 안전(본 영화 kNN)·미탐색 추천 출력
+```bash
+cd frontend
+npm install
+npm run dev
 ```
 
-- **안전 추천**에 그 장르 영화가 나오면 정상(공포 데모 → 공포). 본 영화 집합 kNN(k=3) 기준 — 배경은 `docs/08_journal/A-08-safe-knn.md`.
-- **미탐색 추천**은 아직 무게중심 거리 기준이라 다른 장르가 섞인다(의도된 현재 상태, A-08).
-- 출력 한글이 깨지면 `chcp 65001`(UTF-8 전환).
+기본 접속 주소는 `http://localhost:5173`입니다.
+
+## 10. 문서 산출물
+
+| 문서 | 위치 |
+|---|---|
+| 기능 명세서 | `docs/01_functional_spec.docx` |
+| ERD | `docs/02_erd.png`, `docs/02_erd.svg`, `docs/02_erd.dbml` |
+| 와이어프레임 | `docs/03_wireframe.html` |
+| 일정/WBS | `docs/04_schedule.xlsx`, `docs/04_gantt.png` |
+| 협업 규칙 | `docs/05_collaboration_rules.docx`, `docs/notion/collaboration_rules.md` |
+| GitHub Flow 다이어그램 | `docs/06_github_flow.png` |
+| Docker/PostgreSQL 가이드 | `docs/07_docker_postgres_guide.md` |
+| 개발 일지 | `docs/08_journal/` |
+| 기술 노트 | `docs/09_tech_notes.docx` |
+| 프로젝트 구조 | `docs/10_project_structure.md` |
+| 로컬 세팅 | `docs/11_local_setup.md` |
+
+## 11. 협업 방식
+
+협업 규칙은 GitHub Flow 기반으로 정리했습니다.
+
+- `master` 직접 push 금지
+- 기능별 브랜치 생성
+- Conventional Commits 사용
+- MR 작성 및 상대 1명 승인 후 머지
+- `.gitlab/merge_request_templates/Default.md` 템플릿 사용
+- `.env`, API Key 등 시크릿 커밋 금지
+
+상세 내용은 `docs/notion/collaboration_rules.md`와 `docs/05_collaboration_rules.docx`를 참고합니다.
+
+## 12. 서비스 URL
+
+현재 프로젝트는 로컬 시연 범위로 진행했습니다.
+
+- Frontend: `http://localhost:5173`
+- Backend: `http://localhost:8000`
+
+별도 배포 URL은 없습니다.

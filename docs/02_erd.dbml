@@ -6,8 +6,8 @@
 //   - 좌표 근접 검색이 필요해지면 PostgreSQL pgvector 확장 활용 가능
 //
 // 메모
-//  - 영화 좌표(umap_x, umap_y)는 전역 고정값 → movies 에 컬럼으로 저장
-//  - 사용자 좌표(coord_x, coord_y)는 별점 가중 파생값 → users 에 캐싱(별점 변경 시 갱신)
+//  - 영화 좌표(map_x, map_y)는 전역 고정값 → movies 에 컬럼으로 저장
+//  - 사용자 좌표 캐싱은 제거. 추천/지도는 시청기록과 영화 좌표를 기반으로 서비스 계층에서 계산
 //  - 시청기록 = 등록 + 별점(필수) + 리뷰(선택)  하나로 통합 (별도 review 테이블 없음)
 //  - 이용자 리뷰 목록 = watch_records 에서 review IS NOT NULL 조회
 //  - OTT 제공 정보는 자주 바뀜(구독사 사정) → 저장 안 함, TMDB watch providers 조회 시점에 가져옴
@@ -34,11 +34,8 @@ Table users {
   email             varchar(254)  [note: '앱레벨 unique(allauth ACCOUNT_UNIQUE_EMAIL); DB 컬럼 자체는 비고유·blank 허용']
   password          varchar(128)  [not null, note: 'Django 해시 저장']
   nickname          varchar(50)   [not null, unique]
-  profile_image_url varchar(500)  [note: 'blank/null 허용']
+  profile_image     varchar(100)  [note: '프로필 이미지 업로드 경로(blank/null 허용)']
   onboarded         boolean       [not null, default: false, note: '온보딩(영화 5편 등록) 완료 — 한번 True면 유지(F-ONB-01)']
-  coord_x           double        [note: '파생·캐싱: 별점 가중 사용자 좌표 X (F-MAP-00)']
-  coord_y           double        [note: '파생·캐싱: 별점 가중 사용자 좌표 Y']
-  coord_updated_at  timestamp     [note: '좌표 마지막 재계산 시각']
   date_joined       timestamp     [not null, default: `now()`, note: 'AbstractUser 가입 시각']
 }
 
@@ -58,8 +55,8 @@ Table movies {
   director          varchar(255)
   cast              varchar(500)  [note: '주연 5명(콤마 구분)']
   trailer_key       varchar(20)   [note: '유튜브 예고편 키 (거의 불변 → DB 저장, extras 호출 절감)']
-  umap_x            double        [note: '전역 좌표 X (고정)']
-  umap_y            double        [note: '전역 좌표 Y (고정)']
+  map_x             double        [note: '전역 좌표 X (고정)']
+  map_y             double        [note: '전역 좌표 Y (고정)']
   created_at        timestamp     [not null, default: `now()`, note: 'DB 추가 시점 → 최근 추가된 영화']
 }
 

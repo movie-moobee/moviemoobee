@@ -46,9 +46,9 @@ docker compose up -d       # 다시 켜기
 
 ### 3-1. 패키지 설치 (requirements.txt 에 추가)
 ```
-Django>=4.2
+Django==5.2
 djangorestframework
-psycopg[binary]      # PostgreSQL 드라이버 (Django 4.2+). 구버전이면 psycopg2-binary
+psycopg[binary]      # PostgreSQL 드라이버
 python-dotenv        # .env 로드 (선택)
 ```
 ```bash
@@ -90,10 +90,10 @@ python manage.py runserver
 1. Docker Desktop 실행
 2. `docker compose up -d` → `docker compose ps` healthy 확인
 3. `python manage.py migrate`
-4. (시드 스크립트로 영화 2000편 + 데모 데이터 적재 — 다음 단계에서 제공)
+4. `python manage.py loaddata movies` 로 영화 3,744편 fixture 적재
 5. `python manage.py runserver` + 프론트 `npm run dev`
 
-> 데이터(영화 2000편)는 각자 로컬 볼륨에 있어 **공유되지 않습니다.** 그래서 시드 스크립트가 필수입니다(다음 단계).
+> DB 볼륨은 각자 로컬에만 있습니다. 영화 카탈로그는 `loaddata movies` fixture로 동일하게 맞추고, 개인 시청 데이터는 각 PC에서 직접 만들거나 `seed_demo`로 생성합니다.
 
 ---
 
@@ -113,5 +113,5 @@ python manage.py runserver
 ## 6. 협업 · 안전 수칙
 - `.env` 는 **커밋 금지**(`.gitignore` 에 이미 등록). 팀엔 `.env.example` 만 공유하고 키는 별도 채널로.
 - DB 데이터는 각자 로컬 → **시드 스크립트**로 재현(다음 단계에서 Django 관리 커맨드로 제공).
-- CI(`.gitlab-ci.yml`)는 자체 `postgres:16` 서비스를 띄워 테스트하므로 이 compose와는 별개로 동작합니다.
+- CI 초안은 `disabled-gitlab-ci.yml`에 보관되어 있습니다. 현재는 로컬 시연 기준이라 GitLab Runner 파이프라인은 비활성화되어 있습니다.
 - `down` 은 데이터 유지, `down -v` 는 데이터 삭제 — `-v` 는 "초기화하고 싶을 때만".
