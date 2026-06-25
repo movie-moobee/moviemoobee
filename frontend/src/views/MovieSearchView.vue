@@ -150,30 +150,55 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="search-page">
-    <!-- 검색 -->
-    <div class="bar">
-      <input
-        v-model="query"
-        class="bar__input"
-        placeholder="검색어 입력…"
-        @keyup.enter="onSearch"
-      >
+  <div class="mx-auto max-w-[1500px] px-6 pb-28 pt-10 lg:px-10">
+    <!-- ───────── PAGE HEADER ───────── -->
+    <section class="mb-7">
+      <div class="mb-3 flex items-center gap-2.5 font-sans text-[11px] uppercase tracking-[0.14em] text-fg-muted">
+        <span class="h-px w-7 bg-gold/60" />영화 검색 · Browse the archive
+      </div>
+      <h1 class="font-display text-[30px] font-semibold leading-[1.12] tracking-tightest sm:text-[38px]">
+        다음 별이 될 영화를<br> <span class="text-fg-muted">찾아보세요</span>
+      </h1>
+    </section>
+
+    <!-- ───────── SEARCH BAR ───────── -->
+    <div class="mb-4 flex gap-2.5">
+      <div class="flex flex-1 items-center gap-2.5 rounded-xl border border-line bg-ink-800 px-4 py-3 transition focus-within:border-gold">
+        <svg
+          viewBox="0 0 24 24"
+          class="h-[18px] w-[18px] text-fg-faint"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.8"
+        ><circle
+          cx="11"
+          cy="11"
+          r="7"
+        /><path
+          d="m20 20-3.2-3.2"
+          stroke-linecap="round"
+        /></svg>
+        <input
+          v-model="query"
+          class="w-full bg-transparent text-[14px] text-fg placeholder:text-fg-faint focus:outline-none"
+          placeholder="검색어 입력…"
+          @keyup.enter="onSearch"
+        >
+      </div>
       <button
-        class="bar__btn"
         type="button"
+        class="shrink-0 rounded-xl bg-gold px-6 text-[14px] font-semibold text-ink transition hover:bg-gold-soft"
         @click="onSearch"
       >
         검색
       </button>
     </div>
 
-    <!-- 필터 칩 바 -->
-    <div class="filters">
+    <!-- ───────── FILTER CHIP BAR ───────── -->
+    <div class="relative mb-6 flex flex-wrap items-center gap-2">
       <button
-        class="chip"
-        :class="{ 'chip--on': activeCount === 0 }"
         type="button"
+        :class="activeCount === 0 ? 'chip chip-on' : 'chip chip-off'"
         @click="clearAll"
       >
         전체
@@ -182,48 +207,46 @@ onMounted(async () => {
       <div
         v-for="def in FILTER_DEFS"
         :key="def.key"
-        class="chip-wrap"
+        class="relative"
       >
         <button
-          class="chip chip--drop"
-          :class="{ 'chip--on': isActive(def) }"
           type="button"
+          :class="isActive(def) ? 'chip chip-on' : 'chip chip-off'"
           @click="def.type === 'range' ? openRating() : toggleMenu(def.key)"
         >
-          {{ labelFor(def) }}
-          <span class="caret">▾</span>
+          {{ labelFor(def) }}<span class="text-[10px] opacity-70">▾</span>
         </button>
 
         <!-- 평점: 직접 입력 범위 -->
         <div
           v-if="def.type === 'range' && openKey === 'rating'"
-          class="menu menu--rating"
+          class="absolute left-0 top-[calc(100%+6px)] z-20 w-[210px] rounded-xl border border-lineHover bg-ink-800 p-3 shadow-[0_12px_30px_rgba(0,0,0,0.45)]"
         >
-          <div class="rating-row">
+          <div class="mb-2.5 flex items-center gap-1.5">
             <input
               v-model="ratingMin"
-              class="rating-input"
               type="number"
               min="0"
               max="10"
               step="0.1"
               placeholder="0"
+              class="w-14 rounded-lg border border-line bg-ink-700 px-2 py-1.5 text-center text-[13px] text-fg focus:border-gold focus:outline-none"
             >
-            <span>~</span>
+            <span class="text-fg-muted">~</span>
             <input
               v-model="ratingMax"
-              class="rating-input"
               type="number"
               min="0"
               max="10"
               step="0.1"
               placeholder="10"
+              class="w-14 rounded-lg border border-line bg-ink-700 px-2 py-1.5 text-center text-[13px] text-fg focus:border-gold focus:outline-none"
             >
-            <span class="rating-unit">점</span>
+            <span class="text-[13px] text-fg-muted">점</span>
           </div>
           <button
-            class="rating-apply"
             type="button"
+            class="w-full rounded-lg bg-gold py-2 text-[13px] font-semibold text-ink transition hover:bg-gold-soft"
             @click="applyRating"
           >
             적용
@@ -233,21 +256,21 @@ onMounted(async () => {
         <!-- 옵션형(장르·개봉년도·러닝타임) -->
         <div
           v-else-if="def.type === 'options' && openKey === def.key"
-          class="menu"
+          class="absolute left-0 top-[calc(100%+6px)] z-20 max-h-[280px] min-w-[150px] overflow-y-auto rounded-xl border border-lineHover bg-ink-800 p-1.5 shadow-[0_12px_30px_rgba(0,0,0,0.45)]"
         >
           <button
             v-for="opt in optionsFor(def.key)"
             :key="opt.value"
-            class="menu__item"
-            :class="{ 'menu__item--on': filters[def.key] === opt.value }"
             type="button"
+            class="block w-full rounded-lg px-2.5 py-2 text-left text-[13px] transition hover:bg-white/[0.05]"
+            :class="filters[def.key] === opt.value ? 'font-bold text-gold' : 'text-fg'"
             @click="pickOption(def.key, opt.value)"
           >
             {{ opt.label }}
           </button>
           <p
             v-if="!optionsFor(def.key).length"
-            class="menu__empty"
+            class="px-2.5 py-2 text-[12px] text-fg-muted"
           >
             불러오는 중… (백엔드 재시작 필요할 수 있어요)
           </p>
@@ -256,74 +279,77 @@ onMounted(async () => {
 
       <span
         v-if="activeCount"
-        class="multi"
+        class="ml-auto rounded-full border border-line px-3 py-1.5 text-[12.5px] text-fg-muted"
       >
-        <b>{{ activeCount }}</b> 다중 필터
+        <b class="text-gold">{{ activeCount }}</b> 다중 필터
       </span>
     </div>
 
     <!-- 백드롭(바깥 클릭 시 메뉴 닫힘) -->
     <div
       v-if="openKey"
-      class="backdrop"
+      class="fixed inset-0 z-10"
       @click="closeMenu"
     />
 
-    <!-- 결과 -->
+    <!-- ───────── RESULTS ───────── -->
     <p
       v-if="error"
-      class="msg msg--error"
+      class="py-10 text-center text-[14px] text-danger"
     >
       {{ error }}
     </p>
     <p
       v-else-if="loading"
-      class="msg"
+      class="py-10 text-center text-[14px] text-fg-muted"
     >
       불러오는 중…
     </p>
     <template v-else>
       <div
         v-if="searched"
-        class="count"
+        class="mb-4 text-[13px] text-fg-muted"
       >
-        검색 결과 <b>{{ results.length }}</b>편
+        검색 결과 <b class="text-fg">{{ results.length }}</b>편
       </div>
       <div
         v-if="results.length"
-        class="grid"
+        class="grid gap-[18px]"
+        style="grid-template-columns:repeat(auto-fill,minmax(140px,1fr))"
       >
         <button
           v-for="m in results"
           :key="m.id"
-          class="card"
           type="button"
+          class="group/c text-left"
           @click="openMovie(m.id)"
         >
-          <div class="card__poster">
+          <div class="relative aspect-[2/3] overflow-hidden rounded-xl border border-line bg-ink-700 transition group-hover/c:border-lineHover">
             <img
               v-if="poster(m.poster_path)"
               :src="poster(m.poster_path)"
               :alt="m.title"
+              class="h-full w-full object-cover transition-transform duration-300 group-hover/c:scale-[1.04]"
             >
             <div
               v-else
-              class="card__poster--empty"
+              class="flex h-full w-full items-center justify-center text-[12px] text-fg-muted"
             >
               포스터 없음
             </div>
+            <div class="absolute inset-0 sheen opacity-0 transition-opacity duration-500 group-hover/c:opacity-100" />
           </div>
-          <div class="card__title">
+          <div class="mt-2 truncate text-[14px] font-semibold text-fg">
             {{ m.title }}
           </div>
-          <div class="card__meta">
-            {{ m.release_year || "" }}<span v-if="m.vote_average"> · ⭐ {{ m.vote_average }}</span>
+          <div class="mt-0.5 text-[12px] text-fg-muted">
+            {{ m.release_year || "" }}<span v-if="m.vote_average"> · <span class="text-gold">★</span> {{ m.vote_average }}</span>
           </div>
         </button>
       </div>
       <p
         v-else
-        class="msg"
+        class="py-10 text-center text-[14px] text-fg-muted"
       >
         조건에 맞는 영화가 없습니다.
       </p>
@@ -332,245 +358,35 @@ onMounted(async () => {
 </template>
 
 <style scoped>
-.search-page {
-  width: 100%;
-  max-width: var(--page-max);
-  margin: 0 auto;
-  padding: 28px var(--page-pad) 60px;
-}
-.bar {
-  display: flex;
-  gap: 10px;
-  margin-bottom: 16px;
-}
-.bar__input {
-  flex: 1;
-  padding: 12px 16px;
-  background: var(--surface-2);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  color: var(--text);
-  font-size: 14px;
-  font-family: var(--font);
-}
-.bar__input::placeholder {
-  color: var(--text-faint);
-}
-.bar__input:focus {
-  outline: none;
-  border-color: var(--gold);
-}
-.bar__btn {
-  padding: 0 22px;
-  background: var(--gold);
-  color: #1a1206;
-  border: none;
-  border-radius: var(--radius-sm);
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-/* 필터 칩 바 */
-.filters {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 22px;
-}
-.chip-wrap {
-  position: relative;
-}
+/* 필터 칩 (시안 Carbon chip 스타일) */
 .chip {
   display: inline-flex;
   align-items: center;
   gap: 4px;
   padding: 7px 14px;
-  background: var(--surface-2);
-  border: 1px solid var(--border);
   border-radius: 999px;
-  color: var(--text-muted);
-  font-family: var(--font);
   font-size: 13px;
   font-weight: 600;
-  cursor: pointer;
-}
-.chip--on {
-  border-color: var(--gold);
-  color: var(--gold);
-  background: rgba(212, 175, 55, 0.08);
-}
-.caret {
-  font-size: 10px;
-}
-.multi {
-  margin-left: auto;
-  font-size: 12.5px;
-  color: var(--text-muted);
-  padding: 5px 12px;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-}
-.multi b {
-  color: var(--gold);
-}
-
-/* 드롭다운 메뉴 */
-.menu {
-  position: absolute;
-  top: calc(100% + 6px);
-  left: 0;
-  z-index: 20;
-  min-width: 140px;
-  max-height: 280px;
-  overflow-y: auto;
-  background: var(--surface);
-  border: 1px solid var(--border-hover);
-  border-radius: var(--radius-sm);
-  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45);
-  padding: 6px;
-}
-.menu__item {
-  display: block;
-  width: 100%;
-  text-align: left;
-  padding: 8px 10px;
-  background: none;
-  border: 0;
-  border-radius: var(--radius-sm);
-  color: var(--text);
   font-family: var(--font);
-  font-size: 13px;
   cursor: pointer;
+  transition: all 0.15s;
 }
-.menu__item:hover {
-  background: var(--surface-2);
+.chip-off {
+  background: #0c0c0f;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  color: #8c8f99;
 }
-.menu__item--on {
-  color: var(--gold);
-  font-weight: 700;
+.chip-off:hover {
+  border-color: rgba(255, 255, 255, 0.16);
+  color: #ecedf1;
 }
-.menu__empty {
-  font-size: 12px;
-  color: var(--text-muted);
-  padding: 8px 10px;
-  margin: 0;
+.chip-on {
+  background: rgba(230, 181, 102, 0.1);
+  border: 1px solid #e6b566;
+  color: #e6b566;
 }
-/* 평점 범위 입력 */
-.menu--rating {
-  min-width: 200px;
-  padding: 12px;
-}
-.rating-row {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-bottom: 10px;
-}
-.rating-input {
-  width: 56px;
-  padding: 7px 8px;
-  background: var(--surface-2);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  color: var(--text);
-  font-family: var(--font);
-  font-size: 13px;
-  text-align: center;
-}
-.rating-input:focus {
-  outline: none;
-  border-color: var(--gold);
-}
-.rating-unit {
-  font-size: 13px;
-  color: var(--text-muted);
-}
-.rating-apply {
-  width: 100%;
-  padding: 8px;
-  background: var(--gold);
-  color: #1a1206;
-  border: 0;
-  border-radius: var(--radius-sm);
-  font-family: var(--font);
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-}
-.backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 10;
-}
-
-.msg {
-  color: var(--text-muted);
-  font-size: 14px;
-  padding: 40px 0;
-  text-align: center;
-}
-.msg--error {
-  color: var(--danger);
-}
-.count {
-  font-size: 13px;
-  color: var(--text-muted);
-  margin-bottom: 16px;
-}
-.count b {
-  color: var(--text);
-}
-.grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-  gap: 18px;
-}
-.card {
-  background: none;
-  border: none;
-  padding: 0;
-  text-align: left;
-  cursor: pointer;
-  font-family: var(--font);
-}
-.card__poster {
-  aspect-ratio: 2 / 3;
-  border-radius: var(--radius-sm);
-  overflow: hidden;
-  background: var(--surface-2);
-}
-.card__poster img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  transition: transform 0.2s;
-}
-.card:hover .card__poster img {
-  transform: scale(1.04);
-}
-.card__poster--empty {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 12px;
-  color: var(--text-muted);
-}
-.card__title {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--text);
-  margin-top: 8px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.card__meta {
-  font-size: 12px;
-  color: var(--text-muted);
-  margin-top: 2px;
-}
+/* number input 스피너 숨김 */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+input[type="number"] { -moz-appearance: textfield; }
 </style>

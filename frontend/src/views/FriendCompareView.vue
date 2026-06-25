@@ -6,7 +6,7 @@ import { getCowatchCandidates, getFriendCompare, getFriendProfile, unfriend } fr
 import { streamChat } from "@/api/chat";
 import RatingStars from "@/components/base/RatingStars.vue";
 import ConfirmDialog from "@/components/ConfirmDialog.vue";
-import FriendCompareMap from "@/components/FriendCompareMap.vue";
+import TasteMapCanvas from "@/components/TasteMapCanvas.vue";
 import ChatPanel from "@/components/ChatPanel.vue";
 
 const route = useRoute();
@@ -29,6 +29,32 @@ const commonGenres = computed(() => {
   const f = new Set(compare.value.friend.main);
   return compare.value.me.main.filter((g) => f.has(g));
 });
+
+// 메인 취향 지도(TasteMapCanvas)에 두 사람 별을 함께 얹기 위한 병합 배열.
+// movie_id 로 합쳐 주인(owner) 판정: 둘 다=shared / 나만=mine / 친구만=theirs. 양쪽 별점 보존.
+const compareWatched = computed(() => {
+  if (!compare.value) return [];
+  const shared = new Set(compare.value.shared_ids);
+  const byId = new Map();
+  for (const m of compare.value.me.watched)
+    byId.set(m.movie_id, { ...m, owner: shared.has(m.movie_id) ? "shared" : "mine", myRating: m.rating });
+  for (const m of compare.value.friend.watched) {
+    const ex = byId.get(m.movie_id);
+    if (ex) ex.friendRating = m.rating;                 // 공통작 — 친구 별점 합치기
+    else byId.set(m.movie_id, { ...m, owner: "theirs", friendRating: m.rating });
+  }
+  return [...byId.values()];
+});
+// 챗봇 '지도에 표시' 추천작 → TasteMapCanvas 핀(kind 'rec', 보라 오버레이).
+const recPins = computed(() => mappedRecs.value.map((m) => ({ ...m, kind: "rec" })));
+
+// 비교 지도 반짝 토글 — 내 시청(mine)·친구 시청(theirs)·공통(shared) 별을 켜고 끄며 강조.
+const twinkle = ref(new Set());
+function toggleTwinkle(owner) {
+  const s = new Set(twinkle.value);
+  s.has(owner) ? s.delete(owner) : s.add(owner);
+  twinkle.value = s;
+}
 
 // 같이 볼 영화 챗봇(5.4) — ChatPanel 에 주입할 SSE 스트림 함수.
 function cowatchStream(history, onDelta) {
@@ -99,44 +125,45 @@ function poster(p) {
 </script>
 
 <template>
-  <div class="friend-profile">
+  <div class="mx-auto max-w-[1500px] px-6 pb-28 pt-10 lg:px-10">
     <p
       v-if="loading"
-      class="msg"
+      class="py-16 text-center text-[14px] text-fg-muted"
     >
       불러오는 중…
     </p>
     <p
       v-else-if="error"
-      class="msg msg--error"
+      class="py-16 text-center text-[14px] text-danger"
     >
       {{ error }}
     </p>
 
     <template v-else-if="profile">
       <!-- 헤더 -->
-      <header class="head">
-        <div class="avatar">
+      <header class="mb-6 flex items-center gap-4">
+        <div class="grid h-16 w-16 shrink-0 place-items-center overflow-hidden rounded-full border border-line bg-ink-700 text-[24px] font-bold text-fg-muted">
           <img
             v-if="profile.profile_image_url"
             :src="profile.profile_image_url"
             :alt="profile.nickname"
+            class="h-full w-full object-cover"
           >
           <span v-else>{{ initial(profile.nickname) }}</span>
         </div>
-        <div class="head__info">
-          <h1 class="nick">
+        <div class="min-w-0 flex-1">
+          <h1 class="font-display text-[24px] font-semibold tracking-tightest text-fg">
             {{ profile.nickname }}
           </h1>
-          <p class="meta">
+          <p class="mt-1.5 text-[13px] text-fg-muted">
             본 영화 {{ profile.watch_count }}편<template v-if="compare && compare.friend.main.length">
               · 주취향 {{ compare.friend.main.join(" · ") }}
             </template>
           </p>
         </div>
         <button
-          class="btn btn--danger"
           type="button"
+          class="shrink-0 whitespace-nowrap rounded-lg border border-line px-4 py-2 text-[13px] font-semibold text-danger transition hover:border-danger"
           @click="confirming = true"
         >
           친구 삭제
@@ -146,34 +173,81 @@ function poster(p) {
       <!-- 취향 비교 지도 (5.3) -->
       <section
         v-if="compare"
-        class="compare"
+        class="mb-10"
       >
-        <div class="compare__head">
-          <h2 class="compare__title">
-            취향 비교 지도 <span class="compare__vs">— 나 vs {{ profile.nickname }}</span>
+        <div class="mb-3">
+          <h2 class="font-display text-[17px] font-semibold tracking-tightest text-fg">
+            취향 비교 지도 <span class="text-[13px] font-normal text-fg-muted">— 나 vs {{ profile.nickname }}</span>
           </h2>
-          <p class="compare__sub">
+          <p class="mt-1.5 text-[13px] text-fg-muted">
             같은 지도 위에 두 사람이 본 영화를 겹쳐 봤어요.
             <template v-if="compare.shared_ids.length">
-              <b>둘 다 본 영화 {{ compare.shared_ids.length }}편</b>
+              <b class="font-semibold text-fg">둘 다 본 영화 {{ compare.shared_ids.length }}편</b>
             </template>
             <template v-else>
               아직 둘 다 본 영화는 없네요
             </template>
             <template v-if="commonGenres.length">
-              · 공통 취향 <b>{{ commonGenres.join(" · ") }}</b>
+              · 공통 취향 <b class="font-semibold text-fg">{{ commonGenres.join(" · ") }}</b>
             </template>
           </p>
         </div>
-        <div class="compare__grid">
-          <FriendCompareMap
-            :anchors="compare.anchors"
-            :mine="compare.me.watched"
-            :theirs="compare.friend.watched"
-            :shared-ids="compare.shared_ids"
-            :friend-name="profile.nickname"
-            :recommended="mappedRecs"
-          />
+        <div class="grid max-w-[1500px] items-stretch gap-[18px] lg:grid-cols-[1fr_340px]">
+          <div>
+            <!-- 메인 취향 지도와 동일한 렌더러(TasteMapCanvas). 별 색만 주인별(owner 모드). -->
+            <div class="relative overflow-hidden rounded-2xl border border-line bg-ink-800">
+              <TasteMapCanvas
+                :watched="compareWatched"
+                :anchors="compare.anchors"
+                :pins="recPins"
+                :width="980"
+                :height="560"
+                color-by="owner"
+                :friend-name="profile.nickname"
+                :twinkle-owners="[...twinkle]"
+                class="mapwrap relative block"
+                @pin-click="(m) => router.push({ name: 'movie-detail', params: { id: m.id } })"
+                @open-detail="(m) => router.push({ name: 'movie-detail', params: { id: m.movie_id } })"
+              />
+            </div>
+            <!-- 범례 겸 반짝 토글(주인색) — 누르면 해당 별이 반짝여 강조 -->
+            <div class="mt-2.5 flex flex-wrap items-center justify-center gap-2 font-mono text-[11px]">
+              <span class="mr-0.5 text-fg-faint">반짝 강조</span>
+              <button
+                type="button"
+                class="flex items-center gap-1.5 rounded-full border px-2.5 py-1 transition"
+                :class="twinkle.has('mine') ? 'border-line bg-white/[0.05] text-fg' : 'border-transparent text-fg-muted hover:text-fg'"
+                @click="toggleTwinkle('mine')"
+              >
+                <span
+                  class="h-2 w-2 rounded-full"
+                  style="background:#ff9ecb"
+                />내 시청
+              </button>
+              <button
+                type="button"
+                class="flex items-center gap-1.5 rounded-full border px-2.5 py-1 transition"
+                :class="twinkle.has('theirs') ? 'border-line bg-white/[0.05] text-fg' : 'border-transparent text-fg-muted hover:text-fg'"
+                @click="toggleTwinkle('theirs')"
+              >
+                <span
+                  class="h-2 w-2 rounded-full"
+                  style="background:#7fe0d6"
+                />{{ profile.nickname }} 시청
+              </button>
+              <button
+                type="button"
+                class="flex items-center gap-1.5 rounded-full border px-2.5 py-1 transition"
+                :class="twinkle.has('shared') ? 'border-line bg-white/[0.05] text-fg' : 'border-transparent text-fg-muted hover:text-fg'"
+                @click="toggleTwinkle('shared')"
+              >
+                <span
+                  class="h-2 w-2 rounded-full"
+                  style="background:#ffd21e"
+                />공통 시청작
+              </button>
+            </div>
+          </div>
           <ChatPanel
             title="같이 볼 영화 AI"
             subtitle="두 분 취향을 분석해 추천해요"
@@ -188,35 +262,40 @@ function poster(p) {
       </section>
 
       <!-- 친구의 시청작 -->
-      <section class="watched">
-        <div class="watched__title">
-          {{ profile.nickname }} 님이 본 영화
-          <span class="hint">{{ profile.watched.length }}편 · 최신순</span>
+      <section>
+        <div class="mb-4 flex items-baseline gap-2.5 border-b border-line pb-2.5">
+          <h2 class="font-display text-[15px] font-semibold tracking-tightest text-fg">
+            {{ profile.nickname }} 님이 본 영화
+          </h2>
+          <span class="font-mono text-[11px] text-fg-faint">{{ profile.watched.length }}편 · 최신순</span>
         </div>
         <div
           v-if="profile.watched.length"
-          class="grid"
+          class="grid gap-[14px]"
+          style="grid-template-columns:repeat(auto-fill,minmax(140px,1fr))"
         >
           <button
             v-for="m in profile.watched"
             :key="m.id"
-            class="card"
             type="button"
+            class="group/c flex flex-col gap-1.5 text-left"
             @click="router.push({ name: 'movie-detail', params: { id: m.id } })"
           >
-            <img
-              v-if="poster(m.poster_path)"
-              :src="poster(m.poster_path)"
-              :alt="m.title"
-              class="card__poster"
-            >
-            <div
-              v-else
-              class="card__poster card__poster--empty"
-            >
-              {{ m.title }}
+            <div class="relative aspect-[2/3] overflow-hidden rounded-xl border border-line bg-ink-700 transition group-hover/c:border-lineHover">
+              <img
+                v-if="poster(m.poster_path)"
+                :src="poster(m.poster_path)"
+                :alt="m.title"
+                class="h-full w-full object-cover transition-transform duration-300 group-hover/c:scale-[1.04]"
+              >
+              <div
+                v-else
+                class="flex h-full w-full items-center justify-center p-2 text-center text-[11px] text-fg-muted"
+              >
+                {{ m.title }}
+              </div>
             </div>
-            <p class="card__title">
+            <p class="truncate text-[12.5px] font-semibold text-fg">
               {{ m.title }}
             </p>
             <RatingStars
@@ -228,7 +307,7 @@ function poster(p) {
         </div>
         <p
           v-else
-          class="msg msg--left"
+          class="py-2 text-[14px] text-fg-muted"
         >
           아직 본 영화가 없습니다.
         </p>
@@ -251,175 +330,10 @@ function poster(p) {
 </template>
 
 <style scoped>
-.friend-profile {
+/* 비교 지도 SVG는 프레임 폭에 맞춰 자연 비율로 채운다(메인 지도와 동일). */
+.mapwrap :deep(.mapsvg) {
   width: 100%;
-  max-width: var(--page-max);
-  margin: 0 auto;
-  padding: 28px var(--page-pad) 60px;
-}
-.msg {
-  color: var(--text-muted);
-  font-size: 14px;
-  padding: 60px 0;
-  text-align: center;
-}
-.msg--error {
-  color: var(--danger);
-}
-.msg--left {
-  text-align: left;
-  padding: 8px 0;
-}
-
-/* 헤더 */
-.head {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  padding: 6px 0 22px;
-}
-.avatar {
-  width: 64px;
-  height: 64px;
-  border-radius: 50%;
-  flex-shrink: 0;
-  overflow: hidden;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--surface-alt, #2a2a2a);
-  color: var(--text-muted);
-  font-size: 24px;
-  font-weight: 700;
-}
-.avatar img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-.head__info {
-  flex: 1;
-  min-width: 0;
-}
-.nick {
-  font-size: 20px;
-  font-weight: 700;
-  margin: 0;
-}
-.meta {
-  font-size: 13px;
-  color: var(--text-muted);
-  margin: 6px 0 0;
-}
-.btn {
-  font-family: var(--font);
-  font-size: 13px;
-  font-weight: 600;
-  padding: 8px 16px;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border);
-  background: none;
-  color: var(--text);
-  cursor: pointer;
-}
-.btn--danger {
-  color: var(--danger);
-}
-.btn--danger:hover {
-  border-color: var(--danger);
-}
-
-/* 비교 지도 (5.3) */
-.compare {
-  margin-bottom: 26px;
-}
-.compare__head {
-  margin-bottom: 12px;
-}
-.compare__grid {
-  display: grid;
-  grid-template-columns: 1fr 340px;
-  gap: 18px;
-  align-items: start;
-  /* 비교 지도는 640×430 디자인 — 지도 컬럼이 native 크기 근처에 머물도록 블록 폭 제한 */
-  max-width: 1500px;
-}
-@media (max-width: 820px) {
-  .compare__grid {
-    grid-template-columns: 1fr;
-  }
-}
-.compare__title {
-  font-size: 16px;
-  font-weight: 700;
-  margin: 0;
-}
-.compare__vs {
-  font-size: 13px;
-  font-weight: 400;
-  color: var(--text-muted);
-}
-.compare__sub {
-  font-size: 13px;
-  color: var(--text-muted);
-  margin: 6px 0 0;
-}
-.compare__sub b {
-  color: var(--text);
-  font-weight: 600;
-}
-
-/* 시청작 */
-.watched__title {
-  font-size: 15px;
-  font-weight: 700;
-  padding-bottom: 10px;
-  border-bottom: 1px solid var(--border);
-  margin-bottom: 16px;
-}
-.hint {
-  font-size: 12px;
-  font-weight: 400;
-  color: var(--text-muted);
-}
-.grid {
-  display: grid;
-  /* 고정 5칸이면 컨테이너가 넓을 때 포스터가 과하게 커진다 → 칸 크기 고정, 칸 수 자동 */
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-  gap: 14px;
-}
-.card {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 0;
-  background: none;
-  border: 0;
-  cursor: pointer;
-  text-align: left;
-}
-.card__poster {
-  width: 100%;
-  aspect-ratio: 2 / 3;
-  object-fit: cover;
-  border-radius: var(--radius-sm);
-  background: var(--surface-alt, #2a2a2a);
-}
-.card__poster--empty {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 11px;
-  color: var(--text-muted);
-  padding: 6px;
-}
-.card__title {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--text);
-  margin: 0;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  height: auto;
+  display: block;
 }
 </style>

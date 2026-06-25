@@ -6,7 +6,6 @@ import { computed, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { getMyMap, getExplore } from "@/api/taste";
 import { searchMovies, browseMovies, getMovie } from "@/api/movies";
-import { useMarkerMode } from "@/composables/useMarkerMode";
 import TasteMapCanvas from "@/components/TasteMapCanvas.vue";
 import WatchRecordModal from "@/components/WatchRecordModal.vue";
 import WatchRecordsList from "@/components/WatchRecordsList.vue";
@@ -27,20 +26,12 @@ function setTab(key) {
   router.replace({ query: { ...route.query, tab: key } });
 }
 
-// 마커 모드(별/포스터) — 홈과 공유(localStorage). /map에선 ?view= 와도 동기화.
-const markerMode = useMarkerMode();
-const VIEWS = ["stars", "posters"];
-if (VIEWS.includes(route.query.view)) markerMode.value = route.query.view;
-if (!VIEWS.includes(markerMode.value)) markerMode.value = "stars"; // 폐기된 '월드' 잔재 방어
-function setView(v) {
-  markerMode.value = v;
-  router.replace({ query: { ...route.query, view: v } });
-}
+// 대륙(장르) 글자 표시 토글 (취향 지도 탭)
+const showGenre = ref(false);
 
 const loading = ref(true);
 const error = ref("");
 const data = ref(null);          // { enough, watched:[...] }
-const selected = ref(null);      // 캔버스에서 클릭한 별
 const IMG = "https://image.tmdb.org/t/p/w185";
 
 // 지도 내 검색(반짝, 3.4): 본 영화 제목 매칭 → 그 별 반짝
@@ -69,8 +60,9 @@ onMounted(async () => {
 function poster(p) {
   return p ? IMG + p : "";
 }
-function openDetail() {
-  if (selected.value) router.push({ name: "movie-detail", params: { id: selected.value.movie_id } });
+// 지도 위 고정 카드의 '상세 보기' → 그 별의 영화 상세로 (캔버스가 open-detail emit)
+function goDetail(m) {
+  router.push({ name: "movie-detail", params: { id: m.movie_id } });
 }
 function goRegister() {
   setTab("search");
@@ -95,13 +87,16 @@ function onFindBlur() {
   setTimeout(() => { showFind.value = false; }, 120);   // 항목 클릭이 먼저 처리되도록 약간 지연
 }
 function onPickFind(m) {
-  highlightId.value = m.movie_id;
-  selected.value = m;
+  highlightId.value = m.movie_id;   // 그 별 반짝 + 지도 위 고정 카드 표시(canvas)
   findQuery.value = m.title;
   showFind.value = false;
 }
 function onFindEnter() {
   if (findMatches.value.length) onPickFind(findMatches.value[0]);   // 첫 매칭 선택
+}
+// 지도 빈 곳 클릭(캔버스 emit) → 찾기 하이라이트·고정 카드 해제
+function onFindClear() {
+  highlightId.value = null;
 }
 
 // 검색·등록 탭: 검색어 없으면 전체 목록(평점순)을, 있으면 제목 검색을 보여준다.
@@ -185,8 +180,8 @@ function togglePin(id) {
 }
 function exploreLabel(m) {
   return exploreSub.value === "safe"
-    ? `안전 · 유사도 ${Math.max(0, 1 - m.distance).toFixed(2)}`
-    : `미탐색 · ${m.continent || "새 취향"}`;
+    ? `가까운 취향 · 유사도 ${Math.max(0, 1 - m.distance).toFixed(2)}`
+    : `새로운 취향 · ${m.continent || "새 취향"}`;
 }
 function onPickExploreMovie(m) {
   router.push({ name: "movie-detail", params: { id: m.id } });
@@ -194,51 +189,70 @@ function onPickExploreMovie(m) {
 </script>
 
 <template>
-  <div class="map-page">
-    <!-- 내부 탭 -->
-    <div class="tabbar">
+  <div class="mx-auto max-w-[1500px] px-6 pb-28 pt-10 lg:px-10">
+    <!-- ───────── PAGE HEADER ───────── -->
+    <section class="mb-6 flex flex-wrap items-end justify-between gap-x-8 gap-y-4">
+      <div class="min-w-0 flex-1">
+        <div class="mb-3 flex items-center gap-2.5 font-sans text-[11px] uppercase tracking-[0.14em] text-fg-muted">
+          <span class="h-px w-7 bg-gold/60" />내 취향 지도 · Taste atlas
+        </div>
+        <h1 class="font-display text-[30px] font-semibold leading-[1.12] tracking-tightest sm:text-[40px]">
+          별자리를 거닐며<br> <span class="text-fg-muted">취향의 좌표를</span> 읽어보세요
+        </h1>
+      </div>
+      <p class="max-w-[300px] text-[13.5px] leading-relaxed text-fg-muted">
+        밝을수록 높은 별점, 가까울수록 닮은 결.<br> 별을 누르면 그 영화의 좌표가 펼쳐집니다.
+      </p>
+    </section>
+
+    <!-- ───────── INTERNAL TABS ───────── -->
+    <div class="no-bar mb-6 flex items-center gap-1 overflow-x-auto border-b border-line">
       <button
         v-for="t in TABS"
         :key="t.key"
-        class="tab"
-        :class="{ 'tab--on': activeTab === t.key }"
         type="button"
+        class="relative shrink-0 px-4 py-2.5 text-[13.5px] font-medium transition"
+        :class="activeTab === t.key ? 'text-fg' : 'text-fg-muted hover:text-fg'"
         @click="setTab(t.key)"
       >
         {{ t.label }}
+        <span
+          class="absolute inset-x-3 -bottom-px h-[2px] rounded-full bg-gold"
+          :class="{ hidden: activeTab !== t.key }"
+        />
       </button>
     </div>
 
-    <!-- 취향 지도 탭 -->
+    <!-- ═══════════════ PANEL: 취향 지도 ═══════════════ -->
     <template v-if="activeTab === 'map'">
       <p
         v-if="loading"
-        class="msg"
+        class="py-16 text-center text-[14px] text-fg-muted"
       >
         지도를 그리는 중…
       </p>
       <p
         v-else-if="error"
-        class="msg msg--error"
+        class="py-16 text-center text-[14px] text-danger"
       >
         {{ error }}
       </p>
 
-      <!-- 5편 미만 게이트(삭제로 내려간 경우 포함) -->
+      <!-- 5편 미만 게이트 -->
       <div
         v-else-if="!data.enough"
-        class="gate"
+        class="mx-auto my-20 max-w-[460px] text-center"
       >
-        <div class="gate__title">
+        <div class="font-display text-[19px] font-semibold tracking-tightest text-fg">
           아직 취향 지도를 그릴 수 없어요
         </div>
-        <p class="gate__desc">
-          영화 <b>5편 이상</b>을 등록하면 나만의 취향 지도가 만들어집니다.<br>
+        <p class="mt-3 text-[14px] leading-[1.7] text-fg-muted">
+          영화 <b class="text-fg">5편 이상</b>을 등록하면 나만의 취향 지도가 만들어집니다.<br>
           별점을 높게 준 영화일수록 더 밝게 빛나요.
         </p>
         <button
-          class="gate__btn"
           type="button"
+          class="mt-6 rounded-lg bg-gold px-6 py-2.5 text-[14px] font-semibold text-ink transition hover:bg-gold-soft"
           @click="goRegister"
         >
           영화 등록하러 가기
@@ -248,81 +262,97 @@ function onPickExploreMovie(m) {
       <!-- 지도 -->
       <div
         v-else
-        class="map-layout"
+        class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_300px]"
       >
-        <div class="mapframe">
-          <!-- 마커 모드 토글 (별 / 포스터) -->
-          <div class="modetoggle">
-            <button
-              type="button"
-              class="modetoggle__btn"
-              :class="{ 'modetoggle__btn--on': markerMode === 'stars' }"
-              @click="setView('stars')"
-            >
-              별
-            </button>
-            <button
-              type="button"
-              class="modetoggle__btn"
-              :class="{ 'modetoggle__btn--on': markerMode === 'posters' }"
-              @click="setView('posters')"
-            >
-              포스터
-            </button>
-          </div>
+        <!-- map frame -->
+        <div class="relative overflow-hidden rounded-2xl border border-line bg-ink-800">
+          <div class="grid-tex pointer-events-none absolute inset-0 opacity-60" />
+          <div
+            class="pointer-events-none absolute inset-0"
+            style="background:radial-gradient(110% 80% at 35% 25%, rgba(230,181,102,0.10), transparent 55%), radial-gradient(100% 110% at 85% 105%, rgba(93,202,165,0.07), transparent 50%);"
+          />
+
+          <!-- 대륙(장르) 글자 토글 -->
+          <button
+            type="button"
+            class="absolute right-4 top-4 z-10 rounded-full border bg-ink-700/90 px-3.5 py-1.5 text-[12px] font-medium shadow-[0_2px_10px_rgba(0,0,0,0.5)] backdrop-blur transition"
+            :class="showGenre ? 'border-gold/50 text-gold' : 'border-lineHover text-fg-muted hover:text-fg'"
+            @click="showGenre = !showGenre"
+          >
+            장르 {{ showGenre ? "끄기" : "보기" }}
+          </button>
+
           <TasteMapCanvas
             :watched="data.watched"
             :anchors="data.anchors"
             :width="980"
             :height="560"
             :highlight-id="highlightId"
-            :mode="markerMode"
-            @select="selected = $event"
+            :show-genre-labels="showGenre"
+            class="mapwrap relative block"
+            @open-detail="goDetail"
+            @clear-highlight="onFindClear"
           />
-          <div class="legend">
-            <template v-if="markerMode === 'stars'">
-              <span><i class="dot dot--high" /> 크고 밝은 별 = 고평점</span>
-              <span><i class="dot dot--low" /> 작고 흐린 별 = 저평점</span>
-            </template>
-            <template v-else>
-              <span><i class="sw sw--poster" /> 포스터 = 내가 본 영화</span>
-              <span><i class="sw sw--bar" /> 금색 바 = 별점</span>
-            </template>
-            <span>모여 있을수록 = 비슷한 취향</span>
+
+          <!-- legend -->
+          <div class="relative flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-line bg-ink-800/60 px-5 py-3.5 font-mono text-[11px] text-fg-muted backdrop-blur">
+            <span class="flex items-center gap-1.5"><span class="h-2.5 w-2.5 rounded-full bg-[#FFF0CD] shadow-[0_0_7px_#FFE6A8]" />인생작</span>
+            <span class="flex items-center gap-1.5"><span class="h-1.5 w-1.5 rounded-full bg-[#5DCAA5]" />인상적</span>
+            <span class="flex items-center gap-1.5"><span class="h-1.5 w-1.5 rounded-full bg-[#C9D0E0]" />무난함</span>
+            <span class="hidden sm:inline text-fg-faint">·</span>
+            <span class="text-fg-faint">모여 있을수록 비슷한 취향</span>
           </div>
         </div>
 
-        <!-- 사이드 -->
-        <aside class="side">
-          <!-- 내가 본 영화 찾기 → 자동완성 목록에서 선택 → 지도에서 반짝 -->
-          <div class="card card--count">
-            내가 본 영화 <b>{{ data.watched.length }}</b>편
+        <!-- sidebar -->
+        <aside class="flex flex-col gap-3">
+          <!-- count -->
+          <div class="rounded-xl border border-line bg-ink-800 px-4 py-3.5 text-[13px] text-fg-muted">
+            내가 본 영화 <b class="font-display text-fg">{{ data.watched.length }}</b>편 · 별자리에 흩어져 있어요
           </div>
-          <div class="card find-card">
-            <div class="card__tag">
+
+          <!-- find -->
+          <div class="relative rounded-xl border border-line bg-ink-800 p-4">
+            <div class="font-sans text-[13px] font-semibold tracking-[0.02em] text-fg">
               내가 본 영화 찾기
             </div>
-            <input
-              v-model="findQuery"
-              class="find"
-              type="text"
-              placeholder="제목을 입력하세요."
-              @input="onFindInput"
-              @focus="showFind = true"
-              @blur="onFindBlur"
-              @keyup.enter="onFindEnter"
-            >
+            <div class="mt-2.5 flex items-center gap-2 rounded-lg border border-line bg-ink-700 px-3 py-2 focus-within:border-lineHover">
+              <svg
+                viewBox="0 0 24 24"
+                class="h-4 w-4 text-fg-faint"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.8"
+              ><circle
+                cx="11"
+                cy="11"
+                r="7"
+              /><path
+                d="m20 20-3.2-3.2"
+                stroke-linecap="round"
+              /></svg>
+              <input
+                v-model="findQuery"
+                type="text"
+                placeholder="제목을 입력하세요."
+                class="w-full bg-transparent text-[13px] text-fg placeholder:text-fg-faint focus:outline-none"
+                @input="onFindInput"
+                @focus="showFind = true"
+                @blur="onFindBlur"
+                @keyup.enter="onFindEnter"
+              >
+            </div>
             <ul
               v-if="showFind && findMatches.length"
-              class="findlist"
+              class="absolute inset-x-4 top-[calc(100%-6px)] z-20 max-h-[280px] overflow-y-auto rounded-lg border border-line bg-ink-800 p-1 shadow-[0_8px_24px_rgba(0,0,0,0.5)]"
             >
               <li
                 v-for="m in findMatches"
                 :key="m.movie_id"
               >
                 <button
-                  class="finditem"
                   type="button"
+                  class="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left transition hover:bg-white/[0.05]"
                   @mousedown.prevent
                   @click="onPickFind(m)"
                 >
@@ -330,276 +360,291 @@ function onPickExploreMovie(m) {
                     v-if="poster(m.poster_path)"
                     :src="poster(m.poster_path)"
                     :alt="m.title"
-                    class="finditem__poster"
+                    class="h-9 w-6 flex-none rounded-[2px] object-cover"
                   >
-                  <span class="finditem__title">{{ m.title }}</span>
-                  <span class="finditem__year">{{ m.release_year || "" }}</span>
+                  <span class="min-w-0 flex-1 truncate text-[13px] text-fg">{{ m.title }}</span>
+                  <span class="flex-none text-[11.5px] text-fg-muted">{{ m.release_year || "" }}</span>
                 </button>
               </li>
             </ul>
             <p
               v-else-if="findQuery && !findMatches.length"
-              class="find__none"
+              class="mt-2 text-[12px] text-fg-faint"
             >
               그 제목으로 본 영화가 없어요.
             </p>
           </div>
 
-          <div class="card">
-            <div class="card__tag">
-              선택한 영화 
-            </div>
-            <div
-              v-if="selected"
-              class="sel"
-            >
-              <div class="sel__poster">
-                <img
-                  v-if="poster(selected.poster_path)"
-                  :src="poster(selected.poster_path)"
-                  :alt="selected.title"
-                >
-              </div>
-              <div class="sel__meta">
-                <div class="sel__title">
-                  {{ selected.title }}
-                </div>
-                <div class="sel__sub">
-                  {{ selected.release_year || "" }}
-                </div>
-                <div class="sel__rating">
-                  ★ {{ selected.rating * 2 }} / 10
-                </div>
-                <button
-                  class="sel__btn"
-                  type="button"
-                  @click="openDetail"
-                >
-                  상세 보기
-                </button>
-              </div>
-            </div>
-            <p
-              v-else
-              class="card__empty"
-            >
-              지도에서 영화를 클릭해보세요.
-            </p>
-          </div>
-
-          <!-- 내 취향 요약 (주=좋아요 별점가중 장르 / 미탐색=KDE 안 가본 장르) -->
+          <!-- taste summary -->
           <div
             v-if="data.summary"
-            class="card"
+            class="rounded-xl border border-line bg-ink-800 p-4"
           >
-            <div class="card__tag">
+            <div class="font-sans text-[13px] font-semibold tracking-[0.02em] text-fg">
               내 취향 요약
             </div>
-            <div class="summary">
-              <span class="summary__label">내 선호 장르</span>
-              <span class="summary__val">{{ data.summary.main.join(" · ") || "—" }}</span>
+            <div class="mt-3 flex items-baseline justify-between gap-3 text-[13px]">
+              <span class="text-fg-muted">내 선호 장르</span>
+              <span class="font-medium text-fg">{{ data.summary.main.join(" · ") || "—" }}</span>
             </div>
-            <div class="summary">
-              <span class="summary__label">미탐색 장르</span>
-              <span class="summary__val summary__val--unexp">{{ data.summary.unexplored.join(" · ") || "—" }}</span>
+            <div class="mt-2.5 flex items-baseline justify-between gap-3 text-[13px]">
+              <span class="text-fg-muted">새로운 취향 장르</span>
+              <span class="font-medium text-gold">{{ data.summary.unexplored.join(" · ") || "—" }}</span>
             </div>
           </div>
         </aside>
       </div>
     </template>
 
-    <!-- 영화 검색·등록 탭 (3.4) -->
-    <div
-      v-else-if="activeTab === 'search'"
-      class="reg"
-    >
-      <div class="bar">
-        <input
-          v-model="searchQuery"
-          class="bar__input"
-          type="text"
-          placeholder="등록할 영화 제목 검색"
-          @keyup.enter="onSearch"
-        >
-        <button
-          class="bar__btn"
-          type="button"
-          @click="onSearch"
-        >
-          검색
-        </button>
-      </div>
-      <p
-        v-if="searchError"
-        class="msg msg--error"
-      >
-        {{ searchError }}
-      </p>
-      <p
-        v-else-if="searching"
-        class="msg"
-      >
-        검색 중…
-      </p>
-      <div
-        v-else-if="searchResults.length"
-        class="grid"
-      >
-        <button
-          v-for="m in searchResults"
-          :key="m.id"
-          class="rcard"
-          type="button"
-          @click="onPickRegister(m)"
-        >
-          <div class="rcard__poster">
-            <img
-              v-if="poster(m.poster_path)"
-              :src="poster(m.poster_path)"
-              :alt="m.title"
-            >
-          </div>
-          <div class="rcard__title">
-            {{ m.title }}
-          </div>
-          <div class="rcard__meta">
-            {{ m.release_year || "" }}<span v-if="m.vote_average"> · ⭐ {{ m.vote_average }}</span>
-          </div>
-        </button>
-      </div>
-      <p
-        v-else-if="searched"
-        class="msg"
-      >
-        결과가 없습니다.
-      </p>
-      <p
-        v-else
-        class="msg"
-      >
-        지도에 더할 영화를 검색해보세요.
-      </p>
-    </div>
-
-    <!-- 시청 영화 목록 탭 (2.3) -->
+    <!-- ═══════════════ PANEL: 시청 영화 목록 ═══════════════ -->
     <WatchRecordsList
       v-else-if="activeTab === 'records'"
       @changed="onRecordsChanged"
     />
 
-    <!-- 지도 탐색 탭(4.4, 와이어프레임 10·d/10·e) -->
+    <!-- ═══════════════ PANEL: 영화 검색·등록 ═══════════════ -->
+    <!-- 기존(master) 구조: 검색 전 전체 포스터가 적응형 그리드로 우르르 → 클릭 시 등록 모달 -->
+    <div v-else-if="activeTab === 'search'">
+      <!-- search bar (full width) -->
+      <div class="mb-4 flex gap-2.5">
+        <div class="flex flex-1 items-center gap-2.5 rounded-xl border border-line bg-ink-800 px-4 py-3 transition focus-within:border-gold">
+          <svg
+            viewBox="0 0 24 24"
+            class="h-[18px] w-[18px] text-fg-faint"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.8"
+          ><circle
+            cx="11"
+            cy="11"
+            r="7"
+          /><path
+            d="m20 20-3.2-3.2"
+            stroke-linecap="round"
+          /></svg>
+          <input
+            v-model="searchQuery"
+            type="text"
+            placeholder="영화 제목으로 검색해 별자리에 추가하세요"
+            class="w-full bg-transparent text-[14px] text-fg placeholder:text-fg-faint focus:outline-none"
+            @keyup.enter="onSearch"
+          >
+        </div>
+        <button
+          type="button"
+          class="shrink-0 rounded-xl bg-gold px-6 text-[14px] font-semibold text-ink transition hover:bg-gold-soft"
+          @click="onSearch"
+        >
+          검색
+        </button>
+      </div>
+
+      <p
+        v-if="searchError"
+        class="py-10 text-center text-[14px] text-danger"
+      >
+        {{ searchError }}
+      </p>
+      <p
+        v-else-if="searching"
+        class="py-10 text-center text-[14px] text-fg-muted"
+      >
+        검색 중…
+      </p>
+      <div
+        v-else-if="searchResults.length"
+        class="grid gap-[18px]"
+        style="grid-template-columns:repeat(auto-fill,minmax(140px,1fr))"
+      >
+        <button
+          v-for="m in searchResults"
+          :key="m.id"
+          type="button"
+          class="group/c text-left"
+          @click="onPickRegister(m)"
+        >
+          <div class="relative aspect-[2/3] overflow-hidden rounded-xl border border-line bg-ink-700 transition group-hover/c:border-lineHover">
+            <img
+              v-if="poster(m.poster_path)"
+              :src="poster(m.poster_path)"
+              :alt="m.title"
+              class="h-full w-full object-cover transition-transform duration-300 group-hover/c:scale-[1.04]"
+            >
+            <div
+              v-else
+              class="flex h-full w-full items-center justify-center text-[12px] text-fg-muted"
+            >
+              포스터 없음
+            </div>
+            <div class="absolute inset-0 sheen opacity-0 transition-opacity duration-500 group-hover/c:opacity-100" />
+            <div class="absolute right-2.5 top-2.5 rounded-full bg-gold px-2 py-0.5 text-[10.5px] font-semibold text-ink opacity-0 transition-opacity group-hover/c:opacity-100">
+              등록
+            </div>
+          </div>
+          <div class="mt-2 truncate text-[14px] font-semibold text-fg">
+            {{ m.title }}
+          </div>
+          <div class="mt-0.5 text-[12px] text-fg-muted">
+            {{ m.release_year || "" }}<span v-if="m.vote_average"> · <span class="text-gold">★</span> {{ m.vote_average }}</span>
+          </div>
+        </button>
+      </div>
+      <p
+        v-else-if="searched"
+        class="py-10 text-center text-[14px] text-fg-muted"
+      >
+        결과가 없습니다.
+      </p>
+      <p
+        v-else
+        class="py-10 text-center text-[14px] text-fg-muted"
+      >
+        지도에 더할 영화를 검색해보세요.
+      </p>
+    </div>
+
+    <!-- ═══════════════ PANEL: 지도 탐색 (4.4, 우리 실기능) ═══════════════ -->
     <template v-else>
       <p
         v-if="exploreLoading || !exploreData"
-        class="msg"
+        class="py-16 text-center text-[14px] text-fg-muted"
       >
         탐색도를 그리는 중…
       </p>
       <div
         v-else-if="!exploreData.enough"
-        class="gate"
+        class="mx-auto my-20 max-w-[460px] text-center"
       >
-        <div class="gate__title">
+        <div class="font-display text-[19px] font-semibold tracking-tightest text-fg">
           아직 지도를 탐색할 수 없어요
         </div>
-        <p class="gate__desc">
-          영화 <b>5편 이상</b>을 등록하면 탐색도가 만들어집니다.
+        <p class="mt-3 text-[14px] leading-[1.7] text-fg-muted">
+          영화 <b class="text-fg">5편 이상</b>을 등록하면 탐색도가 만들어집니다.
         </p>
         <button
-          class="gate__btn"
           type="button"
+          class="mt-6 rounded-lg bg-gold px-6 py-2.5 text-[14px] font-semibold text-ink transition hover:bg-gold-soft"
           @click="goRegister"
         >
           영화 등록하러 가기
         </button>
       </div>
       <template v-else>
-        <div class="explore-head">
-          {{ exploreSub === "safe" ? "안전 추천" : "미탐색 추천" }}
-          <!-- <span class="explore-head__hint">— {{ exploreSub === "safe" ? "내 취향 근처(좌표 거리 Top N)" : "내 지도의 빈 곳(KDE) 도전 추천" }}</span> -->
+        <div class="mb-4 font-display text-[17px] font-semibold tracking-tightest text-fg">
+          {{ exploreSub === "safe" ? "가까운 취향 추천" : "새로운 취향 추천" }}
         </div>
-        <div class="map-layout">
-          <div class="mapframe">
+        <div class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_300px]">
+          <!-- map frame -->
+          <div class="relative overflow-hidden rounded-2xl border border-line bg-ink-800">
+            <div class="grid-tex pointer-events-none absolute inset-0 opacity-60" />
+            <div
+              class="pointer-events-none absolute inset-0"
+              style="background:radial-gradient(110% 80% at 35% 25%, rgba(230,181,102,0.10), transparent 55%), radial-gradient(100% 110% at 85% 105%, rgba(93,202,165,0.07), transparent 50%);"
+            />
             <TasteMapCanvas
               :watched="exploreData.watched"
               :anchors="exploreData.anchors"
               :pins="explorePins"
               :width="980"
               :height="560"
-              mode="stars"
+              class="mapwrap relative block"
               @pin-click="onPickExploreMovie"
+              @open-detail="goDetail"
             />
           </div>
-          <aside class="side side--explore">
+
+          <!-- sidebar -->
+          <aside class="flex flex-col">
             <!-- 서브탭: 미탐색 / 안전 -->
-            <div class="subtab">
+            <div class="mb-3.5 flex gap-1 border-b border-line">
               <button
                 type="button"
-                class="subtab__btn"
-                :class="{ 'subtab__btn--on': exploreSub === 'unexplored' }"
+                class="relative shrink-0 px-4 py-2.5 text-[13px] font-semibold transition"
+                :class="exploreSub === 'unexplored' ? 'text-fg' : 'text-fg-muted hover:text-fg'"
                 @click="exploreSub = 'unexplored'"
               >
-                미탐색
+                새로운 취향
+                <span
+                  class="absolute inset-x-3 -bottom-px h-[2px] rounded-full bg-gold"
+                  :class="{ hidden: exploreSub !== 'unexplored' }"
+                />
               </button>
               <button
                 type="button"
-                class="subtab__btn"
-                :class="{ 'subtab__btn--on': exploreSub === 'safe' }"
+                class="relative shrink-0 px-4 py-2.5 text-[13px] font-semibold transition"
+                :class="exploreSub === 'safe' ? 'text-fg' : 'text-fg-muted hover:text-fg'"
                 @click="exploreSub = 'safe'"
               >
-                안전
+                가까운 취향
+                <span
+                  class="absolute inset-x-3 -bottom-px h-[2px] rounded-full bg-gold"
+                  :class="{ hidden: exploreSub !== 'safe' }"
+                />
               </button>
             </div>
 
-            <!-- 추천 1~10 목록: 지도 높이를 넘으면 이 영역만 스크롤 -->
-            <div class="exlist">
+            <!-- 추천 1~N 목록: 지도 높이를 넘으면 이 영역만 스크롤 -->
+            <div class="max-h-[520px] overflow-y-auto pr-1">
               <div
                 v-for="m in exploreList"
                 :key="m.id"
-                class="exitem"
+                class="flex items-start gap-2.5 border-t border-line py-3 first:border-t-0"
               >
                 <span
-                  class="exitem__num"
-                  :class="[`exitem__num--${exploreSub}`, { 'exitem__num--off': !pinned.has(m.id) }]"
-                >{{ m.num }}</span>
+                  class="mt-5 grid h-5 min-w-[26px] flex-none place-items-center rounded-md px-1 text-[11px] font-bold"
+                  :class="!pinned.has(m.id)
+                    ? 'bg-ink-700 text-fg-faint'
+                    : (exploreSub === 'safe' ? 'bg-[#1c4fbf] text-white' : 'bg-[#c06d00] text-white')"
+                >#{{ m.num }}</span>
                 <button
-                  class="exitem__poster"
                   type="button"
+                  class="h-[62px] w-[42px] flex-none overflow-hidden rounded-md border border-line bg-ink-700"
                   @click="onPickExploreMovie(m)"
                 >
                   <img
                     v-if="poster(m.poster_path)"
                     :src="poster(m.poster_path)"
                     :alt="m.title"
+                    class="h-full w-full object-cover"
                   >
                 </button>
-                <div class="exitem__body">
+                <div class="min-w-0 flex-1">
                   <button
-                    class="exitem__title"
                     type="button"
+                    class="block w-full truncate text-left text-[13.5px] font-semibold text-fg transition hover:text-gold"
                     @click="onPickExploreMovie(m)"
                   >
                     {{ m.title }}
                   </button>
                   <div
-                    class="exitem__label"
-                    :class="`exitem__label--${exploreSub}`"
+                    class="mt-1 text-[12px]"
+                    :class="exploreSub === 'safe' ? 'text-[#4f86ff]' : 'text-[#c06d00]'"
                   >
                     {{ exploreLabel(m) }}
                   </div>
                   <button
                     type="button"
-                    class="exitem__toggle"
-                    :class="[`exitem__toggle--${exploreSub}`, { 'exitem__toggle--on': pinned.has(m.id) }]"
+                    class="mt-2 inline-flex items-center gap-1.5 text-[11px] text-fg-muted"
                     @click="togglePin(m.id)"
                   >
-                    지도 <span class="exitem__sw"><span class="exitem__knob" /></span>
+                    지도
+                    <span
+                      class="relative h-[17px] w-[30px] rounded-[10px] transition-colors"
+                      :class="!pinned.has(m.id)
+                        ? 'bg-white/[0.12]'
+                        : (exploreSub === 'safe' ? 'bg-[#1c4fbf]' : 'bg-[#c06d00]')"
+                    >
+                      <span
+                        class="absolute top-0.5 h-[13px] w-[13px] rounded-full bg-white transition-all"
+                        :class="pinned.has(m.id) ? 'left-[15px]' : 'left-0.5'"
+                      />
+                    </span>
                   </button>
                 </div>
               </div>
               <p
                 v-if="!exploreList.length"
-                class="card__empty"
+                class="mt-3 text-[13px] text-fg-faint"
               >
                 이 트랙의 추천이 아직 없어요.
               </p>
@@ -621,628 +666,10 @@ function onPickExploreMovie(m) {
 </template>
 
 <style scoped>
-.map-page {
-  width: 100%;
-  max-width: var(--page-max-wide);
-  margin: 0 auto;
-  padding: 28px var(--page-pad) 60px;
-}
-
-/* tabs */
-.tabbar {
-  display: flex;
-  gap: 4px;
-  border-bottom: 1px solid var(--border);
-  margin-bottom: 22px;
-}
-.tab {
-  padding: 10px 16px;
-  background: none;
-  border: none;
-  border-bottom: 2px solid transparent;
-  color: var(--text-muted);
-  font-size: 14px;
-  font-weight: 600;
-  font-family: var(--font);
-  cursor: pointer;
-}
-.tab--on {
-  color: var(--text);
-  border-bottom-color: var(--gold);
-}
-
-@media (max-width: 560px) {
-  .tabbar {
-    overflow-x: auto;
-  }
-  .tab {
-    flex: none;
-    padding-inline: 13px;
-  }
-}
-
-.msg {
-  color: var(--text-muted);
-  font-size: 14px;
-  padding: 60px 0;
-  text-align: center;
-}
-.msg--error {
-  color: var(--danger);
-}
-.placeholder {
-  color: var(--text-faint);
-}
-
-/* gate */
-.gate {
-  max-width: 460px;
-  margin: 80px auto;
-  text-align: center;
-}
-.gate__title {
-  font-size: 19px;
-  font-weight: 700;
-  color: var(--text);
-}
-.gate__desc {
-  margin-top: 12px;
-  font-size: 14px;
-  line-height: 1.7;
-  color: var(--text-muted);
-}
-.gate__btn {
-  margin-top: 22px;
-  padding: 11px 24px;
-  background: var(--gold);
-  color: #1a1206;
-  border: none;
-  border-radius: var(--radius-sm);
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-/* layout */
-.map-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 268px;
-  gap: 20px;
-  align-items: start;   /* 사이드가 지도 높이에 끌려 늘어나지 않게 */
-}
-.mapframe {
-  position: relative;
-  border: 1px solid #262a36;
-  border-radius: 8px;
-  overflow: hidden;     /* 비어 있는 아래쪽은 잘라낸다 */
-  background: #0e1018;
-}
-/* 지도는 자연 비율로 전체 노출(레터박스도, 잘림도 없음). */
-.mapframe :deep(.mapsvg) {
+/* 지도 SVG는 프레임 폭에 맞춰 자연 비율로 전체 노출(레터박스·잘림 없음). */
+.mapwrap :deep(.mapsvg) {
   width: 100%;
   height: auto;
   display: block;
-}
-
-/* 좁은 화면: 지도 + 사이드를 세로로 쌓아 그리드 깨짐 방지 */
-@media (max-width: 820px) {
-  .map-layout {
-    grid-template-columns: 1fr;
-  }
-}
-
-/* explore 사이드: 보이는 만큼 자연스럽게 나열(강제 스크롤·여백 없음) */
-.side--explore {
-  display: flex;
-  flex-direction: column;
-}
-.exlist {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-.modetoggle {
-  position: absolute;
-  top: 12px;
-  right: 12px;
-  z-index: 10;
-  display: flex;
-  gap: 2px;
-  padding: 2px;
-  background: rgba(14, 16, 24, 0.7);
-  border: 1px solid #2c3142;
-  border-radius: 999px;
-}
-.modetoggle__btn {
-  padding: 5px 14px;
-  background: none;
-  border: none;
-  border-radius: 999px;
-  color: #aeb4c4;
-  font-size: 12px;
-  font-weight: 600;
-  font-family: var(--font);
-  cursor: pointer;
-}
-.modetoggle__btn--on {
-  background: var(--gold);
-  color: #1a1206;
-}
-.sw {
-  display: inline-block;
-}
-.sw--poster {
-  width: 9px;
-  height: 13px;
-  border-radius: 2px;
-  background: #2a3142;
-  border: 1px solid #3a4358;
-}
-.sw--bar {
-  width: 14px;
-  height: 3px;
-  background: #f4b860;
-}
-.legend {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 16px;
-  padding: 10px 14px;
-  border-top: 1px solid #262a36;
-  background: #161922;
-  font-size: 11.5px;
-  color: #aeb4c4;
-}
-.legend span {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-.dot {
-  border-radius: 50%;
-  display: inline-block;
-}
-.dot--high {
-  width: 13px;
-  height: 13px;
-  background: #fff0cd;
-  box-shadow: 0 0 7px #ffe6a8;
-}
-.dot--low {
-  width: 7px;
-  height: 7px;
-  background: #96a4c4;
-  opacity: 0.6;
-}
-
-/* side */
-.side {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-.card {
-  background: var(--surface-2);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  padding: 14px;
-}
-.card__tag {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-}
-.card__hint {
-  font-weight: 400;
-  text-transform: none;
-  letter-spacing: 0;
-}
-.card__empty {
-  margin-top: 10px;
-  font-size: 13px;
-  color: var(--text-faint);
-  line-height: 1.6;
-}
-.sel {
-  display: flex;
-  gap: 12px;
-  margin-top: 10px;
-}
-.sel__poster {
-  width: 60px;
-  aspect-ratio: 2 / 3;
-  flex: none;
-  border-radius: 4px;
-  overflow: hidden;
-  background: var(--surface);
-}
-.sel__poster img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-.sel__meta {
-  min-width: 0;
-}
-.sel__title {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--text);
-  line-height: 1.4;
-}
-.sel__sub {
-  margin-top: 2px;
-  font-size: 12px;
-  color: var(--text-muted);
-}
-.sel__rating {
-  margin-top: 4px;
-  font-size: 13px;
-  color: var(--gold);
-}
-.sel__btn {
-  margin-top: 10px;
-  padding: 6px 14px;
-  background: none;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  color: var(--text);
-  font-size: 12px;
-  cursor: pointer;
-}
-.sel__btn:hover {
-  border-color: var(--gold);
-}
-.card--count {
-  font-size: 13px;
-  color: var(--text-muted);
-}
-.card--count b {
-  color: var(--text);
-}
-
-/* 내 취향 요약 */
-.summary {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  margin-top: 8px;
-  font-size: 13px;
-}
-.summary__label {
-  flex: none;
-  color: var(--text-muted);
-}
-.summary__val {
-  font-weight: 600;
-  color: var(--text);
-}
-.summary__val--unexp {
-  color: var(--gold);
-}
-
-/* 내가 본 영화 찾기 (반짝) */
-.find {
-  width: 100%;
-  margin-top: 8px;
-  padding: 9px 12px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  color: var(--text);
-  font-size: 13px;
-  font-family: var(--font);
-}
-.find::placeholder {
-  color: var(--text-faint);
-}
-.find:focus {
-  outline: none;
-  border-color: var(--gold);
-}
-.find__none {
-  margin-top: 8px;
-  font-size: 12px;
-  color: var(--text-faint);
-}
-.find-card {
-  position: relative;
-}
-.findlist {
-  position: absolute;
-  left: 14px;
-  right: 14px;
-  top: calc(100% - 6px);
-  z-index: 20;
-  margin: 0;
-  padding: 4px;
-  list-style: none;
-  max-height: 280px;
-  overflow-y: auto;
-  background: var(--surface-2);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
-}
-.finditem {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  padding: 6px 8px;
-  background: none;
-  border: none;
-  border-radius: 4px;
-  text-align: left;
-  cursor: pointer;
-  font-family: var(--font);
-}
-.finditem:hover {
-  background: var(--surface);
-}
-.finditem__poster {
-  width: 24px;
-  height: 36px;
-  object-fit: cover;
-  border-radius: 2px;
-  flex: none;
-  background: var(--surface);
-}
-.finditem__title {
-  flex: 1;
-  min-width: 0;
-  font-size: 13px;
-  color: var(--text);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.finditem__year {
-  font-size: 11.5px;
-  color: var(--text-muted);
-  flex: none;
-}
-
-/* 영화 검색·등록 탭 */
-.reg {
-  padding-top: 4px;
-}
-.bar {
-  display: flex;
-  gap: 10px;
-  margin-bottom: 22px;
-}
-.bar__input {
-  flex: 1;
-  padding: 12px 16px;
-  background: var(--surface-2);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  color: var(--text);
-  font-size: 14px;
-  font-family: var(--font);
-}
-.bar__input::placeholder {
-  color: var(--text-faint);
-}
-.bar__input:focus {
-  outline: none;
-  border-color: var(--gold);
-}
-.bar__btn {
-  padding: 0 22px;
-  background: var(--gold);
-  color: #1a1206;
-  border: none;
-  border-radius: var(--radius-sm);
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-}
-.grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-  gap: 18px;
-}
-.rcard {
-  background: none;
-  border: none;
-  padding: 0;
-  text-align: left;
-  cursor: pointer;
-  font-family: var(--font);
-}
-.rcard__poster {
-  aspect-ratio: 2 / 3;
-  border-radius: var(--radius-sm);
-  overflow: hidden;
-  background: var(--surface-2);
-}
-.rcard__poster img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  transition: transform 0.2s;
-}
-.rcard:hover .rcard__poster img {
-  transform: scale(1.04);
-}
-.rcard__title {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--text);
-  margin-top: 8px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.rcard__meta {
-  font-size: 12px;
-  color: var(--text-muted);
-  margin-top: 2px;
-}
-
-/* 지도 탐색(4.4) — 와이어프레임 10·d/10·e */
-.explore-head {
-  font-size: 15px;
-  font-weight: 700;
-  color: var(--text);
-  margin-bottom: 14px;
-}
-.explore-head__hint {
-  font-weight: 400;
-  font-size: 13px;
-  color: var(--text-muted);
-}
-.subtab {
-  display: flex;
-  gap: 4px;
-  border-bottom: 1px solid var(--border);
-  margin-bottom: 14px;
-}
-.subtab__btn {
-  padding: 8px 16px;
-  background: none;
-  border: none;
-  border-bottom: 2px solid transparent;
-  color: var(--text-muted);
-  font-size: 13px;
-  font-weight: 600;
-  font-family: var(--font);
-  cursor: pointer;
-}
-.subtab__btn--on {
-  color: var(--text);
-  border-bottom-color: var(--gold);
-}
-/* 추천 리스트: 지도 높이에 맞춰 스크롤 — 10+10편이 지도 아래로 길게 늘어져 휑해지지 않게 (item 8) */
-.exlist {
-  max-height: 520px;
-  overflow-y: auto;
-  padding-right: 4px;
-}
-.exitem {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  padding: 11px 0;
-  border-top: 1px solid var(--border);
-}
-.exitem:first-of-type {
-  border-top: none;
-}
-.exitem__num {
-  flex: none;
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 12px;
-  font-weight: 700;
-  color: #fff;
-  margin-top: 20px;
-}
-.exitem__num--unexplored {
-  background: #c06d00;
-}
-.exitem__num--safe {
-  background: #1c4fbf;
-}
-.exitem__num--off {
-  background: var(--surface);
-  color: var(--text-faint);
-}
-.exitem__poster {
-  width: 42px;
-  height: 62px;
-  flex: none;
-  padding: 0;
-  border: none;
-  border-radius: 4px;
-  overflow: hidden;
-  background: var(--surface-2);
-  cursor: pointer;
-}
-.exitem__poster img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-.exitem__body {
-  flex: 1;
-  min-width: 0;
-}
-.exitem__title {
-  display: block;
-  width: 100%;
-  padding: 0;
-  background: none;
-  border: none;
-  text-align: left;
-  font-family: var(--font);
-  font-size: 13.5px;
-  font-weight: 600;
-  color: var(--text);
-  cursor: pointer;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.exitem__title:hover {
-  color: var(--gold);
-}
-.exitem__label {
-  margin-top: 4px;
-  font-size: 12px;
-}
-.exitem__label--unexplored {
-  color: #c06d00;
-}
-.exitem__label--safe {
-  color: #4f86ff;
-}
-.exitem__toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  margin-top: 8px;
-  padding: 0;
-  background: none;
-  border: none;
-  font-family: var(--font);
-  font-size: 11px;
-  color: var(--text-muted);
-  cursor: pointer;
-}
-.exitem__sw {
-  width: 30px;
-  height: 17px;
-  border-radius: 10px;
-  background: var(--line, #2a3142);
-  position: relative;
-  transition: background 0.15s;
-}
-.exitem__knob {
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 13px;
-  height: 13px;
-  border-radius: 50%;
-  background: #fff;
-  transition: left 0.15s;
-}
-.exitem__toggle--on .exitem__knob {
-  left: 15px;
-}
-.exitem__toggle--on.exitem__toggle--unexplored .exitem__sw {
-  background: #c06d00;
-}
-.exitem__toggle--on.exitem__toggle--safe .exitem__sw {
-  background: #1c4fbf;
 }
 </style>
