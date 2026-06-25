@@ -12,7 +12,20 @@ export async function streamChat(path, messages, onDelta, signal) {
     body: JSON.stringify({ messages }),
     signal,
   });
+  // 일일 한도 초과(429): 본문 detail/사용량을 담아 LIMIT 에러로 던진다(호출측이 카운터·안내 처리).
+  if (res.status === 429) {
+    let body = {};
+    try { body = await res.json(); } catch { /* noop */ }
+    const err = new Error(body.detail || "오늘 사용 가능한 횟수를 모두 사용했어요.");
+    err.code = "LIMIT";
+    if (body.used != null) err.usage = { used: body.used, limit: body.limit };
+    throw err;
+  }
   if (!res.ok || !res.body) throw new Error(`chat ${res.status}`);
+
+  // 응답 헤더의 잔여 사용량(있으면) — 스트림 끝까지 읽은 뒤 호출측에 반환.
+  const usedH = res.headers.get("X-Cowatch-Used");
+  const usage = usedH != null ? { used: Number(usedH), limit: Number(res.headers.get("X-Cowatch-Limit")) } : null;
 
   const reader = res.body.getReader();
   const decoder = new TextDecoder();
@@ -27,7 +40,7 @@ export async function streamChat(path, messages, onDelta, signal) {
       buf = buf.slice(i + 2);
       if (!ev.startsWith("data:")) continue;
       const data = ev.slice(5).trim();
-      if (data === "[DONE]") return;
+      if (data === "[DONE]") return usage;
       let parsed;
       try {
         parsed = JSON.parse(data);
@@ -38,4 +51,5 @@ export async function streamChat(path, messages, onDelta, signal) {
       if (parsed.delta) onDelta(parsed.delta);
     }
   }
+  return usage;
 }

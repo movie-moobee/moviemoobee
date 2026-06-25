@@ -29,3 +29,13 @@ class Notification(models.Model):
 
     class Meta:
         ordering = ["-created_at"]   # 최신 알림 먼저
+
+
+class CowatchUsage(models.Model):
+    # '같이 볼 영화' 챗봇 일일 사용량 — 계정당 하루 N회 제한(토큰 낭비 방지, 5.4).
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="cowatch_usages")
+    date = models.DateField()
+    count = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["user", "date"], name="uniq_cowatch_usage_per_day")]

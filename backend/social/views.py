@@ -2,7 +2,7 @@ import json
 import time
 
 from django.db import close_old_connections
-from django.db.models import Count, Q
+from django.db.models import Count, F, Q
 from django.http import StreamingHttpResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -10,7 +10,10 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from accounts.models import User
-from .models import Friendship, Notification
+from .models import CowatchUsage, Friendship, Notification
+
+# '같이 볼 영화' 챗봇 일일 질문 한도(계정당, 토큰 낭비 방지, 5.4).
+COWATCH_DAILY_LIMIT = 10
 from .serializers import (
     FriendProfileSerializer,
     FriendSerializer,
@@ -211,11 +214,25 @@ class FriendCowatchView(APIView):
         if not _accepted_between(request.user, pk):
             return Response({"detail": "친구만 볼 수 있습니다."}, status=403)
         friend = get_object_or_404(User, pk=pk)
+
+        # 계정당 하루 한도 검사·증가(질문 1건=1회). 한도 초과면 429로 차단(스트림 시작 안 함).
+        usage, _ = CowatchUsage.objects.get_or_create(user=request.user, date=timezone.localdate())
+        if usage.count >= COWATCH_DAILY_LIMIT:
+            return Response(
+                {"detail": "오늘 사용 가능한 질문 10개를 모두 사용했어요. 내일 다시 시도해주세요.",
+                 "used": usage.count, "limit": COWATCH_DAILY_LIMIT},
+                status=429,
+            )
+        CowatchUsage.objects.filter(pk=usage.pk).update(count=F("count") + 1)   # 원자적 증가
+        usage.refresh_from_db()
+
         from taste.services.chat import cowatch_messages, sse
         messages = cowatch_messages(request.user, friend, request.data.get("messages", []))
         resp = StreamingHttpResponse(sse(messages), content_type="text/event-stream")
         resp["Cache-Control"] = "no-cache"
         resp["X-Accel-Buffering"] = "no"   # nginx 등 버퍼링 끄기(즉시 전송)
+        resp["X-Cowatch-Used"] = str(usage.count)      # 프론트 카운터(헤더, 본문은 스트림이라)
+        resp["X-Cowatch-Limit"] = str(COWATCH_DAILY_LIMIT)
         return resp
 
 
@@ -229,6 +246,14 @@ class FriendCowatchCandidatesView(APIView):
         friend = get_object_or_404(User, pk=pk)
         from taste.services.chat import cowatch_map_candidates
         return Response(cowatch_map_candidates(request.user, friend))
+
+
+class CowatchUsageView(APIView):
+    """GET /api/social/cowatch/usage/ — '같이 볼 영화' 챗봇 오늘 사용량(계정당). 초기 카운터 표시용."""
+
+    def get(self, request):
+        usage = CowatchUsage.objects.filter(user=request.user, date=timezone.localdate()).first()
+        return Response({"used": usage.count if usage else 0, "limit": COWATCH_DAILY_LIMIT})
 
 
 class NotificationListView(APIView):
