@@ -1,5 +1,5 @@
-numpy==2.4.6
-scipy==1.17.1
+# 오프라인 전용 — 영화 전역 좌표 생성(build_coords)에서만 사용.
+# 런타임 서버에는 설치 불필요(numpy·scipy 는 requirements.txt 에 포함).
+#   사용:  pip install -r requirements-ml.txt
+-r requirements.txt
 scikit-learn==1.9.0
-pandas==3.0.3
-requests==2.34.2
