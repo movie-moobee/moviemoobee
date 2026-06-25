@@ -44,6 +44,7 @@ function optionsFor(key) {
 }
 function isActive(def) {
   if (def.type === "range") return !!(filters.value.min_rating || filters.value.max_rating);
+  if (def.key === "genre") return filters.value.genre.length > 0;
   return !!filters.value[def.key];
 }
 function labelFor(def) {
@@ -54,6 +55,11 @@ function labelFor(def) {
     return `${lo || "0"}~${hi || "10"}점`;
   }
   const v = filters.value[def.key];
+  if (def.key === "genre") {
+    if (!v.length) return def.label;
+    if (v.length === 1) return v[0];
+    return `${def.label} ${v.length}개`;
+  }
   if (!v) return def.label;
   const opt = optionsFor(def.key).find((o) => o.value === v);
   return opt ? opt.label : def.label;
@@ -76,11 +82,12 @@ function applyRating() {
 
 const activeCount = computed(() => {
   const f = filters.value;
-  return [f.genre, f.decade, f.runtime, f.min_rating || f.max_rating].filter(Boolean).length;
+  return [f.decade, f.runtime, f.min_rating || f.max_rating].filter(Boolean).length + f.genre.length;
 });
 
 // 드롭다운(한 번에 하나만 열림)
 const openKey = ref(null);
+let genreFetchTimer = null;
 function toggleMenu(key) {
   openKey.value = openKey.value === key ? null : key;
 }
@@ -88,12 +95,16 @@ function closeMenu() {
   openKey.value = null;
 }
 
-async function fetchMovies() {
-  loading.value = true;
+async function fetchMovies({ keepResults = false } = {}) {
+  if (!keepResults) loading.value = true;
   error.value = "";
   try {
     const q = query.value.trim();
-    const data = await browseMovies({ search: q, ...filters.value });
+    const data = await browseMovies({
+      search: q,
+      ...filters.value,
+      genre: filters.value.genre.join(","),
+    });
     // 제목 검색 시: 한글 자연정렬로 시리즈 묶기(아이언맨→2→3, 미션 임파서블 묶음).
     // PostgreSQL 한글 collation이 불안정해 정렬은 프론트에서 확정. 필터/랜딩은 평점순 유지.
     if (q) {
@@ -103,8 +114,14 @@ async function fetchMovies() {
   } catch {
     error.value = "영화를 불러오지 못했습니다.";
   } finally {
-    loading.value = false;
+    if (!keepResults) loading.value = false;
   }
+}
+function scheduleGenreFetch() {
+  clearTimeout(genreFetchTimer);
+  genreFetchTimer = setTimeout(() => {
+    fetchMovies({ keepResults: true });
+  }, 160);
 }
 
 function onSearch() {
@@ -113,6 +130,15 @@ function onSearch() {
   fetchMovies();
 }
 function pickOption(key, value) {
+  if (key === "genre") {
+    const selected = filters.value.genre;
+    filters.value.genre = selected.includes(value)
+      ? selected.filter((v) => v !== value)
+      : [...selected, value];
+    searched.value = true;
+    scheduleGenreFetch();
+    return;
+  }
   filters.value[key] = filters.value[key] === value ? "" : value; // 같은 값 재선택 = 해제
   searched.value = true;
   closeMenu();
@@ -212,6 +238,7 @@ onMounted(async () => {
         <button
           type="button"
           :class="isActive(def) ? 'chip chip-on' : 'chip chip-off'"
+          :style="def.key === 'genre' ? { minWidth: '86px', justifyContent: 'center' } : null"
           @click="def.type === 'range' ? openRating() : toggleMenu(def.key)"
         >
           {{ labelFor(def) }}<span class="text-[10px] opacity-70">▾</span>
@@ -256,14 +283,19 @@ onMounted(async () => {
         <!-- 옵션형(장르·개봉년도·러닝타임) -->
         <div
           v-else-if="def.type === 'options' && openKey === def.key"
-          class="absolute left-0 top-[calc(100%+6px)] z-20 max-h-[280px] min-w-[150px] overflow-y-auto rounded-xl border border-lineHover bg-ink-800 p-1.5 shadow-[0_12px_30px_rgba(0,0,0,0.45)]"
+          :class="def.key === 'genre'
+            ? 'absolute left-0 top-[calc(100%+6px)] z-20 flex max-h-[320px] w-[270px] flex-wrap gap-2 overflow-y-auto rounded-xl border border-lineHover bg-ink-800 p-3 shadow-[0_12px_30px_rgba(0,0,0,0.45)]'
+            : 'absolute left-0 top-[calc(100%+6px)] z-20 max-h-[280px] min-w-[150px] overflow-y-auto rounded-xl border border-lineHover bg-ink-800 p-1.5 shadow-[0_12px_30px_rgba(0,0,0,0.45)]'"
         >
           <button
             v-for="opt in optionsFor(def.key)"
             :key="opt.value"
             type="button"
-            class="block w-full rounded-lg px-2.5 py-2 text-left text-[13px] transition hover:bg-white/[0.05]"
-            :class="filters[def.key] === opt.value ? 'font-bold text-gold' : 'text-fg'"
+            :class="def.key === 'genre'
+              ? (filters.genre.includes(opt.value)
+                ? 'rounded-full border border-gold bg-gold px-3 py-1.5 text-[13px] font-semibold text-ink shadow-[0_0_0_1px_rgba(230,181,102,0.18)] transition'
+                : 'rounded-full border border-line bg-transparent px-3 py-1.5 text-[13px] font-semibold text-fg-muted transition hover:border-lineHover hover:text-fg')
+              : ['block w-full rounded-lg px-2.5 py-2 text-left text-[13px] transition hover:bg-white/[0.05]', filters[def.key] === opt.value ? 'font-bold text-gold' : 'text-fg']"
             @click="pickOption(def.key, opt.value)"
           >
             {{ opt.label }}

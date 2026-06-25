@@ -13,6 +13,7 @@ const props = defineProps({
   highlightId: { type: Number, default: null }, // 지도 내 검색(3.4): 이 영화 마커 반짝
   anchors: { type: Array, default: () => [] },  // [{name,x,y}] 장르 대륙(A-14). 있으면 고정 뷰포트.
   showGenreLabels: { type: Boolean, default: false }, // 대륙(장르) 글자 표시 토글
+  showStarLabels: { type: Boolean, default: true }, // 고평점 영화 제목 라벨 표시 토글
   // 지도 탐색(4.4): 추천 핀 오버레이 [{id,title,poster_path,release_year,vote_average,x,y,num,kind}].
   // kind: 'safe'(하늘색) | 'unexplored'(호박색) | 'rec'(보라, AI 같이 볼 영화·번호 없음). 비면 핀 없음.
   pins: { type: Array, default: () => [] },
@@ -227,6 +228,7 @@ function circleIntersectsBox(c, box) {
   return (c.x - x) ** 2 + (c.y - y) ** 2 < c.r ** 2;
 }
 const starLabels = computed(() => {
+  if (!props.showStarLabels) return [];
   const candidates = [...markers.value]
     .filter((m) => props.colorBy === "owner" ? m.owner === "shared" : m.bright)
     .sort(labelPriority);
