@@ -1,15 +1,16 @@
 :root {
-  --bg: #0B0D12;
-  --surface: #0E1118;
-  --surface-2: #11141C;
-  --border: rgba(255,255,255,0.08);
+  /* Carbon 팔레트(tailwind.config 와 동일 값) — 변수명은 유지해 기존 scoped CSS 호환 */
+  --bg: #08080A;
+  --surface: #101014;
+  --surface-2: #0C0C0F;
+  --border: rgba(255,255,255,0.07);
   --border-hover: rgba(255,255,255,0.16);
-  --text: #E8EAF0;
-  --text-muted: #8A8F9C;
-  --text-faint: #5F6470;
-  --gold: #F4B860;
+  --text: #ECEDF1;
+  --text-muted: #8C8F99;
+  --text-faint: #80838F;   /* 가독성 위해 상향(기존 #5A5D67는 검은 배경서 대비 부족) */
+  --gold: #E6B566;
   --teal: #5DCAA5;
-  --danger: #E24B4A;
+  --danger: #E0796B;
   --radius: 10px;
   --radius-sm: 6px;
   --font: 'Pretendard', system-ui, -apple-system, sans-serif;

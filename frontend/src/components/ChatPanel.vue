@@ -142,7 +142,8 @@ async function send() {
 .chat {
   display: flex;
   flex-direction: column;
-  height: 430px;
+  height: 100%;
+  min-height: 430px;
   border: 1px solid var(--border);
   border-radius: var(--radius);
   overflow: hidden;
