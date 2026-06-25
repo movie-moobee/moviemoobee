@@ -1,4 +1,4 @@
-import { api } from "./client";
+import { api, API_BASE } from "./client";
 
 // 친구 API (F-FRD-01~03) → /api/social/
 // 검색·요청·받은요청·수락·거절. 친구목록·삭제·프로필은 5.2, 알림은 5.5.
@@ -90,7 +90,7 @@ export async function getUnreadCount() {
 // onMessage({ unread }) 로 갱신. signal(AbortController)로 종료. 연결 끊기면 throw → 호출측 재연결.
 export async function streamUnread(onMessage, signal) {
   const token = localStorage.getItem("token");
-  const res = await fetch("/api/social/notifications/stream/", {
+  const res = await fetch(`${API_BASE}/social/notifications/stream/`, {
     headers: { ...(token ? { Authorization: `Token ${token}` } : {}) },
     signal,
   });
