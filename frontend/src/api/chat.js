@@ -1,9 +1,11 @@
 // LLM 챗봇 SSE 스트리밍 (5.4). axios는 브라우저 스트리밍이 약해 fetch + ReadableStream 사용.
 // streaming TextDecoder 로 멀티바이트(한글) 청크 경계도 안전하게 합친다.
 // path 예: "/social/friends/72/cowatch/", "/taste/chat". onDelta(text) 로 토큰을 흘려준다.
+import { API_BASE } from "./client";
+
 export async function streamChat(path, messages, onDelta, signal) {
   const token = localStorage.getItem("token");
-  const res = await fetch(`/api${path}`, {
+  const res = await fetch(`${API_BASE}${path}`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

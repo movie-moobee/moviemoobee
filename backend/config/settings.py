@@ -7,7 +7,19 @@ load_dotenv(BASE_DIR.parent / ".env")  # 레포 루트의 .env 로드
 
 SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "dev-insecure-change-me")
 DEBUG = os.environ.get("DJANGO_DEBUG", "1") == "1"
-ALLOWED_HOSTS = ["*"]
+
+
+def _csv_env(key, default=""):
+    """콤마로 구분된 env → 리스트(공백 제거, 빈 값 제외)."""
+    return [v.strip() for v in os.environ.get(key, default).split(",") if v.strip()]
+
+
+# 배포 도메인을 env 로 지정(미설정 시 로컬 기본값). DEBUG 일 땐 편의상 전체 허용.
+ALLOWED_HOSTS = _csv_env("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1")
+if DEBUG:
+    ALLOWED_HOSTS = ["*"]
+# admin https 로그인 등 CSRF 신뢰 출처(예: https://my-app.onrender.com)
+CSRF_TRUSTED_ORIGINS = _csv_env("CSRF_TRUSTED_ORIGINS")
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -36,6 +48,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",  # 정적파일(admin 등) 서빙 — 배포
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -65,6 +78,8 @@ DATABASES = {
         "PASSWORD": os.environ.get("POSTGRES_PASSWORD", "moviemoobee"),
         "HOST": os.environ.get("POSTGRES_HOST", "localhost"),
         "PORT": os.environ.get("POSTGRES_PORT", "5432"),
+        # Supabase 등 관리형 DB는 SSL 필요 → 배포 시 POSTGRES_SSLMODE=require. 로컬은 prefer.
+        "OPTIONS": {"sslmode": os.environ.get("POSTGRES_SSLMODE", "prefer")},
     }
 }
 
@@ -75,6 +90,12 @@ TIME_ZONE = "Asia/Seoul"
 USE_I18N = True
 USE_TZ = True
 STATIC_URL = "static/"
+STATIC_ROOT = BASE_DIR / "staticfiles"   # collectstatic 수집 경로(admin 정적 등)
+# whitenoise 압축·해시 정적 서빙(배포)
+STORAGES = {
+    "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+    "staticfiles": {"BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage"},
+}
 
 # 업로드 파일(프로필 사진 등). 개발: 로컬 media/ 폴더 + DEBUG 시 static() 서빙(config/urls).
 MEDIA_URL = "/media/"
@@ -117,8 +138,10 @@ REST_AUTH = {
 # 로컬: 메일 발송 대신 콘솔 출력
 EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 
-# Vue 개발 서버
-CORS_ALLOWED_ORIGINS = ["http://localhost:5173"]
+# Vue 개발 서버 + 배포 프론트 도메인(예: https://my-app.vercel.app)을 env 로 추가.
+CORS_ALLOWED_ORIGINS = _csv_env(
+    "CORS_ALLOWED_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173"
+)
 
 # TMDB
 TMDB_API_KEY = os.environ.get("TMDB_API_KEY", "")

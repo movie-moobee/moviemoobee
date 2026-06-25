@@ -11,3 +11,7 @@ Pillow==12.2.0
 # 런타임 계산 — 추천(집합 최근접)·탐색 KDE(areas.py)에서 사용. 서버 구동에 필요.
 numpy==2.4.6
 scipy==1.17.1
+
+# 배포 — WSGI 서버 + 정적파일 서빙
+gunicorn==23.0.0
+whitenoise==6.8.2
