@@ -2,7 +2,7 @@
 
 무비무비(MovieMoobee) 기획·설계 문서 모음. "좋아하는 영화"가 아니라 **"좋아하게 될 영화"** 를 추천 — 취향 지도에서 미탐색 영역을 찾아 필터 버블을 벗어나게 한다.
 
-> 스택: Vue 3 (Composition API) · Django REST Framework · PostgreSQL · 범위: 로컬 시연
+> 스택: Vue 3 (Composition API) · Django 5.2 + Django REST Framework · PostgreSQL · 범위: 로컬 시연
 > 파일명은 호환성을 위해 영문, 내용은 한글입니다.
 
 ## 문서 목록
@@ -19,6 +19,7 @@
 | 08 | [08_journal/](08_journal/) | 개발 일지 — 매 작업의 파일·이유·기능·검증 기록(작업별 파일, 일기 형식) |
 | 09 | [09_tech_notes.docx](09_tech_notes.docx) | 기술 노트 — 인증(dj-rest-auth)·시그널·환경변수·설치 라이브러리(단일 출처) |
 | 10 | [10_project_structure.md](10_project_structure.md) | 프로젝트 파일 구조 — 폴더·파일별 역할·담당·구현 상태 |
+| 11 | [11_local_setup.md](11_local_setup.md) | 로컬 실행 가이드 — 새 PC 세팅, 의존성 설치, fixture 로드 |
 
 
 ## 노션용 (notion/)

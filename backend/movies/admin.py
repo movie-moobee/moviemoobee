@@ -20,4 +20,4 @@ class MovieAdmin(admin.ModelAdmin):
 
 @admin.register(WatchRecord)
 class WatchRecordAdmin(admin.ModelAdmin):
-    autocomplete_fields = ("movie",)   # 영화 FK 4,958개 통째 로딩 방지 → 검색 박스
+    autocomplete_fields = ("movie",)   # 영화 FK 3,744개 통째 로딩 방지 → 검색 박스

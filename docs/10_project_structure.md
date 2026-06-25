@@ -10,14 +10,13 @@
 ## 최상위
 ```
 13-pjt/
-├─ README.md                  처음 시작·폴더개요·담당
-├─ CLAUDE.md                  바이브코딩 가이드+도메인 불변식 (gitignore=개인용)
+├─ README.md                  제출용 개요·구현 범위·실행 방법
 ├─ docker-compose.yml         ⚙️ 로컬 PostgreSQL(+adminer) 컨테이너
 ├─ .env / .env.example        ⚙️ 환경변수(.env는 커밋 금지)
 ├─ .gitignore
-├─ disabled-gitlab-ci.yml     ⚙️ CI 파이프라인(러너 없어 비활성화됨)
+├─ disabled-gitlab-ci.yml     ⚙️ CI 파이프라인 초안(러너 없어 비활성화됨)
 ├─ .gitlab/merge_request_templates/Default.md   MR 기본 템플릿
-├─ backend/                   Django REST Framework
+├─ backend/                   Django 5.2 + Django REST Framework
 ├─ frontend/                  Vue 3 + Vite
 └─ docs/                      기획·설계·일지 문서
 ```
@@ -26,7 +25,7 @@
 ```
 backend/
 ├─ manage.py                  Django 진입점
-├─ requirements.txt           웹앱 의존성(Django/DRF/psycopg/dotenv …)
+├─ requirements.txt           웹앱 의존성(Django 5.2/DRF/psycopg/dotenv …)
 ├─ requirements-ml.txt        데이터·추천(A) 의존성(numpy/sklearn/umap …) — 무거워 분리
 ├─ .ruff.toml                 ⚙️ 린트 설정(line-length=100)
 │
@@ -37,51 +36,50 @@ backend/
 │  └─ asgi.py · wsgi.py
 │
 ├─ accounts/                  User·인증·프로필             [B]
-│  ├─ models.py               ✅ User(AbstractUser + nickname, coord_x/y/coord_updated_at)
-│  ├─ views.py · serializers.py · urls.py   🟡 인증/프로필(F-AUTH)
+│  ├─ models.py               ✅ User(AbstractUser + nickname, profile_image, onboarded)
+│  ├─ views.py · serializers.py · urls.py   ✅ 인증/프로필/온보딩(F-AUTH, F-ONB)
 │  └─ admin.py
 │
 ├─ movies/                    영화·장르·키워드·시청기록     [B]
-│  ├─ models.py               ✅ Genre/Keyword/Movie(umap_x/y)/WatchRecord
-│  ├─ fixtures/movies.json    ✅ 영화+좌표 시드(loaddata movies) [A가 생성]
-│  ├─ views.py · serializers.py · urls.py   🟡 검색/상세/시청등록(F-MOV,F-WAT)
+│  ├─ models.py               ✅ Genre/Keyword/Movie(map_x/y)/WatchRecord/ReviewReaction/ReviewComment
+│  ├─ fixtures/movies.json    ✅ 영화 3,744편+좌표 시드(loaddata movies) [A가 생성]
+│  ├─ views.py · serializers.py · urls.py   ✅ 검색/상세/OTT/리뷰/시청등록(F-MOV,F-WAT)
 │  └─ admin.py
 │
 ├─ social/                    친구·알림                    [B]
 │  ├─ models.py               ✅ Friendship, Notification(F-NTF)
-│  └─ views.py · serializers.py · urls.py   🟡 친구/알림(F-FRD,F-NTF)
+│  └─ views.py · serializers.py · urls.py   ✅ 친구/알림/같이 볼 영화(F-FRD,F-NTF)
 │
 └─ taste/                     좌표·영역·추천·지도 데이터     [A]
-   ├─ models.py               (모델 없음 — movies/accounts 읽어 좌표 갱신)
-   ├─ apps.py                 ✅ ready()에서 시그널 등록
-   ├─ signals.py              ✅ WatchRecord 변경 → 사용자 좌표 재계산(F-MAP-00)
-   ├─ views.py · urls.py      ✅ GET /api/taste/me/coord (내 좌표)
-   ├─ serializers.py          🟡 추천/지도 응답
+   ├─ models.py               (모델 없음 — movies/accounts 데이터 기반 추천)
+   ├─ views.py · urls.py      ✅ 지도/추천/탐색/챗봇 API
+   ├─ serializers.py          ✅ 추천/지도 응답
    ├─ services/               (뷰에 안 두는) 무거운 도메인 로직
-   │  ├─ coords.py            ✅ recompute_user_coord (별점 가중 무게중심·캐싱)
-   │  ├─ areas.py             ✅ 미탐색·안전 영역(KDE/좌표거리) F-MAP-03
-   │  └─ recommend.py         🟡 안전/미탐색 추천 F-REC
+   │  ├─ areas.py             ✅ 미탐색·안전 영역 추천
+   │  ├─ recommend.py         ✅ 안전/미탐색 추천
+   │  ├─ taste_map.py         ✅ 취향 지도 요약/좌표 응답
+   │  ├─ chat.py · gms.py     ✅ GMS 기반 추천 챗봇
    ├─ management/commands/    데이터 파이프라인(manage.py 커맨드)
    │  ├─ import_movies.py     ✅ TMDB 인기영화 수집·적재
-   │  ├─ build_coords.py      ✅ TF-IDF+UMAP 전역 좌표 생성·적재(+모델 pkl)
+   │  ├─ build_coords.py      ✅ TF-IDF/MDS/SVD 기반 전역 좌표 생성·적재
    │  └─ seed_demo.py         ✅ 데모 유저·시청기록·친구 시드
-   └─ artifacts/coords_model.pkl   ⚙️ 학습된 좌표 모델(gitignore; 신규영화 transform용)
+   └─ artifacts/anchors.json       ✅ 지도 대륙 앵커 좌표
 ```
 **규칙**: 모델=ERD, 무거운 연산(임베딩/UMAP/KDE/좌표거리)은 **뷰가 아니라 services·management 커맨드**에.
 
 ## frontend/ (Vue 3 + Vite · Composition API)
 ```
 frontend/
-├─ package.json · vite.config.js(/api 프록시) · .eslintrc.cjs · index.html
+├─ package.json · vite.config.js(/api 프록시) · index.html
 └─ src/
    ├─ main.js · App.vue        공통 셸
    ├─ router/index.js          화면 라우팅(01~13)
    ├─ api/client.js            axios(baseURL=/api)
-   ├─ composables/useTasteMap.js   🟡 취향 지도 로직 [A]
+   ├─ composables/             ✅ current user, marker mode, movie search, taste map
    ├─ views/                   화면별 페이지
-   │  ├─ MapView · RecommendView         🟡 [A]
-   │  └─ Login/Onboarding/Main/Search/MovieDetail/Profile/Friends/FriendDetail  🟡 [B]
-   ├─ components/  ·  assets/   (.gitkeep)
+   │  ├─ MapView · RecommendView         ✅ [A]
+   │  └─ Login/Onboarding/Main/MovieSearch/MovieDetail/Profile/Friends/FriendCompare  ✅ [B]
+   ├─ components/ · assets/
 ```
 **규칙**: `<script setup>`만(Options API 금지). 지도는 SVG/Canvas(D3 등), 주변 UI는 일반 컴포넌트.
 
@@ -92,7 +90,7 @@ docs/
 ├─ 01_functional_spec.docx    기능명세서(F-ID, 입력/처리/출력/예외)
 ├─ 02_erd.dbml/.png/.svg      ERD(테이블=모델)
 ├─ 03_wireframe.html          와이어프레임(화면 01~13)
-├─ 04_schedule.xlsx/.gantt    일정/WBS  ·  notion/  노션 임포트용
+├─ 04_schedule.xlsx/.png      일정/WBS  ·  notion/  노션 임포트용
 ├─ 05_collaboration_rules.docx · 06_github_flow.png   협업 규칙·플로우
 ├─ 07_docker_postgres_guide.md   Docker+Postgres 세팅
 ├─ 08_journal/               ✅ 개발 일지(작업별 A-NN-*.md) [A 작성중]
@@ -106,8 +104,8 @@ docs/
 ## 한눈 흐름 (데이터 → 좌표 → 추천)
 ```
 import_movies(TMDB) → movies 적재
-   → build_coords(TF-IDF+UMAP) → movies.umap_x/y (전역 고정 좌표)
-   → (시청기록 별점) → signals → coords.recompute_user_coord → users.coord_x/y
-   → recommend/areas(안전=좌표거리, 미탐색=KDE) → 추천/지도
+   → build_coords(TF-IDF/SVD 기반 좌표) → movies.map_x/y (전역 고정 좌표)
+   → (시청기록 별점) → taste_map/areas/recommend 서비스에서 추천·지도 계산
+   → 안전 추천 / 미탐색 추천 / 지도 탐색 / 챗봇 후보 제공
 ```
 페어 빠른 시작: `loaddata movies`(영화+좌표) + `seed_demo`(데모) → 파이프라인 재실행 불필요.

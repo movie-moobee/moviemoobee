@@ -3,7 +3,7 @@
 회사 PC ↔ 집 PC 처럼 **새 PC에서 프로젝트를 띄우는 방법**. 같은 사람이든 페어든 동일.
 핵심 원칙: **옮겨다니는 건 코드(git) + 시크릿(.env)뿐.** `.venv`·`node_modules`·DB 데이터는 **각 PC에 따로** 둔다(동기화 X).
 
-> 파이썬 버전은 PC마다 달라도 됨(우리 의존성은 3.11·3.12 둘 다 OK). venv가 PC-로컬이라 서로 안 섞인다.
+> 명세 기준 Python 3.11을 권장한다. venv는 PC-로컬이라 서로 안 섞인다.
 
 ---
 
@@ -32,6 +32,7 @@ cp .env.example .env
 | 키 | 값 |
 |---|---|
 | `TMDB_API_KEY` | **본인 TMDB v4 Read Access Token** (필수 — 영화 상세 OTT·import 용) |
+| `GMS_KEY` | SSAFY GMS Key (AI 추천 챗봇 사용 시 필수) |
 | `DJANGO_SECRET_KEY` | 비워도 dev 기본값 동작. 채우려면: `python -c "from django.core.management.utils import get_random_secret_key as g; print(g())"` |
 | `POSTGRES_*` | 기본값 그대로 두면 됨(아래 docker-compose와 일치) |
 
@@ -56,7 +57,7 @@ py -3.11 -m venv .venv                 # (mac/linux: python3.11 -m venv .venv)
 pip install -r requirements.txt -r requirements-ml.txt   # 웹 + ML 스택(첫 설치 수 분)
 
 python manage.py migrate               # 스키마 생성
-python manage.py loaddata movies       # 영화·좌표·예고편 시드(TMDB 재수집 불필요)
+python manage.py loaddata movies       # 영화 3,744편·좌표·예고편 시드(TMDB 재수집 불필요)
 python manage.py runserver             # http://localhost:8000
 ```
 검증: `python -c "import numpy,scipy,sklearn,umap,numba,pandas; print('ml ok')"` / `python manage.py check`
@@ -119,8 +120,8 @@ python manage.py runserver
 - **DB 데이터(내 계정·시청·별점)**: 회사·집 로컬 DB가 각각이라 동기화 안 됨. 영화 카탈로그는 `loaddata movies`로 동일하게 맞춰지지만, 개인 시청 데이터는 각 PC에서 다시 만들거나 seed로 채운다.
 - **`.venv` / `node_modules`**: 각 PC에서 생성(복사·동기화 금지).
 - **`.env`**: 각 PC에서 직접 생성(커밋 금지).
-- **`backend/taste/artifacts/coords_model.pkl`**: gitignore됨. **새 영화를 추가/투영할 때만** 필요. 기존 픽스처로 돌리면 좌표가 이미 들어있어 없어도 앱은 정상.
-- **`CLAUDE.md` · `status_by_KHJ.md`**(개인용, gitignore): AI 코딩 가이드와 작업 핸드오프 노트. git으로 안 따라오니 `.env`처럼 PC 옮길 때 직접 복사. 다른 PC에서 작업 이어받을 땐 `status_by_KHJ.md`를 먼저 읽으면 됨.
+- **`backend/taste/artifacts/anchors.json`**: 지도 대륙 앵커 좌표. repo에 포함되어 있어 별도 복사 불필요.
+- **개인 작업 메모 파일**: `status_by_KHJ.md` 같은 개인 메모는 gitignore 대상이므로 필요하면 별도 복사한다.
 
 ---
 
