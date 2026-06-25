@@ -94,6 +94,7 @@ function goRegister() {
         <TasteMapCanvas
           :watched="map.watched"
           :interactive="false"
+          :show-star-labels="false"
           :width="1040"
           :height="376"
           class="mapwrap relative block"

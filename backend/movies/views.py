@@ -41,9 +41,15 @@ class MovieListView(ListAPIView):
             return qs[: int(limit)] if limit and limit.isdigit() else qs
 
         # --- 검색 페이지 필터 (F-MOV-01, 다중 적용 가능) ---
-        genre = p.get("genre", "").strip()
-        if genre:
-            qs = qs.filter(genres__name=genre)
+        genre_values = p.getlist("genre")
+        if not genre_values:
+            genre_values = p.getlist("genre[]")
+        if not genre_values:
+            genre_values = [p.get("genre", "")]
+        genres = [g.strip() for value in genre_values for g in value.split(",") if g.strip()]
+        if genres:
+            for genre in genres:
+                qs = qs.filter(genres__name=genre)
 
         language = p.get("language", "").strip()
         if language:
