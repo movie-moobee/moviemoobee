@@ -1,19 +1,23 @@
 <script setup>
 // 재사용 LLM 챗 패널 (5.4, 와이어프레임 13, 김호준) — 같이 볼 영화 / 범용 추천 공용.
 // streamFn(history, onDelta)으로 SSE 스트리밍을 부모가 주입(엔드포인트만 다름).
-import { nextTick, ref } from "vue";
+import { computed, nextTick, ref } from "vue";
 
 const props = defineProps({
   title: { type: String, default: "무비무비 AI" },
   subtitle: { type: String, default: "" },
   intro: { type: String, default: "" },        // 첫 안내 말풍선(서버 이력엔 미포함)
   placeholder: { type: String, default: "메시지 입력…" },
-  streamFn: { type: Function, required: true }, // (history:[{role,content}], onDelta) => Promise
+  streamFn: { type: Function, required: true }, // (history:[{role,content}], onDelta) => Promise<{used,limit}|null>
   // 봇 답변 텍스트에서 추천작을 찾아 {id,title,...}|null 반환 → 있으면 [지도에 표시하기] 노출(5.4)
   resolveFn: { type: Function, default: null },
   mappedIds: { type: Array, default: () => [] },   // 현재 지도에 표시된 추천작 id(버튼 on/off 표시)
+  quota: { type: Object, default: null },          // { used, limit } 있으면 우상단 카운터 + 소진 시 입력 차단(5.4)
 });
-const emit = defineEmits(["show-on-map"]);
+const emit = defineEmits(["show-on-map", "usage"]);
+
+// 일일 한도 소진 여부(quota 주어졌을 때만).
+const exhausted = computed(() => !!props.quota && props.quota.used >= props.quota.limit);
 
 const messages = ref(props.intro ? [{ role: "assistant", content: props.intro, intro: true }] : []);
 const input = ref("");
@@ -29,6 +33,7 @@ async function scrollDown() {
 async function send() {
   const text = input.value.trim();
   if (!text || busy.value) return;
+  if (exhausted.value) { error.value = "오늘 사용 가능한 질문을 모두 사용했어요."; return; }
   input.value = "";
   error.value = "";
   messages.value.push({ role: "user", content: text });
@@ -41,13 +46,20 @@ async function send() {
     const history = messages.value
       .filter((m) => !m.intro && m.content)
       .map((m) => ({ role: m.role, content: m.content }));
-    await props.streamFn(history, (d) => { assistant.content += d; scrollDown(); });
+    const usage = await props.streamFn(history, (d) => { assistant.content += d; scrollDown(); });
+    if (usage && usage.used != null) emit("usage", usage);   // 잔여 카운터 갱신
     if (!assistant.content) assistant.content = "(빈 응답)";
     // 답변 완성 후 추천작 매칭(여러 편 가능) → 말풍선 아래 영화별 [지도에 표시] 칩 노출
     if (props.resolveFn) assistant.movies = props.resolveFn(assistant.content);
-  } catch {
-    error.value = "응답을 받지 못했어요. 잠시 후 다시 시도해줘.";
-    if (!assistant.content) messages.value.pop();   // 빈 응답 말풍선 제거
+  } catch (e) {
+    if (e?.code === "LIMIT") {                       // 일일 한도 초과
+      error.value = e.message;
+      if (e.usage) emit("usage", e.usage);
+      messages.value.pop();                          // 빈 응답 말풍선 제거
+    } else {
+      error.value = "응답을 받지 못했어요. 잠시 후 다시 시도해줘.";
+      if (!assistant.content) messages.value.pop();   // 빈 응답 말풍선 제거
+    }
   } finally {
     busy.value = false;
     scrollDown();
@@ -71,6 +83,14 @@ async function send() {
         >
           {{ subtitle }}
         </div>
+      </div>
+      <div
+        v-if="quota"
+        class="chat__quota"
+        :class="{ 'chat__quota--out': exhausted }"
+        title="오늘 사용한 질문 / 일일 한도"
+      >
+        {{ quota.used }}/{{ quota.limit }}
       </div>
     </header>
 
@@ -124,13 +144,13 @@ async function send() {
     >
       <input
         v-model="input"
-        :placeholder="placeholder"
-        :disabled="busy"
+        :placeholder="exhausted ? '오늘 질문을 모두 사용했어요' : placeholder"
+        :disabled="busy || exhausted"
         type="text"
       >
       <button
         type="submit"
-        :disabled="busy || !input.trim()"
+        :disabled="busy || exhausted || !input.trim()"
       >
         전송
       </button>
@@ -176,6 +196,23 @@ async function send() {
   font-size: 10.5px;
   color: var(--text-muted);
   margin-top: 1px;
+}
+.chat__quota {
+  margin-left: auto;
+  flex: none;
+  align-self: flex-start;
+  padding: 3px 8px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-family: var(--font);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: var(--surface, #12141c);
+}
+.chat__quota--out {
+  color: var(--danger);
+  border-color: var(--danger);
 }
 .chat__msgs {
   flex: 1;

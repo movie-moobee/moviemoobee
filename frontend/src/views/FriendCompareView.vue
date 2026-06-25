@@ -2,7 +2,7 @@
 // 친구 프로필 상세 (F-FRD-04, 와이어프레임 13) — 프로필·취향 비교 지도(5.3)·같이 볼 영화 챗봇(5.4)·시청작.
 import { computed, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { getCowatchCandidates, getFriendCompare, getFriendProfile, unfriend } from "@/api/social";
+import { getCowatchCandidates, getCowatchUsage, getFriendCompare, getFriendProfile, unfriend } from "@/api/social";
 import { streamChat } from "@/api/chat";
 import RatingStars from "@/components/base/RatingStars.vue";
 import ConfirmDialog from "@/components/ConfirmDialog.vue";
@@ -16,6 +16,8 @@ const profile = ref(null);
 const compare = ref(null);   // 취향 비교 지도 데이터(5.3) — 프로필과 별도 로드
 const cowatchCands = ref([]);    // 챗봇 추천 매칭용 후보(좌표 포함, 5.4)
 const mappedRecs = ref([]);      // 챗봇이 추천 → '지도에 표시'한 영화들 (비교 지도에 오버레이)
+const quota = ref(null);         // 챗봇 일일 사용량 { used, limit } (5.4)
+function onUsage(u) { quota.value = u; }
 const loading = ref(true);
 const error = ref("");
 const confirming = ref(false);
@@ -48,13 +50,18 @@ const compareWatched = computed(() => {
 // 챗봇 '지도에 표시' 추천작 → TasteMapCanvas 핀(kind 'rec', 보라 오버레이).
 const recPins = computed(() => mappedRecs.value.map((m) => ({ ...m, kind: "rec" })));
 
-// 비교 지도 반짝 토글 — 내 시청(mine)·친구 시청(theirs)·공통(shared) 별을 켜고 끄며 강조.
+// 비교 지도 강조 토글 — 내 시청(mine)·친구 시청(theirs)·공통(shared) 별을 켜고 끄며 강조.
 const twinkle = ref(new Set());
 function toggleTwinkle(owner) {
   const s = new Set(twinkle.value);
   s.has(owner) ? s.delete(owner) : s.add(owner);
   twinkle.value = s;
 }
+const twinkleToggles = computed(() => [
+  { owner: "mine", label: "나", color: "#ff9ecb" },
+  { owner: "theirs", label: profile.value?.nickname || "친구", color: "#7fe0d6" },
+  { owner: "shared", label: "공통", color: "#ffd21e" },
+]);
 
 // 같이 볼 영화 챗봇(5.4) — ChatPanel 에 주입할 SSE 스트림 함수.
 function cowatchStream(history, onDelta) {
@@ -88,6 +95,7 @@ async function load(id) {
     profile.value = await getFriendProfile(id);
     compare.value = await getFriendCompare(id);   // 프로필 성공 후(친구확인됨) 비교 지도
     getCowatchCandidates(id).then((c) => { cowatchCands.value = c; }).catch(() => {});  // 챗봇 추천 매칭용(실패 무시)
+    getCowatchUsage().then((u) => { quota.value = u; }).catch(() => {});  // 챗봇 일일 사용량 초기 표시(실패 무시)
   } catch (e) {
     error.value =
       e?.response?.status === 403
@@ -196,6 +204,25 @@ function poster(p) {
           <div>
             <!-- 메인 취향 지도와 동일한 렌더러(TasteMapCanvas). 별 색만 주인별(owner 모드). -->
             <div class="relative overflow-hidden rounded-2xl border border-line bg-ink-800">
+              <!-- 강조 토글(우측 상단): 누르면 해당 별을 크게·밝게 강조, 나머지는 흐리게 -->
+              <div class="absolute right-4 top-4 z-10 flex flex-col items-end gap-1.5">
+                <span class="font-sans text-[10px] tracking-[0.06em] text-fg-faint">별 강조</span>
+                <div class="flex gap-1.5">
+                  <button
+                    v-for="t in twinkleToggles"
+                    :key="t.owner"
+                    type="button"
+                    class="flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[12px] font-medium shadow-[0_2px_10px_rgba(0,0,0,0.5)] backdrop-blur transition"
+                    :class="twinkle.has(t.owner) ? 'border-lineHover bg-ink-600/90 text-fg' : 'border-line bg-ink-700/80 text-fg-muted hover:text-fg'"
+                    @click="toggleTwinkle(t.owner)"
+                  >
+                    <span
+                      class="h-2.5 w-2.5 rounded-full"
+                      :style="{ background: t.color, boxShadow: twinkle.has(t.owner) ? `0 0 8px ${t.color}` : 'none' }"
+                    />{{ t.label }}
+                  </button>
+                </div>
+              </div>
               <TasteMapCanvas
                 :watched="compareWatched"
                 :anchors="compare.anchors"
@@ -210,43 +237,6 @@ function poster(p) {
                 @open-detail="(m) => router.push({ name: 'movie-detail', params: { id: m.movie_id } })"
               />
             </div>
-            <!-- 범례 겸 반짝 토글(주인색) — 누르면 해당 별이 반짝여 강조 -->
-            <div class="mt-2.5 flex flex-wrap items-center justify-center gap-2 font-mono text-[11px]">
-              <span class="mr-0.5 text-fg-faint">반짝 강조</span>
-              <button
-                type="button"
-                class="flex items-center gap-1.5 rounded-full border px-2.5 py-1 transition"
-                :class="twinkle.has('mine') ? 'border-line bg-white/[0.05] text-fg' : 'border-transparent text-fg-muted hover:text-fg'"
-                @click="toggleTwinkle('mine')"
-              >
-                <span
-                  class="h-2 w-2 rounded-full"
-                  style="background:#ff9ecb"
-                />내 시청
-              </button>
-              <button
-                type="button"
-                class="flex items-center gap-1.5 rounded-full border px-2.5 py-1 transition"
-                :class="twinkle.has('theirs') ? 'border-line bg-white/[0.05] text-fg' : 'border-transparent text-fg-muted hover:text-fg'"
-                @click="toggleTwinkle('theirs')"
-              >
-                <span
-                  class="h-2 w-2 rounded-full"
-                  style="background:#7fe0d6"
-                />{{ profile.nickname }} 시청
-              </button>
-              <button
-                type="button"
-                class="flex items-center gap-1.5 rounded-full border px-2.5 py-1 transition"
-                :class="twinkle.has('shared') ? 'border-line bg-white/[0.05] text-fg' : 'border-transparent text-fg-muted hover:text-fg'"
-                @click="toggleTwinkle('shared')"
-              >
-                <span
-                  class="h-2 w-2 rounded-full"
-                  style="background:#ffd21e"
-                />공통 시청작
-              </button>
-            </div>
           </div>
           <ChatPanel
             title="같이 볼 영화 AI"
@@ -256,7 +246,9 @@ function poster(p) {
             :stream-fn="cowatchStream"
             :resolve-fn="resolveRecommendation"
             :mapped-ids="mappedIds"
+            :quota="quota"
             @show-on-map="showOnMap"
+            @usage="onUsage"
           />
         </div>
       </section>

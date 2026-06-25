@@ -64,6 +64,12 @@ export async function getCowatchCandidates(id) {
   return data;
 }
 
+// '같이 볼 영화' 챗봇 오늘 사용량(계정당 하루 한도) → { used, limit } (5.4)
+export async function getCowatchUsage() {
+  const { data } = await api.get("/social/cowatch/usage/");
+  return data;
+}
+
 // 알림 (F-NTF-01) — 친구 요청·수락 알림. 실시간 push 없이 REST 조회 + 안읽음 배지.
 
 // 내 알림 목록 (최신순) → [{ id, type, is_read, created_at, friendship_id, actor:{...} }]

@@ -413,6 +413,9 @@ const highlighted = computed(() => markers.value.find((m) => m.movie_id === prop
 function ringR(m) {
   return m.r + 9;
 }
+// 비교 지도 강조(owner 모드): 선택된 owner 별은 크게·밝게·펄스, 나머지는 흐리게.
+const anyTwinkle = computed(() => props.colorBy === "owner" && props.twinkleOwners.length > 0);
+const isEmph = (m) => props.colorBy === "owner" && props.twinkleOwners.includes(m.owner);
 function onSelect(m) {
   if (!props.interactive || panMoved.value) return;   // 드래그 팬이었으면 선택 무시
   if (selectedId.value === m.movie_id) {   // 같은 별 재클릭 → 선택 해제(패널·링 사라짐)
@@ -701,6 +704,7 @@ onBeforeUnmount(() => {
           :key="m.movie_id"
           class="star"
           :class="{ 'star--live': interactive }"
+          :style="{ opacity: anyTwinkle && !isEmph(m) ? 0.14 : 1 }"
           @click="onSelect(m)"
           @mouseenter="onHover(m, $event)"
           @mousemove="onHover(m, $event)"
@@ -709,25 +713,37 @@ onBeforeUnmount(() => {
           <circle
             :cx="m.px"
             :cy="m.py"
-            :r="m.haloR"
+            :r="isEmph(m) ? m.haloR * 1.5 : m.haloR"
             :fill="m.glow"
-            opacity="0.16"
+            :opacity="isEmph(m) ? 0.5 : 0.16"
             style="pointer-events: none"
           />
           <circle
             :cx="m.px"
             :cy="m.py"
-            :r="m.r"
+            :r="isEmph(m) ? m.r * 1.9 : m.r"
             :fill="m.color"
-            :fill-opacity="m.op"
-            :class="{ twinkle: (m.bright && selectedId !== m.movie_id) || (colorBy === 'owner' && twinkleOwners.includes(m.owner)) }"
+            :fill-opacity="isEmph(m) ? 1 : m.op"
+            :class="{ twinkle: (m.bright && selectedId !== m.movie_id) || isEmph(m) }"
+            style="pointer-events: none"
+          />
+          <!-- 강조 펄스 링(owner 토글 켰을 때) -->
+          <circle
+            v-if="isEmph(m)"
+            :cx="m.px"
+            :cy="m.py"
+            :r="m.r * 1.9 + 7"
+            fill="none"
+            :stroke="m.color"
+            stroke-width="2"
+            class="blink"
             style="pointer-events: none"
           />
           <!-- 작은 도트도 잘 눌리도록 투명 히트 타깃 -->
           <circle
             :cx="m.px"
             :cy="m.py"
-            :r="Math.max(m.r + 6, 11)"
+            :r="Math.max((isEmph(m) ? m.r * 1.9 : m.r) + 6, 11)"
             fill="transparent"
           />
         </g>
