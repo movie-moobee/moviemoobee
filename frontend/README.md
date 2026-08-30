@@ -10,7 +10,7 @@
 - **Vite** — 개발 서버 + 번들러. `/api`는 개발 시 `:8000`(Django)로 프록시.
 - **Vue Router** — SPA 라우팅(history mode).
 - **Axios** — API 클라이언트(토큰 인터셉터). 단, **SSE 스트리밍은 `fetch`** 사용.
-- 스타일은 자체 CSS 토큰(Carbon 디자인) — Bootstrap 미사용.
+- 스타일은 **Tailwind CSS** + 자체 CSS 토큰(`tokens.css`)의 Carbon 다크 테마 — Bootstrap 미사용.
 
 ## 2. 디렉터리 구조 (`src/`)
 
@@ -34,7 +34,7 @@
 
 | 파일 | 내용 |
 |---|---|
-| `client.js` | axios 인스턴스(`baseURL: "/api"`) + 토큰 자동 첨부 + 401 자동 로그아웃 |
+| `client.js` | axios 인스턴스(`baseURL: VITE_API_URL \|\| "/api"`) + 토큰 자동 첨부 + 401 자동 로그아웃. SSE(fetch)도 같은 `API_BASE` 사용 |
 | `auth.js` · `movies.js` · `watchRecords.js` · `social.js` · `taste.js` | 도메인별 REST 호출 |
 | `chat.js` | **SSE 스트리밍**(`fetch` + `ReadableStream`). 멀티바이트(한글) 청크 경계 처리, 응답 헤더로 챗봇 사용량 반환 |
 
@@ -58,7 +58,7 @@ npm run build    # 정적 결과물 → dist/
 npm run preview  # 빌드 결과 미리보기
 ```
 
-`dist/`는 정적 파일이므로 어떤 정적 호스팅(예: nginx, Vercel)에도 올릴 수 있습니다. 같은-도메인 배포가 아니면 API 주소(백엔드 URL)를 별도로 지정하도록 구성해야 합니다.
+`dist/`는 정적 파일이므로 어떤 정적 호스팅(예: nginx, Vercel)에도 올릴 수 있습니다. 같은-도메인 배포가 아니면 `VITE_API_URL` 환경변수로 백엔드 API 주소를 지정합니다(예: `VITE_API_URL=https://my-app.onrender.com/api`, 미설정 시 `/api` 프록시 사용).
 
 ## 6. 코드 규칙
 

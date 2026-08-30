@@ -29,7 +29,7 @@
 ## 3. 인증
 
 - DRF **Token Authentication**. 로그인 시 토큰 발급 → 프론트가 `Authorization: Token <key>`로 전송.
-- 기본 권한은 `IsAuthenticated`. 공개는 회원가입·로그인뿐(dj-rest-auth 뷰가 자체 `AllowAny`).
+- 기본 권한은 `IsAuthenticated`. 공개는 회원가입·로그인(dj-rest-auth 뷰가 자체 `AllowAny`)과 이메일·닉네임 중복 확인(`/api/accounts/check-availability/`)뿐.
 - 이메일+비밀번호 로그인(allauth), 메일 인증은 로컬 시연용으로 생략(`ACCOUNT_EMAIL_VERIFICATION="none"`).
 
 ## 4. 서비스 레이어 (`taste/services/`)
@@ -45,7 +45,7 @@
 | `gms.py` | SSAFY GMS(LLM 게이트웨이, OpenAI 호환) 클라이언트 |
 
 ### 도메인 불변식 (반드시 유지)
-- 영화 좌표(`umap_x`, `umap_y`)는 **전역 고정·공유**. 신규 영화는 저장된 모델의 `transform()`으로만 투영하고 **재학습 금지**.
+- 영화 좌표(`map_x`, `map_y`)는 **전역 고정·공유**. 신규 영화는 저장된 모델의 `transform()`으로만 투영하고 **재학습 금지**.
 - **사용자 1점 좌표(센트로이드) 개념은 폐기**. 추천·지도·비교 모두 사용자의 *시청 영화 집합*과 KDE 기준.
 - 시청기록은 별점 필수(0.5 단위). 리뷰는 선택.
 
@@ -63,8 +63,8 @@
 
 ## 6. 의존성
 
-- `requirements.txt` — 런타임(웹 구동). Django·DRF·인증·`psycopg`·`requests`·`Pillow` + 런타임 계산용 `numpy`·`scipy`(KDE/추천).
-- `requirements-ml.txt` — 좌표 생성(`build_coords`)용 `scikit-learn` 등. 로컬에서만 필요.
+- `requirements.txt` — 런타임(웹 구동). Django·DRF·인증·`psycopg`·`requests`·`Pillow` + 런타임 계산용 `numpy`·`scipy`(KDE/추천) + 배포용 `gunicorn`·`whitenoise`.
+- `requirements-ml.txt` — 좌표 생성(`build_coords`) 오프라인 전용. `-r requirements.txt` 위에 `scikit-learn`만 추가. 로컬에서만 필요.
 
 > 런타임 코드(`areas.py`/`recommend.py`/`chat.py`)는 numpy·scipy를 import합니다. `scikit-learn`은 `build_coords`(오프라인)에서만 사용합니다.
 
@@ -76,6 +76,12 @@ DJANGO_SECRET_KEY / DJANGO_DEBUG
 TMDB_API_KEY
 GMS_KEY            # SSAFY LLM 게이트웨이 (서버 .env 에만, 클라이언트 노출 금지)
 GMS_BASE_URL / GMS_MODEL   # 기본값 있음
+
+# --- 배포 전용 (로컬은 생략 가능) ---
+DJANGO_ALLOWED_HOSTS       # 콤마 구분 허용 도메인 (DEBUG=1 이면 전체 허용)
+CSRF_TRUSTED_ORIGINS       # 예: https://my-app.onrender.com
+CORS_ALLOWED_ORIGINS       # 배포 프론트 도메인 (기본: http://localhost:5173)
+POSTGRES_SSLMODE           # Supabase 등 관리형 DB 는 require (기본 prefer)
 ```
 `.env`는 커밋 금지(`.gitignore`). 예시는 루트 `.env.example` 참고.
 
